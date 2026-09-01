@@ -13,6 +13,8 @@
   html, body { margin: 0; padding: 0; background: #f7f4ec; font-family: system-ui, sans-serif; }
   #app-root { max-width: 720px; margin: 0 auto; min-height: 100vh; }
   #loading { max-width: 720px; margin: 40px auto; padding: 20px; color: #6b6b63; text-align: center; }
+  #save-error-banner { position: fixed; top: 0; left: 0; right: 0; background: #c8102e; color: #fff; padding: 10px 14px; text-align: center; font-family: system-ui, sans-serif; font-size: 13px; z-index: 9999; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+  #save-error-banner button { margin-left: 10px; background: #fff; color: #c8102e; border: none; padding: 4px 12px; border-radius: 3px; cursor: pointer; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -24,29 +26,64 @@
   // URL fisso: nessuna configurazione richiesta a chi apre la pagina.
   const apiUrl = "https://script.google.com/macros/s/AKfycbx3Hx1nbXYzguaKPdTCgVpIlTSurwc-zMTZx9upl2pRZLcUaKWFJLxOXLrKX7BMumxRsw/exec";
 
+  // --- Retry automatico + avviso visibile in caso di salvataggio fallito ---
+  async function fetchWithRetry(url, options, maxAttempts) {
+    maxAttempts = maxAttempts || 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const res = await fetch(url, options);
+        if (res && res.ok) return res;
+      } catch (e) {
+        console.warn("Tentativo " + attempt + " fallito:", e);
+      }
+      if (attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, 500 * attempt));
+      }
+    }
+    return null;
+  }
+
+  function showSaveError(key) {
+    let banner = document.getElementById("save-error-banner");
+    if (banner) return;
+    banner = document.createElement("div");
+    banner.id = "save-error-banner";
+    banner.innerHTML = "⚠️ Salvataggio non riuscito" + (key ? " (" + key + ")" : "") + ". Controlla la connessione e riprova l'operazione. <button id=\"save-error-dismiss\">OK</button>";
+    document.body.appendChild(banner);
+    document.getElementById("save-error-dismiss").onclick = function () { banner.remove(); };
+  }
+
   window.storage = {
     get: async function (key) {
+      const res = await fetchWithRetry(apiUrl + "?key=" + encodeURIComponent(key), {}, 2);
+      if (!res) return null;
       try {
-        const res = await fetch(apiUrl + "?key=" + encodeURIComponent(key));
         const data = await res.json();
         if (data.value === null || data.value === undefined) return null;
         return { key: key, value: data.value };
       } catch (e) {
-        console.error("storage.get failed", key, e);
         return null;
       }
     },
     set: async function (key, value) {
-      try {
-        await fetch(apiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ key: key, value: value }),
-        });
-        return { key: key, value: value };
-      } catch (e) {
-        console.error("storage.set failed", key, e);
+      const res = await fetchWithRetry(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ key: key, value: value }),
+      }, 3);
+      if (!res) {
+        showSaveError(key);
         return null;
+      }
+      try {
+        const data = await res.json();
+        if (data && data.ok) {
+          return { key: key, value: value };
+        }
+        showSaveError(key);
+        return null;
+      } catch (e) {
+        return { key: key, value: value };
       }
     },
   };
@@ -168,8 +205,8 @@ const FORMATIONS = {
   },
 };
 const DEFAULT_MODULO = "352";
-const TRACKER_VERSION = "7";
-const TRACKER_VERSION_DATE = "01/09/2026 ore 10.38";
+const TRACKER_VERSION = "9";
+const TRACKER_VERSION_DATE = "01/09/2026 ore 12.34";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -324,6 +361,8 @@ function GironeATracker() {
   const [editingScorerF, setEditingScorerF] = useState(null); // `${friendlyId}:${scorerId}`
   const [rosterDraft, setRosterDraft] = useState({ nome: "" });
   const [playerVoteFilter, setPlayerVoteFilter] = useState({});
+  const [bulkImportText, setBulkImportText] = useState("");
+  const [bulkImportResult, setBulkImportResult] = useState(null);
   const [teamVoteFilter, setTeamVoteFilter] = useState({});
   const [editingRosterId, setEditingRosterId] = useState(null);
 
@@ -644,6 +683,20 @@ function GironeATracker() {
     return [...campionato, ...coppa, ...amichevoli].sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"));
   }, [friendlies]);
 
+  const nextCimianoMatchId = useMemo(() => {
+    for (const m of allCimianoMatches) {
+      let isPlayed;
+      if (m.type === "amichevole") {
+        const f = friendlies.find((fr) => fr.id === m.id);
+        isPlayed = f ? (f.golCimiano !== "" && f.golCimiano !== undefined && f.golAvv !== "" && f.golAvv !== undefined) : false;
+      } else {
+        isPlayed = !!results[m.id];
+      }
+      if (!isPlayed) return m.id;
+    }
+    return null;
+  }, [allCimianoMatches, friendlies, results]);
+
   const coppaStandings = useMemo(() => {
     const table = {};
     COPPA_TEAMS.forEach((t) => (table[t] = emptyStanding(t)));
@@ -849,6 +902,63 @@ function GironeATracker() {
       return next;
     });
     setDraft((prev) => ({ ...prev, [fixtureId]: undefined }));
+  }
+
+  // --- IMPORT RISULTATI IN BLOCCO (Campionato) ---
+  function resolveTeamName(text) {
+    const clean = text.trim();
+    if (!clean) return null;
+    // 1. corrispondenza esatta con il nome canonico
+    const exact = TEAMS.find((t) => t.toLowerCase() === clean.toLowerCase());
+    if (exact) return exact;
+    // 2. corrispondenza con le forme abbreviate del calendario ufficiale
+    const mapKey = Object.keys(NAME_MAP).find((k) => k.toLowerCase() === clean.toLowerCase());
+    if (mapKey) return NAME_MAP[mapKey];
+    // 3. corrispondenza parziale (contiene / è contenuto)
+    const partial = TEAMS.find((t) => t.toLowerCase().includes(clean.toLowerCase()) || clean.toLowerCase().includes(t.toLowerCase()));
+    if (partial) return partial;
+    return null;
+  }
+
+  function importBulkResults() {
+    const lines = bulkImportText.split("\n").map((l) => l.trim()).filter(Boolean);
+    const matched = [];
+    const unmatched = [];
+    const patch = {};
+
+    lines.forEach((line) => {
+      // Formato atteso: "Squadra1 X-Y Squadra2" (o X:Y, o X - Y)
+      const m = line.match(/^(.+?)\s+(\d+)\s*[-:]\s*(\d+)\s+(.+)$/);
+      if (!m) {
+        unmatched.push({ line, motivo: "formato non riconosciuto" });
+        return;
+      }
+      const [, rawHome, golHome, golAway, rawAway] = m;
+      const home = resolveTeamName(rawHome);
+      const away = resolveTeamName(rawAway);
+      if (!home || !away) {
+        unmatched.push({ line, motivo: "squadra non riconosciuta" });
+        return;
+      }
+      const fx = round.matches.find(
+        (f) => (f.home === home && f.away === away) || (f.home === away && f.away === home)
+      );
+      if (!fx) {
+        unmatched.push({ line, motivo: "nessuna partita corrispondente in questa giornata" });
+        return;
+      }
+      if (fx.home === home) {
+        patch[fx.id] = { golHome, golAway };
+      } else {
+        patch[fx.id] = { golHome: golAway, golAway: golHome };
+      }
+      matched.push({ line, home, away });
+    });
+
+    if (Object.keys(patch).length > 0) {
+      setResults((prev) => ({ ...prev, ...patch }));
+    }
+    setBulkImportResult({ matched, unmatched });
   }
 
   function addScorer(fixtureId) {
@@ -1313,6 +1423,8 @@ function GironeATracker() {
     const convocatiIds = Object.keys(convocati);
     const titolariIds = Object.keys(titolari).filter((id) => convocatiIds.includes(id));
     const tvd = teamVotoDraft[fx.id] || {};
+    const isNextMatch = fx.id === nextCimianoMatchId;
+    const canOpenDetails = isCimianoMatch && (played || isNextMatch);
     const sc = statusColor ? STATUS_COLORS[statusColor] : null;
     const rowBg = sc ? sc.bg : (isCimianoMatch ? "#fdeceb" : "#fff");
     const rowBorder = sc ? sc.border : LINE;
@@ -1336,7 +1448,7 @@ function GironeATracker() {
           )}
           <span style={{ fontWeight: fx.away === CIMIANO ? 700 : 400, color: fx.away === CIMIANO ? RED : INK, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fx.away}</span>
           <div style={{ display: "flex", gap: 10, alignItems: "center", justifySelf: "end" }}>
-            {isCimianoMatch && (
+            {canOpenDetails && (
               <button onClick={() => setExpanded((p) => ({ ...p, [fx.id]: !p[fx.id] }))}
                 style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
                 {isOpen ? "chiudi dettagli" : "dettagli partita"}
@@ -1350,61 +1462,8 @@ function GironeATracker() {
           </div>
         </div>
 
-        {isOpen && isCimianoMatch && (
+        {isOpen && canOpenDetails && (
           <div style={{ borderTop: `1px solid ${LINE}`, padding: "10px 12px", background: "#fff" }}>
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
-                <span>
-                  Voto Squadra {votoSquadraList.length > 0 && `— media ${(votoSquadraList.reduce((s, v) => s + parseFloat(v.voto), 0) / votoSquadraList.length).toFixed(1)} (${votoSquadraList.length})`}
-                </span>
-                {Array.from(new Set(votoSquadraList.map((v) => v.autore))).length > 1 && (
-                  <select value={teamVoteFilter[fx.id] || ""} onChange={(e) => setTeamVoteFilter((p) => ({ ...p, [fx.id]: e.target.value }))}
-                    style={{ fontSize: 11, padding: "2px 4px", border: `1px solid ${LINE}`, borderRadius: 3, textTransform: "none", fontWeight: 400 }}>
-                    <option value="">Tutti</option>
-                    {Array.from(new Set(votoSquadraList.map((v) => v.autore))).map((a) => (
-                      <option key={a} value={a}>{a}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              {votoSquadraList.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
-                  {votoSquadraList.filter((v) => !teamVoteFilter[fx.id] || v.autore === teamVoteFilter[fx.id]).map((v) => {
-                    const isEditingV = editingTeamVoto === `${fx.id}:${v.id}`;
-                    const ed = teamVotoDraft[`edit-${fx.id}`] || {};
-                    return isEditingV ? (
-                      <div key={v.id} style={{ display: "flex", gap: 6, alignItems: "center", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 6, padding: 8 }}>
-                        <input type="number" min="1" max="10" step="0.5" placeholder="Voto" value={ed.voto || ""} onChange={(e) => setTeamVotoDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], voto: e.target.value } }))}
-                          style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                        <input placeholder="Nota" value={ed.nota || ""} onChange={(e) => setTeamVotoDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], nota: e.target.value } }))}
-                          style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                        <button onClick={() => saveEditTeamVoto(fx.id, v.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
-                        <button onClick={() => setEditingTeamVoto(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
-                      </div>
-                    ) : (
-                      <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 6, padding: "8px 10px", gap: 8 }}>
-                        <div>
-                          <div><strong>{v.voto}</strong>{v.nota ? ` · ${v.nota}` : ""}</div>
-                          <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 8 }}>{v.autore}</span>
-                        </div>
-                        <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                          <button onClick={() => startEditTeamVoto(fx.id, v)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
-                          <button onClick={() => removeTeamVoto(fx.id, v.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <input type="number" min="1" max="10" step="0.5" placeholder="Voto" value={tvd.voto || ""} onChange={(e) => setTeamVotoDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], voto: e.target.value } }))}
-                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                <input placeholder="Nota (opz.)" value={tvd.nota || ""} onChange={(e) => setTeamVotoDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], nota: e.target.value } }))}
-                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                <button onClick={() => addTeamVoto(fx.id)} disabled={!voterName} style={{ background: voterName ? RED : "#ccc", color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
-              </div>
-              {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
-            </div>
 
             {roster.length > 0 && (
               <div style={{ marginBottom: 14 }}>
@@ -1422,6 +1481,8 @@ function GironeATracker() {
               </div>
             )}
 
+            {played && (
+              <>
             {convocatiIds.length > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>2. Titolari / Panchina</div>
@@ -1460,7 +1521,7 @@ function GironeATracker() {
             )}
 
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Marcatori</div>
+              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Marcatori Cimiano</div>
               {marcatori.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
                   {marcatori.map((s) => {
@@ -1586,6 +1647,61 @@ function GironeATracker() {
               </div>
               {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
             </div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                <span>
+                  Voto Squadra {votoSquadraList.length > 0 && `— media ${(votoSquadraList.reduce((s, v) => s + parseFloat(v.voto), 0) / votoSquadraList.length).toFixed(1)} (${votoSquadraList.length})`}
+                </span>
+                {Array.from(new Set(votoSquadraList.map((v) => v.autore))).length > 1 && (
+                  <select value={teamVoteFilter[fx.id] || ""} onChange={(e) => setTeamVoteFilter((p) => ({ ...p, [fx.id]: e.target.value }))}
+                    style={{ fontSize: 11, padding: "2px 4px", border: `1px solid ${LINE}`, borderRadius: 3, textTransform: "none", fontWeight: 400 }}>
+                    <option value="">Tutti</option>
+                    {Array.from(new Set(votoSquadraList.map((v) => v.autore))).map((a) => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              {votoSquadraList.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
+                  {votoSquadraList.filter((v) => !teamVoteFilter[fx.id] || v.autore === teamVoteFilter[fx.id]).map((v) => {
+                    const isEditingV = editingTeamVoto === `${fx.id}:${v.id}`;
+                    const ed = teamVotoDraft[`edit-${fx.id}`] || {};
+                    return isEditingV ? (
+                      <div key={v.id} style={{ display: "flex", gap: 6, alignItems: "center", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 6, padding: 8 }}>
+                        <input type="number" min="1" max="10" step="0.5" placeholder="Voto" value={ed.voto || ""} onChange={(e) => setTeamVotoDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], voto: e.target.value } }))}
+                          style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                        <input placeholder="Nota" value={ed.nota || ""} onChange={(e) => setTeamVotoDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], nota: e.target.value } }))}
+                          style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                        <button onClick={() => saveEditTeamVoto(fx.id, v.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
+                        <button onClick={() => setEditingTeamVoto(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
+                      </div>
+                    ) : (
+                      <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 6, padding: "8px 10px", gap: 8 }}>
+                        <div>
+                          <div><strong>{v.voto}</strong>{v.nota ? ` · ${v.nota}` : ""}</div>
+                          <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 8 }}>{v.autore}</span>
+                        </div>
+                        <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                          <button onClick={() => startEditTeamVoto(fx.id, v)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+                          <button onClick={() => removeTeamVoto(fx.id, v.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input type="number" min="1" max="10" step="0.5" placeholder="Voto" value={tvd.voto || ""} onChange={(e) => setTeamVotoDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], voto: e.target.value } }))}
+                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <input placeholder="Nota (opz.)" value={tvd.nota || ""} onChange={(e) => setTeamVotoDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], nota: e.target.value } }))}
+                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <button onClick={() => addTeamVoto(fx.id)} disabled={!voterName} style={{ background: voterName ? RED : "#ccc", color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
+              </div>
+              {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
+            </div>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -1606,6 +1722,8 @@ function GironeATracker() {
     const isEditingF = editingFriendly === f.id;
     const votoSquadraListF = friendlyTeamVoto[f.id] || [];
     const tvdF = teamVotoDraftF[f.id] || {};
+    const isNextMatch = f.id === nextCimianoMatchId;
+    const canOpenDetails = hasScore || isNextMatch;
     const sc = statusColor ? STATUS_COLORS[statusColor] : null;
     const rowBg = sc ? sc.bg : "#fff";
     const rowBorder = sc ? sc.border : LINE;
@@ -1641,70 +1759,19 @@ function GironeATracker() {
             </div>
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
               <button onClick={() => startEditFriendly(f)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>modifica</button>
-              <button onClick={() => setExpandedFriendly((p) => ({ ...p, [f.id]: !p[f.id] }))}
-                style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                {isOpen ? "chiudi" : "commenti e voti"}
-              </button>
+              {canOpenDetails && (
+                <button onClick={() => setExpandedFriendly((p) => ({ ...p, [f.id]: !p[f.id] }))}
+                  style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                  {isOpen ? "chiudi" : "commenti e voti"}
+                </button>
+              )}
               <button onClick={() => removeFriendly(f.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 16 }}>×</button>
             </div>
           </div>
         )}
 
-        {isOpen && (
+        {isOpen && canOpenDetails && (
           <div style={{ borderTop: `1px solid ${LINE}`, padding: "10px 12px" }}>
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
-                <span>
-                  Voto Squadra {votoSquadraListF.length > 0 && `— media ${(votoSquadraListF.reduce((s, v) => s + parseFloat(v.voto), 0) / votoSquadraListF.length).toFixed(1)} (${votoSquadraListF.length})`}
-                </span>
-                {Array.from(new Set(votoSquadraListF.map((v) => v.autore))).length > 1 && (
-                  <select value={teamVoteFilter[f.id] || ""} onChange={(e) => setTeamVoteFilter((p) => ({ ...p, [f.id]: e.target.value }))}
-                    style={{ fontSize: 11, padding: "2px 4px", border: `1px solid ${LINE}`, borderRadius: 3, textTransform: "none", fontWeight: 400 }}>
-                    <option value="">Tutti</option>
-                    {Array.from(new Set(votoSquadraListF.map((v) => v.autore))).map((a) => (
-                      <option key={a} value={a}>{a}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              {votoSquadraListF.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
-                  {votoSquadraListF.filter((v) => !teamVoteFilter[f.id] || v.autore === teamVoteFilter[f.id]).map((v) => {
-                    const isEditingV = editingTeamVotoF === `${f.id}:${v.id}`;
-                    const ed = teamVotoDraftF[`edit-${f.id}`] || {};
-                    return isEditingV ? (
-                      <div key={v.id} style={{ display: "flex", gap: 6, alignItems: "center", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 6, padding: 8 }}>
-                        <input type="number" min="1" max="10" step="0.5" placeholder="Voto" value={ed.voto || ""} onChange={(e) => setTeamVotoDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], voto: e.target.value } }))}
-                          style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                        <input placeholder="Nota" value={ed.nota || ""} onChange={(e) => setTeamVotoDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], nota: e.target.value } }))}
-                          style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                        <button onClick={() => saveEditTeamVotoF(f.id, v.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
-                        <button onClick={() => setEditingTeamVotoF(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
-                      </div>
-                    ) : (
-                      <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 6, padding: "8px 10px", gap: 8 }}>
-                        <div>
-                          <div><strong>{v.voto || "— (nessun voto)"}</strong>{v.nota ? ` · ${v.nota}` : ""}</div>
-                          <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 8 }}>{v.autore}</span>
-                        </div>
-                        <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                          <button onClick={() => startEditTeamVotoF(f.id, v)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
-                          <button onClick={() => removeTeamVotoF(f.id, v.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <input type="number" min="1" max="10" step="0.5" placeholder="Voto" value={tvdF.voto || ""} onChange={(e) => setTeamVotoDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], voto: e.target.value } }))}
-                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                <input placeholder="Nota (opz.)" value={tvdF.nota || ""} onChange={(e) => setTeamVotoDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], nota: e.target.value } }))}
-                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                <button onClick={() => addTeamVotoF(f.id)} disabled={!voterName} style={{ background: voterName ? RED : "#ccc", color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
-              </div>
-              {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
-            </div>
 
             {roster.length > 0 && (
               <div style={{ marginBottom: 14 }}>
@@ -1722,6 +1789,8 @@ function GironeATracker() {
               </div>
             )}
 
+            {hasScore && (
+              <>
             {convocatiIdsF.length > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>2. Titolari / Panchina</div>
@@ -1760,7 +1829,7 @@ function GironeATracker() {
             )}
 
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Marcatori</div>
+              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Marcatori Cimiano</div>
               {marcatoriF.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
                   {marcatoriF.map((s) => {
@@ -1884,6 +1953,61 @@ function GironeATracker() {
               <button onClick={() => addRatingFriendly(f.id)} disabled={!voterName} style={{ background: voterName ? RED : "#ccc", color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
             </div>
             {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                <span>
+                  Voto Squadra {votoSquadraListF.length > 0 && `— media ${(votoSquadraListF.reduce((s, v) => s + parseFloat(v.voto), 0) / votoSquadraListF.length).toFixed(1)} (${votoSquadraListF.length})`}
+                </span>
+                {Array.from(new Set(votoSquadraListF.map((v) => v.autore))).length > 1 && (
+                  <select value={teamVoteFilter[f.id] || ""} onChange={(e) => setTeamVoteFilter((p) => ({ ...p, [f.id]: e.target.value }))}
+                    style={{ fontSize: 11, padding: "2px 4px", border: `1px solid ${LINE}`, borderRadius: 3, textTransform: "none", fontWeight: 400 }}>
+                    <option value="">Tutti</option>
+                    {Array.from(new Set(votoSquadraListF.map((v) => v.autore))).map((a) => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              {votoSquadraListF.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
+                  {votoSquadraListF.filter((v) => !teamVoteFilter[f.id] || v.autore === teamVoteFilter[f.id]).map((v) => {
+                    const isEditingV = editingTeamVotoF === `${f.id}:${v.id}`;
+                    const ed = teamVotoDraftF[`edit-${f.id}`] || {};
+                    return isEditingV ? (
+                      <div key={v.id} style={{ display: "flex", gap: 6, alignItems: "center", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 6, padding: 8 }}>
+                        <input type="number" min="1" max="10" step="0.5" placeholder="Voto" value={ed.voto || ""} onChange={(e) => setTeamVotoDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], voto: e.target.value } }))}
+                          style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                        <input placeholder="Nota" value={ed.nota || ""} onChange={(e) => setTeamVotoDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], nota: e.target.value } }))}
+                          style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                        <button onClick={() => saveEditTeamVotoF(f.id, v.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
+                        <button onClick={() => setEditingTeamVotoF(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
+                      </div>
+                    ) : (
+                      <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 6, padding: "8px 10px", gap: 8 }}>
+                        <div>
+                          <div><strong>{v.voto || "— (nessun voto)"}</strong>{v.nota ? ` · ${v.nota}` : ""}</div>
+                          <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 8 }}>{v.autore}</span>
+                        </div>
+                        <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                          <button onClick={() => startEditTeamVotoF(f.id, v)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+                          <button onClick={() => removeTeamVotoF(f.id, v.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input type="number" min="1" max="10" step="0.5" placeholder="Voto" value={tvdF.voto || ""} onChange={(e) => setTeamVotoDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], voto: e.target.value } }))}
+                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <input placeholder="Nota (opz.)" value={tvdF.nota || ""} onChange={(e) => setTeamVotoDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], nota: e.target.value } }))}
+                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <button onClick={() => addTeamVotoF(f.id)} disabled={!voterName} style={{ background: voterName ? RED : "#ccc", color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
+              </div>
+              {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
+            </div>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -1971,6 +2095,7 @@ function GironeATracker() {
           {macroTab === "campionato" && [
             ["classifica", "Classifica"],
             ["risultati", "Calendario & risultati"],
+            ["import", "Import"],
           ].map(([key, label]) => (
             <button key={key} onClick={() => setCampSub(key)} className="body-font"
               style={{ padding: "6px 12px", border: "none", borderRadius: 14, cursor: "pointer",
@@ -2332,6 +2457,69 @@ function GironeATracker() {
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {round.matches.map((fx) => renderCampionatoRow(fx))}
             </div>
+          </div>
+        )}
+
+        {macroTab === "campionato" && campSub === "import" && (
+          <div className="body-font">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 8, flexWrap: "wrap" }}>
+              <button onClick={() => setRoundIdx((i) => Math.max(0, i - 1))} disabled={roundIdx === 0}
+                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: "#fff", borderRadius: 3, cursor: "pointer" }}>‹ Prec.</button>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>Giornata {round.giornata} · {round.half === "andata" ? "Andata" : "Ritorno"}</div>
+                <div style={{ fontSize: 12, color: MUTED }}>{fmtDate(round.data)}</div>
+              </div>
+              <button onClick={() => setRoundIdx((i) => Math.min(ROUNDS.length - 1, i + 1))} disabled={roundIdx === ROUNDS.length - 1}
+                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: "#fff", borderRadius: 3, cursor: "pointer" }}>Succ. ›</button>
+            </div>
+
+            <select value={roundIdx} onChange={(e) => setRoundIdx(Number(e.target.value))}
+              style={{ width: "100%", padding: 6, border: `1px solid ${LINE}`, marginBottom: 14, borderRadius: 3 }}>
+              {ROUNDS.map((r, i) => (
+                <option key={r.key} value={i}>
+                  Giornata {r.giornata} ({r.half === "andata" ? "A" : "R"}) — {fmtDate(r.data)}
+                </option>
+              ))}
+            </select>
+
+            <div style={{ fontSize: 12, color: MUTED, marginBottom: 8, lineHeight: 1.5 }}>
+              Incolla qui sotto i risultati della giornata selezionata, una partita per riga, nel formato <strong>Squadra1 X-Y Squadra2</strong> (es. <em>Villa 2-1 Enotria 1908</em>). Riconosco anche le sigle usate nel calendario ufficiale (es. "Accademia Inter"). Le righe non riconosciute non vengono toccate — puoi sempre completarle a mano da "Calendario & risultati".
+            </div>
+            <textarea rows={8} value={bulkImportText} onChange={(e) => setBulkImportText(e.target.value)}
+              placeholder={"Villa 2-1 Enotria 1908\nAldini 0-3 Cimiano\n..."}
+              style={{ width: "100%", padding: 8, border: `1px solid ${LINE}`, borderRadius: 3, fontFamily: "monospace", fontSize: 12, boxSizing: "border-box", marginBottom: 8 }} />
+            <button onClick={importBulkResults} style={{ background: RED, color: "#fff", border: "none", padding: "8px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
+              Importa risultati
+            </button>
+
+            {bulkImportResult && (
+              <div style={{ marginTop: 16 }}>
+                {bulkImportResult.matched.length > 0 && (
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: "#2f855a", marginBottom: 4 }}>
+                      ✓ {bulkImportResult.matched.length} risultat{bulkImportResult.matched.length === 1 ? "o" : "i"} importat{bulkImportResult.matched.length === 1 ? "o" : "i"}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      {bulkImportResult.matched.map((m, i) => (
+                        <div key={i} style={{ fontSize: 12, color: MUTED }}>{m.home} vs {m.away}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {bulkImportResult.unmatched.length > 0 && (
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: RED, marginBottom: 4 }}>
+                      ⚠ {bulkImportResult.unmatched.length} rig{bulkImportResult.unmatched.length === 1 ? "a" : "he"} non importat{bulkImportResult.unmatched.length === 1 ? "a" : "e"}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      {bulkImportResult.unmatched.map((u, i) => (
+                        <div key={i} style={{ fontSize: 12, color: MUTED }}>"{u.line}" — {u.motivo}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
