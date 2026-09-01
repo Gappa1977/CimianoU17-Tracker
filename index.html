@@ -86,6 +86,19 @@
         return { key: key, value: value };
       }
     },
+    // Legge TUTTE le chiavi in un'unica richiesta di rete (richiede lo script Apps Script aggiornato con ?bulk=1).
+    // Ritorna { chiave: valoreGrezzoStringificato, ... } oppure null se non disponibile.
+    getBulk: async function () {
+      const res = await fetchWithRetry(apiUrl + "?bulk=1", {}, 2);
+      if (!res) return null;
+      try {
+        const json = await res.json();
+        if (!json || json.ok !== true || !json.data) return null;
+        return json.data;
+      } catch (e) {
+        return null;
+      }
+    },
   };
 </script>
 
@@ -206,7 +219,7 @@ const FORMATIONS = {
 };
 const DEFAULT_MODULO = "352";
 const TRACKER_VERSION = "1.0";
-const TRACKER_VERSION_DATE = "01/09/2026@15.26";
+const TRACKER_VERSION_DATE = "01/09/2026@16.10";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -379,6 +392,17 @@ function GironeATracker() {
       }
     }
 
+    // Prova a caricare TUTTO in un'unica chiamata di rete (?bulk=1, richiede lo script aggiornato).
+    // Se non disponibile (script non ancora ripubblicato, errore di rete, ecc.) torna null
+    // e più sotto si ricade sul vecchio metodo a chiamate parallele.
+    async function fetchBulk() {
+      try {
+        return await window.storage.getBulk();
+      } catch (e) {
+        return null;
+      }
+    }
+
     (async () => {
       // --- IDENTITÀ DI CHI VOTA (locale al dispositivo/browser: localStorage, MAI il Google Sheet condiviso) ---
       try {
@@ -386,46 +410,56 @@ function GironeATracker() {
         if (vn) setVoterNameState(JSON.parse(vn));
       } catch (e) {}
 
-      // --- Tutte le letture condivise partono IN PARALLELO invece che in sequenza ---
-      const [
-        resultsData,
-        detailsSharedData,
-        oldPrivateData,
-        friendliesData0,
-        friendlyVotiData0,
-        oldFriendlyVotiData,
-        teamVotoData0,
-        oldTeamVotoData,
-        friendlyMarcatoriData0,
-        oldFriendlyMarcatoriData,
-        friendlyConvocatiData,
-        friendlyFormazioneData0,
-        oldFriendlyFormazioneData,
-        friendlyModuloData0,
-        oldFriendlyModuloData,
-        friendlyFormazione2Data,
-        friendlyModulo2Data,
-        rosterData0,
-      ] = await Promise.all([
-        safeGet("girone-a-results", true),
-        safeGet("girone-a-details-shared", true),
-        safeGet("girone-a-details", false),
-        safeGet("girone-a-friendlies", true),
-        safeGet("girone-a-friendly-voti", true),
-        safeGet("girone-a-friendly-voti", false),
-        safeGet("girone-a-friendly-team-voto", true),
-        safeGet("girone-a-friendly-team-voto", false),
-        safeGet("girone-a-friendly-marcatori", true),
-        safeGet("girone-a-friendly-marcatori", false),
-        safeGet("girone-a-friendly-convocati", true),
-        safeGet("girone-a-friendly-formazione", true),
-        safeGet("girone-a-friendly-formazione", false),
-        safeGet("girone-a-friendly-modulo", true),
-        safeGet("girone-a-friendly-modulo", false),
-        safeGet("girone-a-friendly-formazione2", true),
-        safeGet("girone-a-friendly-modulo2", true),
-        safeGet("girone-a-roster", true),
-      ]);
+      const bulkRaw = await fetchBulk();
+
+      let resultsData, detailsSharedData, oldPrivateData, friendliesData0,
+        friendlyVotiData0, teamVotoData0, friendlyMarcatoriData0, friendlyConvocatiData,
+        friendlyFormazioneData0, friendlyModuloData0, friendlyFormazione2Data,
+        friendlyModulo2Data, rosterData0;
+
+      if (bulkRaw) {
+        // --- Percorso veloce: un'unica richiesta di rete già completata, il resto è solo lettura in memoria ---
+        const get = (key) => {
+          const v = bulkRaw[key];
+          if (v === undefined || v === null) return null;
+          try { return JSON.parse(v); } catch (e) { return null; }
+        };
+        resultsData = get("girone-a-results");
+        detailsSharedData = get("girone-a-details-shared");
+        oldPrivateData = get("girone-a-details"); // chiave pre-migrazione, diversa da quella attuale
+        friendliesData0 = get("girone-a-friendlies");
+        friendlyVotiData0 = get("girone-a-friendly-voti");
+        teamVotoData0 = get("girone-a-friendly-team-voto");
+        friendlyMarcatoriData0 = get("girone-a-friendly-marcatori");
+        friendlyConvocatiData = get("girone-a-friendly-convocati");
+        friendlyFormazioneData0 = get("girone-a-friendly-formazione");
+        friendlyModuloData0 = get("girone-a-friendly-modulo");
+        friendlyFormazione2Data = get("girone-a-friendly-formazione2");
+        friendlyModulo2Data = get("girone-a-friendly-modulo2");
+        rosterData0 = get("girone-a-roster");
+      } else {
+        // --- Fallback: bulk non disponibile, si torna alle letture individuali in parallelo ---
+        [
+          resultsData, detailsSharedData, oldPrivateData, friendliesData0,
+          friendlyVotiData0, teamVotoData0, friendlyMarcatoriData0, friendlyConvocatiData,
+          friendlyFormazioneData0, friendlyModuloData0, friendlyFormazione2Data,
+          friendlyModulo2Data, rosterData0,
+        ] = await Promise.all([
+          safeGet("girone-a-results", true),
+          safeGet("girone-a-details-shared", true),
+          safeGet("girone-a-details", false),
+          safeGet("girone-a-friendlies", true),
+          safeGet("girone-a-friendly-voti", true),
+          safeGet("girone-a-friendly-team-voto", true),
+          safeGet("girone-a-friendly-marcatori", true),
+          safeGet("girone-a-friendly-convocati", true),
+          safeGet("girone-a-friendly-formazione", true),
+          safeGet("girone-a-friendly-modulo", true),
+          safeGet("girone-a-friendly-formazione2", true),
+          safeGet("girone-a-friendly-modulo2", true),
+          safeGet("girone-a-roster", true),
+        ]);
+      }
 
       // --- Da qui in poi: solo elaborazione locale dei dati già arrivati, nessuna nuova attesa di rete ---
 
@@ -461,61 +495,29 @@ function GironeATracker() {
       setFriendlies(friendliesFinal);
 
       // --- VOTI AMICHEVOLI (condivisi, con autore) ---
-      let friendlyVotiFinal = friendlyVotiData0;
-      if (!friendlyVotiFinal && oldFriendlyVotiData) {
-        friendlyVotiFinal = {};
-        Object.keys(oldFriendlyVotiData).forEach((fid) => {
-          friendlyVotiFinal[fid] = (oldFriendlyVotiData[fid] || []).map((v) => ({ ...v, autore: v.autore || "Io" }));
-        });
-        window.storage.set("girone-a-friendly-voti", JSON.stringify(friendlyVotiFinal), true).catch(() => {});
-      }
-      if (friendlyVotiFinal) setFriendlyVoti(friendlyVotiFinal);
+      if (friendlyVotiData0) setFriendlyVoti(friendlyVotiData0);
 
       // --- VOTO SQUADRA AMICHEVOLI (condiviso, array multi-autore) ---
-      let teamVotoFinal = teamVotoData0;
-      if (!teamVotoFinal) {
-        teamVotoFinal = {};
-        if (oldTeamVotoData) {
-          Object.keys(oldTeamVotoData).forEach((fid) => {
-            const o = oldTeamVotoData[fid];
-            teamVotoFinal[fid] = Array.isArray(o) ? o.map((v) => ({ ...v, autore: v.autore || "Io" })) : [{ id: "migrated-" + fid, autore: "Io", voto: o.voto, nota: o.nota || "" }];
-          });
+      let teamVotoFinal = teamVotoData0 || {};
+      let teamVotoChanged = false;
+      // Migrazione: recupera la vecchia "Nota" della partita (campo rimosso) dentro la nota del Voto Squadra
+      friendliesFinal.forEach((f) => {
+        if (f.note && (!teamVotoFinal[f.id] || teamVotoFinal[f.id].length === 0)) {
+          teamVotoFinal = { ...teamVotoFinal, [f.id]: [{ id: "migrated-note-" + f.id, autore: "Io", voto: "", nota: f.note }] };
+          teamVotoChanged = true;
         }
-        // Migrazione aggiuntiva: recupera la vecchia "Nota" della partita (campo rimosso) dentro la nota del Voto Squadra
-        friendliesFinal.forEach((f) => {
-          if (f.note && (!teamVotoFinal[f.id] || teamVotoFinal[f.id].length === 0)) {
-            teamVotoFinal[f.id] = [{ id: "migrated-note-" + f.id, autore: "Io", voto: "", nota: f.note }];
-          }
-        });
-        window.storage.set("girone-a-friendly-team-voto", JSON.stringify(teamVotoFinal), true).catch(() => {});
-      }
+      });
+      if (teamVotoChanged) window.storage.set("girone-a-friendly-team-voto", JSON.stringify(teamVotoFinal), true).catch(() => {});
       setFriendlyTeamVoto(teamVotoFinal);
 
       // --- MARCATORI AMICHEVOLI (condivisi) ---
-      let friendlyMarcatoriFinal = friendlyMarcatoriData0;
-      if (!friendlyMarcatoriFinal && oldFriendlyMarcatoriData) {
-        friendlyMarcatoriFinal = oldFriendlyMarcatoriData;
-        window.storage.set("girone-a-friendly-marcatori", JSON.stringify(friendlyMarcatoriFinal), true).catch(() => {});
-      }
-      if (friendlyMarcatoriFinal) setFriendlyMarcatori(friendlyMarcatoriFinal);
+      if (friendlyMarcatoriData0) setFriendlyMarcatori(friendlyMarcatoriData0);
 
       if (friendlyConvocatiData) setFriendlyConvocati(friendlyConvocatiData);
 
       // --- FORMAZIONE / MODULO AMICHEVOLI (condivisi) ---
-      let friendlyFormazioneFinal = friendlyFormazioneData0;
-      if (!friendlyFormazioneFinal && oldFriendlyFormazioneData) {
-        friendlyFormazioneFinal = oldFriendlyFormazioneData;
-        window.storage.set("girone-a-friendly-formazione", JSON.stringify(friendlyFormazioneFinal), true).catch(() => {});
-      }
-      if (friendlyFormazioneFinal) setFriendlyFormazione(friendlyFormazioneFinal);
-
-      let friendlyModuloFinal = friendlyModuloData0;
-      if (!friendlyModuloFinal && oldFriendlyModuloData) {
-        friendlyModuloFinal = oldFriendlyModuloData;
-        window.storage.set("girone-a-friendly-modulo", JSON.stringify(friendlyModuloFinal), true).catch(() => {});
-      }
-      if (friendlyModuloFinal) setFriendlyModuloState(friendlyModuloFinal);
-
+      if (friendlyFormazioneData0) setFriendlyFormazione(friendlyFormazioneData0);
+      if (friendlyModuloData0) setFriendlyModuloState(friendlyModuloData0);
       if (friendlyFormazione2Data) setFriendlyFormazione2(friendlyFormazione2Data);
       if (friendlyModulo2Data) setFriendlyModulo2State(friendlyModulo2Data);
 
