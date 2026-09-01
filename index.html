@@ -221,6 +221,13 @@ const DEFAULT_MODULO = "352";
 
 // Copia i giocatori di "sourceFormazione" negli slot di "targetModuloKey" che hanno lo STESSO id di slot.
 // Non inventa posizionamenti: gli slot del modulo di destinazione senza corrispondenza diretta restano vuoti.
+// Cognome = ultima parola del nome completo (es. "Nicolò Lodi" -> "Lodi"). Usato sia per l'etichetta
+// sotto il pallino sulla mappa formazione, sia come criterio di ordinamento di tutti gli elenchi giocatori.
+function lastName(fullName) {
+  const parts = (fullName || "").trim().split(/\s+/);
+  return parts[parts.length - 1] || "";
+}
+
 function copyMatchingSlots(sourceFormazione, targetModuloKey) {
   const targetSlots = (FORMATIONS[targetModuloKey] || FORMATIONS[DEFAULT_MODULO]).slots;
   const targetSlotIds = new Set(targetSlots.map((s) => s.id));
@@ -253,8 +260,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "1.2";
-const TRACKER_VERSION_DATE = "01/09/2026@19.10";
+const TRACKER_VERSION = "1.3";
+const TRACKER_VERSION_DATE = "01/09/2026@22.21";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -400,6 +407,9 @@ function GironeATracker() {
   const [friendlyModulo2, setFriendlyModulo2State] = useState({}); // { friendlyId: "352"|"442"|... } — CONDIVISO
   const [friendlyFormazione2Touched, setFriendlyFormazione2Touched] = useState({}); // { friendlyId: true } — CONDIVISO: segna quando la mappa 2 si è "sganciata" dalla mappa 1
   const [roster, setRoster] = useState([]); // [{id, nome}] — CONDIVISO
+  const rosterSorted = useMemo(() => {
+    return [...roster].sort((a, b) => lastName(a.nome).localeCompare(lastName(b.nome), "it", { sensitivity: "base" }));
+  }, [roster]); // stessa lista, ordinata per COGNOME — usata ovunque al posto di "roster" nei render
   const [loaded, setLoaded] = useState(false);
   const [roundIdx, setRoundIdx] = useState(() => {
     const today = "2026-08-31";
@@ -791,6 +801,37 @@ function GironeATracker() {
     Object.keys(map).forEach((name) => {
       map[name].sort((a, b) => (b.date || "0000").localeCompare(a.date || "0000"));
     });
+    // Punto 13: le "presenze" non devono dipendere dal fatto che qualcuno abbia scritto un voto — un
+    // titolare/subentrato che nessuno ha votato ha comunque giocato. Si incrociano le formazioni reali
+    // (chi compare in formazione1 e/o formazione2 di ciascuna partita, sia Cimiano che amichevoli) per
+    // contare le presenze effettive, indipendentemente dai voti.
+    const presenzeCount = {};
+    function addPresence(nome) {
+      if (!nome) return;
+      presenzeCount[nome] = (presenzeCount[nome] || 0) + 1;
+    }
+    function playerIdsInMatch(formazione1, formazione2) {
+      return new Set([
+        ...Object.values(formazione1 || {}).filter((v) => typeof v === "string" && v),
+        ...Object.values(formazione2 || {}).filter((v) => typeof v === "string" && v),
+      ]);
+    }
+    ROUNDS.forEach((r) => {
+      r.matches.forEach((fx) => {
+        if (fx.home !== CIMIANO && fx.away !== CIMIANO) return;
+        const det = detailsShared[fx.id] || {};
+        playerIdsInMatch(det.formazione, det.formazione2).forEach((id) => {
+          const player = roster.find((p) => p.id === id);
+          if (player) addPresence(player.nome);
+        });
+      });
+    });
+    friendlies.forEach((f) => {
+      playerIdsInMatch(friendlyFormazione[f.id], friendlyFormazione2[f.id]).forEach((id) => {
+        const player = roster.find((p) => p.id === id);
+        if (player) addPresence(player.nome);
+      });
+    });
     const names = Array.from(new Set([...roster.map((p) => p.nome), ...Object.keys(map)]));
     return names.map((name) => {
       const entries = map[name] || [];
@@ -798,9 +839,12 @@ function GironeATracker() {
       const minuti = entries.map((e) => parseInt(e.minutaggio, 10)).filter((n) => !isNaN(n));
       const media = voti.length ? (voti.reduce((s, x) => s + x, 0) / voti.length) : null;
       const minutiTot = minuti.length ? minuti.reduce((s, x) => s + x, 0) : null;
-      return { name, entries, presenze: entries.length, media, minutiTot };
+      // Non scende mai sotto al conteggio basato sui voti (se per qualche partita vecchia mancasse
+      // il dato di formazione), aggiunge solo le presenze reali che i voti da soli non intercettano.
+      const presenze = Math.max(entries.length, presenzeCount[name] || 0);
+      return { name, entries, presenze, media, minutiTot };
     });
-  }, [detailsShared, friendlies, friendlyVoti, roster]);
+  }, [detailsShared, friendlies, friendlyVoti, friendlyFormazione, friendlyFormazione2, roster]);
 
   const playersWithData = useMemo(() => playerStats.filter((p) => p.entries.length > 0), [playerStats]);
 
@@ -1331,9 +1375,11 @@ function GironeATracker() {
     const compact = !!opts.compact;
     const moduloKey = modulo || DEFAULT_MODULO;
     const slots = FORMATIONS[moduloKey].slots;
-    const poolRoster = roster.filter((r) => playerPool.includes(r.id));
-    const circleSize = compact ? 34 : 44;
-    const labelFont = compact ? 8 : 9;
+    // Punto 16: opzioni della tendina ordinate per cognome, ereditando l'ordine da rosterSorted.
+    const poolRoster = rosterSorted.filter((r) => playerPool.includes(r.id));
+    // Punto 14: pallini ingranditi del 50% in modalità compact (34px -> 51px); invariati altrove.
+    const circleSize = compact ? 51 : 44;
+    const labelFont = compact ? 9 : 9;
     const pitchMaxWidth = compact ? "100%" : 320;
     // Valore di ogni slot (sempre dato reale: la mappa 2 ora è una copia scritta per davvero di formazione1,
     // finché l'utente non la tocca — vedi setFormazione/setModulo/setFormazione2/setModulo2), usato per:
@@ -1343,6 +1389,12 @@ function GironeATracker() {
       effectiveBySlot[slot.id] = typeof formazione[slot.id] === "string" ? formazione[slot.id] : "";
     });
     const startersIds = opts.startersIds || null;
+    // Punto 12: valori dell'ALTRA mappa (stesso concetto di effectiveBySlot ma calcolato altrove in
+    // renderDualPitch), usati per escludere dalle opzioni anche chi è già piazzato là, non solo qui.
+    const otherEff = opts.otherMapEffective || {};
+    // Punto 11: stile leggibile per le <option> della tendina aperta, senza toccare l'aspetto del
+    // pallino chiuso (che resta piccolo e colorato, gestito dallo style del <select> stesso).
+    const optionStyle = { color: INK, background: "#fff", fontSize: 15 };
     return (
       <div>
         {!compact && (
@@ -1380,11 +1432,17 @@ function GironeATracker() {
             const player = roster.find((r) => r.id === playerId);
             const isSub = startersIds ? (!!playerId && !startersIds.has(playerId)) : false;
             const circleColor = isSub ? SUB_COLOR : RED;
-            // Un giocatore già piazzato in UN ALTRO slot di questa stessa mappa non compare più tra le opzioni
-            // (resta comunque visibile/selezionabile nello slot dove è già piazzato lui stesso).
-            const usedElsewhere = new Set(
+            // Punto 12: un giocatore già piazzato in UN ALTRO slot — di QUESTA mappa o dell'ALTRA — non
+            // compare più tra le opzioni (resta comunque visibile/selezionabile nello slot dove è già
+            // piazzato lui stesso, incluso il proprio slot.id nell'altra mappa: continuità dello stesso
+            // titolare che gioca senza cambi).
+            const usedElsewhereSameMap = new Set(
               Object.entries(effectiveBySlot).filter(([sId, pId]) => sId !== slot.id && pId).map(([, pId]) => pId)
             );
+            const usedElsewhereOtherMap = new Set(
+              Object.entries(otherEff).filter(([sId, pId]) => sId !== slot.id && pId).map(([, pId]) => pId)
+            );
+            const usedElsewhere = new Set([...usedElsewhereSameMap, ...usedElsewhereOtherMap]);
             const optionsForThisSlot = poolRoster.filter((rp) => rp.id === playerId || !usedElsewhere.has(rp.id));
             return (
               <div key={slot.id} style={{ position: "absolute", left: `${slot.x}%`, top: `${slot.y}%`, transform: "translate(-50%,-50%)", textAlign: "center" }}>
@@ -1394,14 +1452,14 @@ function GironeATracker() {
                     background: player ? circleColor : "rgba(255,255,255,0.15)", color: "#fff", fontSize: compact ? 8 : 10, fontWeight: 700,
                     textAlign: "center", textAlignLast: "center", cursor: "pointer", appearance: "none", padding: 0,
                   }}>
-                  <option value="" style={{ color: INK }}>{slot.label}</option>
+                  <option value="" style={optionStyle}>{slot.label}</option>
                   {optionsForThisSlot.map((rp) => (
-                    <option key={rp.id} value={rp.id} style={{ color: INK }}>{rp.nome}</option>
+                    <option key={rp.id} value={rp.id} style={optionStyle}>{rp.nome}</option>
                   ))}
                 </select>
                 {player && (
-                  <div style={{ fontSize: labelFont, color: "#fff", marginTop: 2, maxWidth: compact ? 46 : 62, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {player.nome.split(" ")[0]}
+                  <div style={{ fontSize: labelFont, color: "#fff", marginTop: 2, maxWidth: compact ? 62 : 62, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {lastName(player.nome)}
                   </div>
                 )}
               </div>
@@ -1418,6 +1476,12 @@ function GironeATracker() {
     // Titolari = tutti i playerId presenti in QUALSIASI slot di formazione1, indipendentemente da slot/modulo:
     // così il colore titolare/subentrato sulla mappa 2 è corretto anche quando i due moduli differiscono.
     const startersIds = new Set(Object.values(formazione1 || {}).filter((v) => typeof v === "string" && v));
+    // Punto 12: valore reale di ogni slot per CIASCUNA mappa, usato per l'esclusione incrociata dentro
+    // renderPitch (ogni mappa riceve l'effectiveBySlot dell'ALTRA come opts.otherMapEffective).
+    const eff1 = {};
+    FORMATIONS[modulo1Key].slots.forEach((s) => { eff1[s.id] = typeof formazione1[s.id] === "string" ? formazione1[s.id] : ""; });
+    const eff2 = {};
+    FORMATIONS[modulo2Key].slots.forEach((s) => { eff2[s.id] = typeof formazione2[s.id] === "string" ? formazione2[s.id] : ""; });
     return (
       <div>
         <div style={{ display: "flex", gap: 14, marginBottom: 8, fontSize: 11, color: MUTED }}>
@@ -1436,11 +1500,11 @@ function GironeATracker() {
         <div style={{ display: "flex", gap: 10 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 10, color: MUTED, marginBottom: 4, fontWeight: 700, textAlign: "center" }}>INIZIO</div>
-            {renderPitch(formazione1, onChangeSlot1, modulo1Key, onChangeModulo1, poolIniziale, { compact: true })}
+            {renderPitch(formazione1, onChangeSlot1, modulo1Key, onChangeModulo1, poolIniziale, { compact: true, otherMapEffective: eff2 })}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 10, color: MUTED, marginBottom: 4, fontWeight: 700, textAlign: "center" }}>CAMBI / FINE</div>
-            {renderPitch(formazione2, onChangeSlot2, modulo2Key, onChangeModulo2, convocatiIds, { compact: true, startersIds })}
+            {renderPitch(formazione2, onChangeSlot2, modulo2Key, onChangeModulo2, convocatiIds, { compact: true, startersIds, otherMapEffective: eff1 })}
           </div>
         </div>
       </div>
@@ -1604,7 +1668,7 @@ function GironeATracker() {
                   1. Convocati ({convocatiIds.length}/20)
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {roster.map((rp) => {
+                  {rosterSorted.map((rp) => {
                     const isConv = !!convocati[rp.id];
                     const blocked = !isConv && convocatiIds.length >= 20;
                     return (
@@ -1680,7 +1744,7 @@ function GironeATracker() {
                 </div>
               )}
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
-                {roster.map((rp) => (
+                {rosterSorted.map((rp) => (
                   <button key={rp.id} onClick={() => setScorerDraft((prev) => ({ ...prev, [fx.id]: { ...prev[fx.id], giocatore: rp.nome } }))}
                     style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: sd.giocatore === rp.nome ? RED : "#fff", color: sd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
                     {rp.nome}
@@ -1758,7 +1822,7 @@ function GironeATracker() {
                 </div>
               )}
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
-                {roster.map((rp) => (
+                {rosterSorted.map((rp) => (
                   <button key={rp.id} onClick={() => setRatingDraft((prev) => ({ ...prev, [fx.id]: { ...prev[fx.id], giocatore: rp.nome } }))}
                     style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: rd.giocatore === rp.nome ? RED : "#fff", color: rd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
                     {rp.nome}
@@ -1916,7 +1980,7 @@ function GironeATracker() {
                   1. Convocati {convocatiIdsF.length > 0 && `(${convocatiIdsF.length})`}
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {roster.map((rp) => (
+                  {rosterSorted.map((rp) => (
                     <button key={rp.id} onClick={() => toggleConvocatoF(f.id, rp.id)}
                       style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: `1px solid ${LINE}`, background: convocatiF[rp.id] ? RED : "#fff", color: convocatiF[rp.id] ? "#fff" : INK, cursor: "pointer" }}>
                       {rp.nome}
@@ -1984,7 +2048,7 @@ function GironeATracker() {
                 </div>
               )}
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
-                {roster.map((rp) => (
+                {rosterSorted.map((rp) => (
                   <button key={rp.id} onClick={() => setScorerDraftF((prev) => ({ ...prev, [f.id]: { ...prev[f.id], giocatore: rp.nome } }))}
                     style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: sdF.giocatore === rp.nome ? RED : "#fff", color: sdF.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
                     {rp.nome}
@@ -2061,7 +2125,7 @@ function GironeATracker() {
               </div>
             )}
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
-              {roster.map((rp) => (
+              {rosterSorted.map((rp) => (
                 <button key={rp.id} onClick={() => setRatingDraftF((prev) => ({ ...prev, [f.id]: { ...prev[f.id], giocatore: rp.nome } }))}
                   style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: rd.giocatore === rp.nome ? RED : "#fff", color: rd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
                   {rp.nome}
@@ -2568,7 +2632,7 @@ function GironeATracker() {
               <div style={{ color: MUTED, fontSize: 13 }}>Nessun giocatore in rosa.</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {roster.map((rp) => (
+                {rosterSorted.map((rp) => (
                   <div key={rp.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", padding: "8px 12px", border: `1px solid ${LINE}`, borderRadius: 4, fontSize: 13 }}>
                     <span>{rp.nome}</span>
                     <span style={{ display: "flex", gap: 10 }}>
