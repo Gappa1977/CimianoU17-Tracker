@@ -375,6 +375,10 @@ function GironeATracker() {
   const [newVoterDraft, setNewVoterDraft] = useState("");
   const logoClickCountRef = useRef(0);
   const logoClickTimerRef = useRef(null);
+  // Finché è true, i "salva automatico" restano disattivati: evita che al primo caricamento pagina
+  // scattino 13 salvataggi simultanei (uno per ogni pezzo di dato) per dati appena letti e non modificati,
+  // che possono sovraccaricare lo script Google e far comparire falsi "salvataggio non riuscito".
+  const suppressSaveRef = useRef(true);
   const [friendlies, setFriendlies] = useState([]); // CONDIVISO (senza voti)
   const [friendlyVoti, setFriendlyVoti] = useState({}); // { friendlyId: [voti] } — CONDIVISO, ogni voto etichettato con l'autore
   const [friendlyMarcatori, setFriendlyMarcatori] = useState({}); // { friendlyId: [marcatori] } — CONDIVISO
@@ -583,27 +587,27 @@ function GironeATracker() {
   }, []);
 
   useEffect(() => {
-    if (loaded) window.storage.set("girone-a-results", JSON.stringify(results), true).catch(() => {});
+    if (!suppressSaveRef.current) window.storage.set("girone-a-results", JSON.stringify(results), true).catch(() => {});
   }, [results, loaded]);
 
   useEffect(() => {
-    if (loaded) window.storage.set("girone-a-voter-options", JSON.stringify(voterOptionsExtra), true).catch(() => {});
+    if (!suppressSaveRef.current) window.storage.set("girone-a-voter-options", JSON.stringify(voterOptionsExtra), true).catch(() => {});
   }, [voterOptionsExtra, loaded]);
 
   useEffect(() => {
-    if (loaded) window.storage.set("girone-a-details-shared", JSON.stringify(detailsShared), true).catch(() => {});
+    if (!suppressSaveRef.current) window.storage.set("girone-a-details-shared", JSON.stringify(detailsShared), true).catch(() => {});
   }, [detailsShared, loaded]);
 
   useEffect(() => {
-    if (loaded) window.storage.set("girone-a-friendlies", JSON.stringify(friendlies), true).catch(() => {});
+    if (!suppressSaveRef.current) window.storage.set("girone-a-friendlies", JSON.stringify(friendlies), true).catch(() => {});
   }, [friendlies, loaded]);
 
   useEffect(() => {
-    if (loaded) window.storage.set("girone-a-friendly-voti", JSON.stringify(friendlyVoti), true).catch(() => {});
+    if (!suppressSaveRef.current) window.storage.set("girone-a-friendly-voti", JSON.stringify(friendlyVoti), true).catch(() => {});
   }, [friendlyVoti, loaded]);
 
   useEffect(() => {
-    if (loaded) window.storage.set("girone-a-friendly-team-voto", JSON.stringify(friendlyTeamVoto), true).catch(() => {});
+    if (!suppressSaveRef.current) window.storage.set("girone-a-friendly-team-voto", JSON.stringify(friendlyTeamVoto), true).catch(() => {});
   }, [friendlyTeamVoto, loaded]);
 
   useEffect(() => {
@@ -615,32 +619,40 @@ function GironeATracker() {
   }, [voterName]);
 
   useEffect(() => {
-    if (loaded) window.storage.set("girone-a-friendly-marcatori", JSON.stringify(friendlyMarcatori), true).catch(() => {});
+    if (!suppressSaveRef.current) window.storage.set("girone-a-friendly-marcatori", JSON.stringify(friendlyMarcatori), true).catch(() => {});
   }, [friendlyMarcatori, loaded]);
 
   useEffect(() => {
-    if (loaded) window.storage.set("girone-a-friendly-convocati", JSON.stringify(friendlyConvocati), true).catch(() => {});
+    if (!suppressSaveRef.current) window.storage.set("girone-a-friendly-convocati", JSON.stringify(friendlyConvocati), true).catch(() => {});
   }, [friendlyConvocati, loaded]);
 
   useEffect(() => {
-    if (loaded) window.storage.set("girone-a-friendly-formazione", JSON.stringify(friendlyFormazione), true).catch(() => {});
+    if (!suppressSaveRef.current) window.storage.set("girone-a-friendly-formazione", JSON.stringify(friendlyFormazione), true).catch(() => {});
   }, [friendlyFormazione, loaded]);
 
   useEffect(() => {
-    if (loaded) window.storage.set("girone-a-friendly-modulo", JSON.stringify(friendlyModulo), true).catch(() => {});
+    if (!suppressSaveRef.current) window.storage.set("girone-a-friendly-modulo", JSON.stringify(friendlyModulo), true).catch(() => {});
   }, [friendlyModulo, loaded]);
 
   useEffect(() => {
-    if (loaded) window.storage.set("girone-a-friendly-formazione2", JSON.stringify(friendlyFormazione2), true).catch(() => {});
+    if (!suppressSaveRef.current) window.storage.set("girone-a-friendly-formazione2", JSON.stringify(friendlyFormazione2), true).catch(() => {});
   }, [friendlyFormazione2, loaded]);
 
   useEffect(() => {
-    if (loaded) window.storage.set("girone-a-friendly-modulo2", JSON.stringify(friendlyModulo2), true).catch(() => {});
+    if (!suppressSaveRef.current) window.storage.set("girone-a-friendly-modulo2", JSON.stringify(friendlyModulo2), true).catch(() => {});
   }, [friendlyModulo2, loaded]);
 
   useEffect(() => {
-    if (loaded) window.storage.set("girone-a-roster", JSON.stringify(roster), true).catch(() => {});
+    if (!suppressSaveRef.current) window.storage.set("girone-a-roster", JSON.stringify(roster), true).catch(() => {});
   }, [roster, loaded]);
+
+  // Effetto "sblocco": deve stare DOPO tutti i 13 useEffect di salvataggio qui sopra (l'ordine con cui sono
+  // dichiarati negli hook è anche l'ordine con cui React li esegue). Al primo giro in cui "loaded" diventa
+  // vero, tutti i salvataggi qui sopra vedono ancora suppressSaveRef.current = true e quindi non scrivono
+  // nulla; solo a questo punto lo sblocchiamo, così le vere modifiche successive dell'utente vengono salvate.
+  useEffect(() => {
+    if (loaded) suppressSaveRef.current = false;
+  }, [loaded]);
 
   const standings = useMemo(() => {
     const table = {};
