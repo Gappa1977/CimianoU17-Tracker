@@ -168,8 +168,8 @@ const FORMATIONS = {
   },
 };
 const DEFAULT_MODULO = "352";
-const TRACKER_VERSION = "5";
-const TRACKER_VERSION_DATE = "01/09/2026 ore 09.36";
+const TRACKER_VERSION = "6";
+const TRACKER_VERSION_DATE = "01/09/2026 ore 10.27";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -290,9 +290,10 @@ function GironeATracker() {
   const [friendlyMarcatori, setFriendlyMarcatori] = useState({}); // { friendlyId: [marcatori] } — CONDIVISO
   const [friendlyConvocati, setFriendlyConvocati] = useState({}); // { friendlyId: {playerId: true} } — CONDIVISO
   const [friendlyTitolari, setFriendlyTitolari] = useState({}); // { friendlyId: {playerId: true} } — CONDIVISO
-  const [friendlySostituzioni, setFriendlySostituzioni] = useState({}); // { friendlyId: [{id, out, in, minuto}] } — CONDIVISO
   const [friendlyFormazione, setFriendlyFormazione] = useState({}); // { friendlyId: {slotId: playerId} } — CONDIVISO
   const [friendlyModulo, setFriendlyModuloState] = useState({}); // { friendlyId: "352"|"442"|... } — CONDIVISO
+  const [friendlyFormazione2, setFriendlyFormazione2] = useState({}); // { friendlyId: {slotId: playerId} } — CONDIVISO (mappa "cambi/fine partita")
+  const [friendlyModulo2, setFriendlyModulo2State] = useState({}); // { friendlyId: "352"|"442"|... } — CONDIVISO
   const [roster, setRoster] = useState([]); // [{id, nome}] — CONDIVISO
   const [loaded, setLoaded] = useState(false);
   const [roundIdx, setRoundIdx] = useState(() => {
@@ -323,8 +324,6 @@ function GironeATracker() {
   const [editingScorerF, setEditingScorerF] = useState(null); // `${friendlyId}:${scorerId}`
   const [rosterDraft, setRosterDraft] = useState({ nome: "" });
   const [playerVoteFilter, setPlayerVoteFilter] = useState({});
-  const [subDraft, setSubDraft] = useState({});
-  const [subDraftF, setSubDraftF] = useState({});
   const [teamVoteFilter, setTeamVoteFilter] = useState({});
   const [editingRosterId, setEditingRosterId] = useState(null);
 
@@ -475,13 +474,6 @@ function GironeATracker() {
       } catch (e) {}
       if (friendlyTitolariData) setFriendlyTitolari(friendlyTitolariData);
 
-      let friendlySostituzioniData = null;
-      try {
-        const fs_ = await window.storage.get("girone-a-friendly-sostituzioni", true);
-        if (fs_) friendlySostituzioniData = JSON.parse(fs_.value);
-      } catch (e) {}
-      if (friendlySostituzioniData) setFriendlySostituzioni(friendlySostituzioniData);
-
       let friendlyFormazioneData = null;
       try {
         const ff = await window.storage.get("girone-a-friendly-formazione", true);
@@ -513,6 +505,20 @@ function GironeATracker() {
         } catch (e) {}
       }
       if (friendlyModuloData) setFriendlyModuloState(friendlyModuloData);
+
+      let friendlyFormazione2Data = null;
+      try {
+        const ff2 = await window.storage.get("girone-a-friendly-formazione2", true);
+        if (ff2) friendlyFormazione2Data = JSON.parse(ff2.value);
+      } catch (e) {}
+      if (friendlyFormazione2Data) setFriendlyFormazione2(friendlyFormazione2Data);
+
+      let friendlyModulo2Data = null;
+      try {
+        const fmo2 = await window.storage.get("girone-a-friendly-modulo2", true);
+        if (fmo2) friendlyModulo2Data = JSON.parse(fmo2.value);
+      } catch (e) {}
+      if (friendlyModulo2Data) setFriendlyModulo2State(friendlyModulo2Data);
 
       // --- ROSA SQUADRA ---
       let rosterData = null;
@@ -571,16 +577,20 @@ function GironeATracker() {
   }, [friendlyTitolari, loaded]);
 
   useEffect(() => {
-    if (loaded) window.storage.set("girone-a-friendly-sostituzioni", JSON.stringify(friendlySostituzioni), true).catch(() => {});
-  }, [friendlySostituzioni, loaded]);
-
-  useEffect(() => {
     if (loaded) window.storage.set("girone-a-friendly-formazione", JSON.stringify(friendlyFormazione), true).catch(() => {});
   }, [friendlyFormazione, loaded]);
 
   useEffect(() => {
     if (loaded) window.storage.set("girone-a-friendly-modulo", JSON.stringify(friendlyModulo), true).catch(() => {});
   }, [friendlyModulo, loaded]);
+
+  useEffect(() => {
+    if (loaded) window.storage.set("girone-a-friendly-formazione2", JSON.stringify(friendlyFormazione2), true).catch(() => {});
+  }, [friendlyFormazione2, loaded]);
+
+  useEffect(() => {
+    if (loaded) window.storage.set("girone-a-friendly-modulo2", JSON.stringify(friendlyModulo2), true).catch(() => {});
+  }, [friendlyModulo2, loaded]);
 
   useEffect(() => {
     if (loaded) window.storage.set("girone-a-roster", JSON.stringify(roster), true).catch(() => {});
@@ -997,14 +1007,13 @@ function GironeATracker() {
       const cur = prev[fixtureId] || {};
       const convocati = { ...(cur.convocati || {}) };
       const titolari = { ...(cur.titolari || {}) };
-      const sostituzioni = (cur.sostituzioni || []).filter((s) => s.out !== playerId && s.in !== playerId);
       if (convocati[playerId]) {
         delete convocati[playerId];
         delete titolari[playerId];
       } else {
         convocati[playerId] = true;
       }
-      return { ...prev, [fixtureId]: { ...cur, convocati, titolari, sostituzioni } };
+      return { ...prev, [fixtureId]: { ...cur, convocati, titolari } };
     });
   }
 
@@ -1018,23 +1027,7 @@ function GironeATracker() {
     });
   }
 
-  function addSostituzione(fixtureId, outId, inId, minuto) {
-    if (!outId || !inId) return;
-    setDetailsShared((prev) => {
-      const cur = prev[fixtureId] || {};
-      const sostituzioni = [...(cur.sostituzioni || []), { id: Date.now().toString(), out: outId, in: inId, minuto: minuto || "" }];
-      return { ...prev, [fixtureId]: { ...cur, sostituzioni } };
-    });
-  }
-
-  function removeSostituzione(fixtureId, subId) {
-    setDetailsShared((prev) => {
-      const cur = prev[fixtureId] || {};
-      return { ...prev, [fixtureId]: { ...cur, sostituzioni: (cur.sostituzioni || []).filter((s) => s.id !== subId) } };
-    });
-  }
-
-  // --- CONVOCATI / TITOLARI / SOSTITUZIONI (amichevoli) ---
+  // --- CONVOCATI / TITOLARI (amichevoli) ---
   function toggleConvocatoF(friendlyId, playerId) {
     setFriendlyConvocati((prev) => {
       const cur = { ...(prev[friendlyId] || {}) };
@@ -1046,10 +1039,6 @@ function GironeATracker() {
       delete cur[playerId];
       return { ...prev, [friendlyId]: cur };
     });
-    setFriendlySostituzioni((prev) => ({
-      ...prev,
-      [friendlyId]: (prev[friendlyId] || []).filter((s) => s.out !== playerId && s.in !== playerId),
-    }));
   }
 
   function setRuoloF(friendlyId, playerId, ruolo) {
@@ -1059,18 +1048,6 @@ function GironeATracker() {
       else delete cur[playerId];
       return { ...prev, [friendlyId]: cur };
     });
-  }
-
-  function addSostituzioneF(friendlyId, outId, inId, minuto) {
-    if (!outId || !inId) return;
-    setFriendlySostituzioni((prev) => ({
-      ...prev,
-      [friendlyId]: [...(prev[friendlyId] || []), { id: Date.now().toString(), out: outId, in: inId, minuto: minuto || "" }],
-    }));
-  }
-
-  function removeSostituzioneF(friendlyId, subId) {
-    setFriendlySostituzioni((prev) => ({ ...prev, [friendlyId]: (prev[friendlyId] || []).filter((s) => s.id !== subId) }));
   }
 
   // --- FORMAZIONE (modulo 3-5-2) ---
@@ -1087,6 +1064,19 @@ function GironeATracker() {
     setDetailsShared((prev) => ({ ...prev, [fixtureId]: { ...(prev[fixtureId] || {}), modulo } }));
   }
 
+  function setFormazione2(fixtureId, slotId, playerId) {
+    setDetailsShared((prev) => {
+      const cur = prev[fixtureId] || {};
+      const formazione2 = { ...(cur.formazione2 || {}) };
+      if (playerId) formazione2[slotId] = playerId; else delete formazione2[slotId];
+      return { ...prev, [fixtureId]: { ...cur, formazione2 } };
+    });
+  }
+
+  function setModulo2(fixtureId, modulo) {
+    setDetailsShared((prev) => ({ ...prev, [fixtureId]: { ...(prev[fixtureId] || {}), modulo2: modulo } }));
+  }
+
   function setFormazioneF(friendlyId, slotId, playerId) {
     setFriendlyFormazione((prev) => {
       const cur = { ...(prev[friendlyId] || {}) };
@@ -1099,10 +1089,22 @@ function GironeATracker() {
     setFriendlyModuloState((prev) => ({ ...prev, [friendlyId]: modulo }));
   }
 
-  function renderPitch(formazione, onChangeSlot, modulo, onChangeModulo, titolariIds, sostituzioni) {
+  function setFormazioneF2(friendlyId, slotId, playerId) {
+    setFriendlyFormazione2((prev) => {
+      const cur = { ...(prev[friendlyId] || {}) };
+      if (playerId) cur[slotId] = playerId; else delete cur[slotId];
+      return { ...prev, [friendlyId]: cur };
+    });
+  }
+
+  function setModuloF2(friendlyId, modulo) {
+    setFriendlyModulo2State((prev) => ({ ...prev, [friendlyId]: modulo }));
+  }
+
+  function renderPitch(formazione, onChangeSlot, modulo, onChangeModulo, playerPool) {
     const moduloKey = modulo || DEFAULT_MODULO;
     const slots = FORMATIONS[moduloKey].slots;
-    const titolariRoster = roster.filter((r) => titolariIds.includes(r.id));
+    const poolRoster = roster.filter((r) => playerPool.includes(r.id));
     return (
       <div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
@@ -1113,17 +1115,9 @@ function GironeATracker() {
             </button>
           ))}
         </div>
-        {titolariRoster.length === 0 && (
-          <div style={{ fontSize: 11, color: MUTED, marginBottom: 8 }}>Segna prima i titolari qui sopra per poterli piazzare in campo.</div>
+        {poolRoster.length === 0 && (
+          <div style={{ fontSize: 11, color: MUTED, marginBottom: 8 }}>Nessun giocatore disponibile da piazzare qui al momento.</div>
         )}
-        <div style={{ display: "flex", gap: 14, marginBottom: 8, fontSize: 11, color: MUTED }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ width: 10, height: 10, borderRadius: "50%", background: RED, display: "inline-block" }} /> Titolare
-          </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ width: 10, height: 10, borderRadius: "50%", background: SUB_COLOR, display: "inline-block" }} /> Subentrato
-          </span>
-        </div>
         <div style={{
           position: "relative", width: "100%", maxWidth: 320, aspectRatio: "2 / 3", margin: "0 auto",
           background: "linear-gradient(180deg, #3f9142 0%, #368239 100%)", borderRadius: 8, border: `2px solid #2c6b2f`, overflow: "hidden",
@@ -1134,10 +1128,8 @@ function GironeATracker() {
           <div style={{ position: "absolute", left: "25%", right: "25%", bottom: 0, height: "14%", border: "1px solid rgba(255,255,255,0.5)", borderTop: "none" }} />
           <div style={{ position: "absolute", left: "25%", right: "25%", top: 0, height: "14%", border: "1px solid rgba(255,255,255,0.5)", borderBottom: "none" }} />
           {slots.map((slot) => {
-            const playerId = typeof formazione[slot.id] === "string" ? formazione[slot.id] : (formazione[slot.id] && formazione[slot.id].titolare) || "";
+            const playerId = typeof formazione[slot.id] === "string" ? formazione[slot.id] : "";
             const player = roster.find((r) => r.id === playerId);
-            const sub = sostituzioni.find((s) => s.out === playerId);
-            const subPlayer = sub ? roster.find((r) => r.id === sub.in) : null;
             return (
               <div key={slot.id} style={{ position: "absolute", left: `${slot.x}%`, top: `${slot.y}%`, transform: "translate(-50%,-50%)", textAlign: "center" }}>
                 <select value={playerId} onChange={(e) => onChangeSlot(slot.id, e.target.value)}
@@ -1147,18 +1139,13 @@ function GironeATracker() {
                     textAlign: "center", textAlignLast: "center", cursor: "pointer", appearance: "none", padding: 0,
                   }}>
                   <option value="" style={{ color: INK }}>{slot.label}</option>
-                  {titolariRoster.map((rp) => (
+                  {poolRoster.map((rp) => (
                     <option key={rp.id} value={rp.id} style={{ color: INK }}>{rp.nome}</option>
                   ))}
                 </select>
                 {player && (
                   <div style={{ fontSize: 9, color: "#fff", marginTop: 2, maxWidth: 62, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {player.nome.split(" ")[0]}
-                  </div>
-                )}
-                {subPlayer && (
-                  <div style={{ fontSize: 9, color: SUB_COLOR, background: "#fff", borderRadius: 6, padding: "0 4px", marginTop: 2, fontWeight: 700, maxWidth: 68, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    ⇄ {subPlayer.nome.split(" ")[0]}{sub.minuto ? ` ${sub.minuto}'` : ""}
                   </div>
                 )}
               </div>
@@ -1269,11 +1256,8 @@ function GironeATracker() {
     const votoSquadraList = (detailsShared[fx.id] && detailsShared[fx.id].votoSquadra) || [];
     const convocati = (detailsShared[fx.id] && detailsShared[fx.id].convocati) || {};
     const titolari = (detailsShared[fx.id] && detailsShared[fx.id].titolari) || {};
-    const sostituzioni = (detailsShared[fx.id] && detailsShared[fx.id].sostituzioni) || [];
     const convocatiIds = Object.keys(convocati);
     const titolariIds = Object.keys(titolari).filter((id) => convocatiIds.includes(id));
-    const panchinaIds = convocatiIds.filter((id) => !titolari[id]);
-    const gia_subentrati = sostituzioni.map((s) => s.in);
     const tvd = teamVotoDraft[fx.id] || {};
     const sc = statusColor ? STATUS_COLORS[statusColor] : null;
     const rowBg = sc ? sc.bg : (isCimianoMatch ? "#fdeceb" : "#fff");
@@ -1298,10 +1282,10 @@ function GironeATracker() {
           )}
           <span style={{ fontWeight: fx.away === CIMIANO ? 700 : 400, color: fx.away === CIMIANO ? RED : INK, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fx.away}</span>
           <div style={{ display: "flex", gap: 10, alignItems: "center", justifySelf: "end" }}>
-            {played && isCimianoMatch && (
+            {isCimianoMatch && (
               <button onClick={() => setExpanded((p) => ({ ...p, [fx.id]: !p[fx.id] }))}
                 style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                {isOpen ? "chiudi dettagli" : "marcatori & voti"}
+                {isOpen ? "chiudi dettagli" : "dettagli partita"}
               </button>
             )}
             {played ? (
@@ -1312,7 +1296,7 @@ function GironeATracker() {
           </div>
         </div>
 
-        {isOpen && played && isCimianoMatch && (
+        {isOpen && isCimianoMatch && (
           <div style={{ borderTop: `1px solid ${LINE}`, padding: "10px 12px", background: "#fff" }}>
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
@@ -1405,52 +1389,22 @@ function GironeATracker() {
 
             {titolariIds.length > 0 && (
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>3. Sostituzioni</div>
-                {sostituzioni.length > 0 && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
-                    {sostituzioni.map((s) => {
-                      const outP = roster.find((r) => r.id === s.out);
-                      const inP = roster.find((r) => r.id === s.in);
-                      return (
-                        <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: `1px solid ${LINE}`, borderRadius: 4, padding: "6px 10px", fontSize: 12 }}>
-                          <span>{s.minuto ? `${s.minuto}' — ` : ""}esce <strong>{outP ? outP.nome : "?"}</strong>, entra <strong style={{ color: SUB_COLOR }}>{inP ? inP.nome : "?"}</strong></span>
-                          <button onClick={() => removeSostituzione(fx.id, s.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 15 }}>×</button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {panchinaIds.filter((id) => !gia_subentrati.includes(id)).length > 0 && (
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                    <select value={(subDraft[fx.id] && subDraft[fx.id].out) || ""} onChange={(e) => setSubDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], out: e.target.value } }))}
-                      style={{ fontSize: 12, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }}>
-                      <option value="">Esce...</option>
-                      {roster.filter((r) => titolari[r.id]).map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
-                    </select>
-                    <select value={(subDraft[fx.id] && subDraft[fx.id].in) || ""} onChange={(e) => setSubDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], in: e.target.value } }))}
-                      style={{ fontSize: 12, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }}>
-                      <option value="">Entra...</option>
-                      {roster.filter((r) => panchinaIds.includes(r.id) && !gia_subentrati.includes(r.id)).map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
-                    </select>
-                    <input placeholder="Min'" type="number" min="0" max="120" value={(subDraft[fx.id] && subDraft[fx.id].minuto) || ""} onChange={(e) => setSubDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], minuto: e.target.value } }))}
-                      style={{ width: 50, fontSize: 12, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                    <button onClick={() => { const d = subDraft[fx.id] || {}; addSostituzione(fx.id, d.out, d.in, d.minuto); setSubDraft((p) => ({ ...p, [fx.id]: { out: "", in: "", minuto: "" } })); }}
-                      style={{ background: RED, color: "#fff", border: "none", padding: "5px 12px", borderRadius: 3, fontWeight: 600, cursor: "pointer", fontSize: 12 }}>+</button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {titolariIds.length > 0 && (
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>4. Formazione</div>
+                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>3. Modulo</div>
+                <div style={{ fontSize: 11, color: MUTED, marginBottom: 6, fontWeight: 600 }}>Titolari (inizio partita)</div>
                 {renderPitch(
                   (detailsShared[fx.id] && detailsShared[fx.id].formazione) || {},
                   (slotId, playerId) => setFormazione(fx.id, slotId, playerId),
                   (detailsShared[fx.id] && detailsShared[fx.id].modulo) || DEFAULT_MODULO,
                   (modulo) => setModulo(fx.id, modulo),
-                  titolariIds,
-                  sostituzioni
+                  titolariIds
+                )}
+                <div style={{ fontSize: 11, color: MUTED, margin: "16px 0 6px", fontWeight: 600 }}>Cambi / fine partita</div>
+                {renderPitch(
+                  (detailsShared[fx.id] && detailsShared[fx.id].formazione2) || {},
+                  (slotId, playerId) => setFormazione2(fx.id, slotId, playerId),
+                  (detailsShared[fx.id] && detailsShared[fx.id].modulo2) || DEFAULT_MODULO,
+                  (modulo) => setModulo2(fx.id, modulo),
+                  convocatiIds
                 )}
               </div>
             )}
@@ -1596,11 +1550,8 @@ function GironeATracker() {
     const sdF = scorerDraftF[f.id] || {};
     const convocatiF = friendlyConvocati[f.id] || {};
     const titolariF = friendlyTitolari[f.id] || {};
-    const sostituzioniF = friendlySostituzioni[f.id] || [];
     const convocatiIdsF = Object.keys(convocatiF);
     const titolariIdsF = Object.keys(titolariF).filter((id) => convocatiIdsF.includes(id));
-    const panchinaIdsF = convocatiIdsF.filter((id) => !titolariF[id]);
-    const gia_subentratiF = sostituzioniF.map((s) => s.in);
     const hasScore = f.golCimiano !== "" && f.golCimiano !== undefined && f.golAvv !== "" && f.golAvv !== undefined;
     const isEditingF = editingFriendly === f.id;
     const votoSquadraListF = friendlyTeamVoto[f.id] || [];
@@ -1742,52 +1693,22 @@ function GironeATracker() {
 
             {titolariIdsF.length > 0 && (
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>3. Sostituzioni</div>
-                {sostituzioniF.length > 0 && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
-                    {sostituzioniF.map((s) => {
-                      const outP = roster.find((r) => r.id === s.out);
-                      const inP = roster.find((r) => r.id === s.in);
-                      return (
-                        <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: `1px solid ${LINE}`, borderRadius: 4, padding: "6px 10px", fontSize: 12 }}>
-                          <span>{s.minuto ? `${s.minuto}' — ` : ""}esce <strong>{outP ? outP.nome : "?"}</strong>, entra <strong style={{ color: SUB_COLOR }}>{inP ? inP.nome : "?"}</strong></span>
-                          <button onClick={() => removeSostituzioneF(f.id, s.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 15 }}>×</button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {panchinaIdsF.filter((id) => !gia_subentratiF.includes(id)).length > 0 && (
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                    <select value={(subDraftF[f.id] && subDraftF[f.id].out) || ""} onChange={(e) => setSubDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], out: e.target.value } }))}
-                      style={{ fontSize: 12, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }}>
-                      <option value="">Esce...</option>
-                      {roster.filter((r) => titolariF[r.id]).map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
-                    </select>
-                    <select value={(subDraftF[f.id] && subDraftF[f.id].in) || ""} onChange={(e) => setSubDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], in: e.target.value } }))}
-                      style={{ fontSize: 12, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }}>
-                      <option value="">Entra...</option>
-                      {roster.filter((r) => panchinaIdsF.includes(r.id) && !gia_subentratiF.includes(r.id)).map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
-                    </select>
-                    <input placeholder="Min'" type="number" min="0" max="120" value={(subDraftF[f.id] && subDraftF[f.id].minuto) || ""} onChange={(e) => setSubDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], minuto: e.target.value } }))}
-                      style={{ width: 50, fontSize: 12, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                    <button onClick={() => { const d = subDraftF[f.id] || {}; addSostituzioneF(f.id, d.out, d.in, d.minuto); setSubDraftF((p) => ({ ...p, [f.id]: { out: "", in: "", minuto: "" } })); }}
-                      style={{ background: RED, color: "#fff", border: "none", padding: "5px 12px", borderRadius: 3, fontWeight: 600, cursor: "pointer", fontSize: 12 }}>+</button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {titolariIdsF.length > 0 && (
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>4. Formazione</div>
+                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>3. Modulo</div>
+                <div style={{ fontSize: 11, color: MUTED, marginBottom: 6, fontWeight: 600 }}>Titolari (inizio partita)</div>
                 {renderPitch(
                   friendlyFormazione[f.id] || {},
                   (slotId, playerId) => setFormazioneF(f.id, slotId, playerId),
                   friendlyModulo[f.id] || DEFAULT_MODULO,
                   (modulo) => setModuloF(f.id, modulo),
-                  titolariIdsF,
-                  sostituzioniF
+                  titolariIdsF
+                )}
+                <div style={{ fontSize: 11, color: MUTED, margin: "16px 0 6px", fontWeight: 600 }}>Cambi / fine partita</div>
+                {renderPitch(
+                  friendlyFormazione2[f.id] || {},
+                  (slotId, playerId) => setFormazioneF2(f.id, slotId, playerId),
+                  friendlyModulo2[f.id] || DEFAULT_MODULO,
+                  (modulo) => setModuloF2(f.id, modulo),
+                  convocatiIdsF
                 )}
               </div>
             )}
