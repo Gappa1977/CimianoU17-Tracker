@@ -199,6 +199,8 @@ const FORMATIONS = {
   },
 };
 const DEFAULT_MODULO = "352";
+const TRACKER_VERSION = "2";
+const TRACKER_VERSION_DATE = "01/09/2026 ore 08.42";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -887,11 +889,11 @@ function GironeATracker() {
 
   function addRating(fixtureId) {
     const d = ratingDraft[fixtureId];
-    if (!d || !d.giocatore || !d.voto) return;
+    if (!voterName || !d || !d.giocatore || !d.voto) return;
     setDetailsShared((prev) => {
       const cur = prev[fixtureId] || {};
       const list = cur.voti || [];
-      return { ...prev, [fixtureId]: { ...cur, voti: [...list, { id: Date.now().toString(), autore: voterName || "Anonimo", giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "" }] } };
+      return { ...prev, [fixtureId]: { ...cur, voti: [...list, { id: Date.now().toString(), autore: voterName, giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "" }] } };
     });
     setRatingDraft((prev) => ({ ...prev, [fixtureId]: { giocatore: "", voto: "", minutaggio: "", nota: "" } }));
   }
@@ -942,10 +944,10 @@ function GironeATracker() {
 
   function addRatingFriendly(friendlyId) {
     const d = ratingDraftF[friendlyId];
-    if (!d || !d.giocatore || !d.voto) return;
+    if (!voterName || !d || !d.giocatore || !d.voto) return;
     setFriendlyVoti((prev) => {
       const list = prev[friendlyId] || [];
-      return { ...prev, [friendlyId]: [...list, { id: Date.now().toString(), autore: voterName || "Anonimo", giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "" }] };
+      return { ...prev, [friendlyId]: [...list, { id: Date.now().toString(), autore: voterName, giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "" }] };
     });
     setRatingDraftF((prev) => ({ ...prev, [friendlyId]: { giocatore: "", voto: "", minutaggio: "", nota: "" } }));
   }
@@ -1124,11 +1126,11 @@ function GironeATracker() {
 
   function addTeamVoto(fixtureId) {
     const d = teamVotoDraft[fixtureId];
-    if (!d || !d.voto) return;
+    if (!voterName || !d || !d.voto) return;
     setDetailsShared((prev) => {
       const cur = prev[fixtureId] || {};
       const list = cur.votoSquadra || [];
-      return { ...prev, [fixtureId]: { ...cur, votoSquadra: [...list, { id: Date.now().toString(), autore: voterName || "Anonimo", voto: d.voto, nota: d.nota || "" }] } };
+      return { ...prev, [fixtureId]: { ...cur, votoSquadra: [...list, { id: Date.now().toString(), autore: voterName, voto: d.voto, nota: d.nota || "" }] } };
     });
     setTeamVotoDraft((prev) => ({ ...prev, [fixtureId]: { voto: "", nota: "" } }));
   }
@@ -1158,10 +1160,10 @@ function GironeATracker() {
 
   function addTeamVotoF(friendlyId) {
     const d = teamVotoDraftF[friendlyId];
-    if (!d || !d.voto) return;
+    if (!voterName || !d || !d.voto) return;
     setFriendlyTeamVoto((prev) => {
       const list = prev[friendlyId] || [];
-      return { ...prev, [friendlyId]: [...list, { id: Date.now().toString(), autore: voterName || "Anonimo", voto: d.voto, nota: d.nota || "" }] };
+      return { ...prev, [friendlyId]: [...list, { id: Date.now().toString(), autore: voterName, voto: d.voto, nota: d.nota || "" }] };
     });
     setTeamVotoDraftF((prev) => ({ ...prev, [friendlyId]: { voto: "", nota: "" } }));
   }
@@ -1284,9 +1286,9 @@ function GironeATracker() {
                   style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
                 <input placeholder="Nota (opz.)" value={tvd.nota || ""} onChange={(e) => setTeamVotoDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], nota: e.target.value } }))}
                   style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                <button onClick={() => addTeamVoto(fx.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>+</button>
+                <button onClick={() => addTeamVoto(fx.id)} disabled={!voterName} style={{ background: voterName ? RED : "#ccc", color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
               </div>
-              {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per far vedere chi ha votato.</div>}
+              {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
             </div>
 
             <div style={{ marginBottom: 14 }}>
@@ -1412,8 +1414,9 @@ function GironeATracker() {
                   style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
                 <input placeholder="Nota (opz.)" value={rd.nota || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], nota: e.target.value } }))}
                   style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                <button onClick={() => addRating(fx.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>+</button>
+                <button onClick={() => addRating(fx.id)} disabled={!voterName} style={{ background: voterName ? RED : "#ccc", color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
               </div>
+              {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
             </div>
 
             {roster.length > 0 && (
@@ -1564,9 +1567,9 @@ function GironeATracker() {
                   style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
                 <input placeholder="Nota (opz.)" value={tvdF.nota || ""} onChange={(e) => setTeamVotoDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], nota: e.target.value } }))}
                   style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                <button onClick={() => addTeamVotoF(f.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>+</button>
+                <button onClick={() => addTeamVotoF(f.id)} disabled={!voterName} style={{ background: voterName ? RED : "#ccc", color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
               </div>
-              {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per far vedere chi ha votato.</div>}
+              {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
             </div>
 
             <div style={{ marginBottom: 14 }}>
@@ -1691,8 +1694,9 @@ function GironeATracker() {
                 style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
               <input placeholder="Nota (opz.)" value={rd.nota || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], nota: e.target.value } }))}
                 style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-              <button onClick={() => addRatingFriendly(f.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>+</button>
+              <button onClick={() => addRatingFriendly(f.id)} disabled={!voterName} style={{ background: voterName ? RED : "#ccc", color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
             </div>
+            {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
 
             {roster.length > 0 && (
               <div style={{ marginTop: 14 }}>
@@ -1761,8 +1765,8 @@ function GironeATracker() {
               </span>
             )}
           </div>
-          <div className="body-font" style={{ fontSize: 13, color: "#c7d4cb", marginTop: 4 }}>
-            {playedCount} / {ROUNDS.reduce((s, r) => s + r.matches.length, 0)} partite di campionato registrate
+          <div className="body-font" style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 4 }}>
+            Vers. {TRACKER_VERSION} del {TRACKER_VERSION_DATE}
           </div>
           {formaRecente.length > 0 && (
             <div className="body-font" style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
