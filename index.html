@@ -142,6 +142,7 @@ const PLAYER_BOX_BG = "#fdf6d8";
 const PLAYER_BOX_BORDER = "#eadfa0";
 const AUTHOR_BADGE_BG = "#e8e6df";
 const AUTHOR_BADGE_TEXT = "#5a5648";
+const SUB_COLOR = "#2b6cb0";
 const STATUS_COLORS = {
   played: { bg: "#e3f5e6", border: "#a9d8b1" },
   next: { bg: "#fff6c4", border: "#e6d27a" },
@@ -199,8 +200,8 @@ const FORMATIONS = {
   },
 };
 const DEFAULT_MODULO = "352";
-const TRACKER_VERSION = "2";
-const TRACKER_VERSION_DATE = "01/09/2026 ore 08.42";
+const TRACKER_VERSION = "3";
+const TRACKER_VERSION_DATE = "01/09/2026 ore 09.08";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -322,7 +323,7 @@ function GironeATracker() {
   const [friendlyPresenze, setFriendlyPresenze] = useState({}); // { friendlyId: {playerId: stato} } — CONDIVISO
   const [friendlyFormazione, setFriendlyFormazione] = useState({}); // { friendlyId: {slotId: playerId} } — CONDIVISO
   const [friendlyModulo, setFriendlyModuloState] = useState({}); // { friendlyId: "352"|"442"|... } — CONDIVISO
-  const [roster, setRoster] = useState([]); // [{id, nome, numero}] — CONDIVISO
+  const [roster, setRoster] = useState([]); // [{id, nome}] — CONDIVISO
   const [loaded, setLoaded] = useState(false);
   const [roundIdx, setRoundIdx] = useState(() => {
     const today = "2026-08-31";
@@ -350,7 +351,7 @@ function GironeATracker() {
   const [editingTeamVotoF, setEditingTeamVotoF] = useState(null); // friendlyId
   const [scorerDraftF, setScorerDraftF] = useState({});
   const [editingScorerF, setEditingScorerF] = useState(null); // `${friendlyId}:${scorerId}`
-  const [rosterDraft, setRosterDraft] = useState({ nome: "", numero: "" });
+  const [rosterDraft, setRosterDraft] = useState({ nome: "" });
   const [playerVoteFilter, setPlayerVoteFilter] = useState({});
   const [teamVoteFilter, setTeamVoteFilter] = useState({});
   const [editingRosterId, setEditingRosterId] = useState(null);
@@ -542,9 +543,9 @@ function GironeATracker() {
       } catch (e) {}
       if (!rosterData) {
         rosterData = [
-          { id: "p1", nome: "Nicolò Lodi", numero: "" },
-          { id: "p2", nome: "Favour Maira", numero: "" },
-          { id: "p3", nome: "Lorenzo Crocetti", numero: "" },
+          { id: "p1", nome: "Nicolò Lodi" },
+          { id: "p2", nome: "Favour Maira" },
+          { id: "p3", nome: "Lorenzo Crocetti" },
         ];
         await window.storage.set("girone-a-roster", JSON.stringify(rosterData), true).catch(() => {});
       }
@@ -1023,11 +1024,21 @@ function GironeATracker() {
   }
 
   // --- FORMAZIONE (modulo 3-5-2) ---
-  function setFormazione(fixtureId, slotId, playerId) {
+  function getSlotData(formazione, slotId) {
+    const v = formazione[slotId];
+    if (!v) return { titolare: null, subentrato: null };
+    if (typeof v === "string") return { titolare: v, subentrato: null }; // formato precedente (un solo giocatore)
+    return { titolare: v.titolare || null, subentrato: v.subentrato || null };
+  }
+
+  function setFormazione(fixtureId, slotId, role, playerId) {
     setDetailsShared((prev) => {
       const cur = prev[fixtureId] || {};
       const formazione = { ...(cur.formazione || {}) };
-      if (playerId) formazione[slotId] = playerId; else delete formazione[slotId];
+      const existing = getSlotData(formazione, slotId);
+      const updated = { ...existing, [role]: playerId || null };
+      if (!updated.titolare && !updated.subentrato) delete formazione[slotId];
+      else formazione[slotId] = updated;
       return { ...prev, [fixtureId]: { ...cur, formazione } };
     });
   }
@@ -1036,10 +1047,13 @@ function GironeATracker() {
     setDetailsShared((prev) => ({ ...prev, [fixtureId]: { ...(prev[fixtureId] || {}), modulo } }));
   }
 
-  function setFormazioneF(friendlyId, slotId, playerId) {
+  function setFormazioneF(friendlyId, slotId, role, playerId) {
     setFriendlyFormazione((prev) => {
       const cur = { ...(prev[friendlyId] || {}) };
-      if (playerId) cur[slotId] = playerId; else delete cur[slotId];
+      const existing = getSlotData(cur, slotId);
+      const updated = { ...existing, [role]: playerId || null };
+      if (!updated.titolare && !updated.subentrato) delete cur[slotId];
+      else cur[slotId] = updated;
       return { ...prev, [friendlyId]: cur };
     });
   }
@@ -1061,6 +1075,14 @@ function GironeATracker() {
             </button>
           ))}
         </div>
+        <div style={{ display: "flex", gap: 14, marginBottom: 8, fontSize: 11, color: MUTED }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: RED, display: "inline-block" }} /> Titolare
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: SUB_COLOR, display: "inline-block" }} /> Subentrato
+          </span>
+        </div>
         <div style={{
           position: "relative", width: "100%", maxWidth: 320, aspectRatio: "2 / 3", margin: "0 auto",
           background: "linear-gradient(180deg, #3f9142 0%, #368239 100%)", borderRadius: 8, border: `2px solid #2c6b2f`, overflow: "hidden",
@@ -1071,24 +1093,45 @@ function GironeATracker() {
           <div style={{ position: "absolute", left: "25%", right: "25%", bottom: 0, height: "14%", border: "1px solid rgba(255,255,255,0.5)", borderTop: "none" }} />
           <div style={{ position: "absolute", left: "25%", right: "25%", top: 0, height: "14%", border: "1px solid rgba(255,255,255,0.5)", borderBottom: "none" }} />
           {slots.map((slot) => {
-            const playerId = formazione[slot.id];
-            const player = roster.find((r) => r.id === playerId);
+            const slotData = getSlotData(formazione, slot.id);
+            const titolarePlayer = roster.find((r) => r.id === slotData.titolare);
+            const subPlayer = roster.find((r) => r.id === slotData.subentrato);
             return (
               <div key={slot.id} style={{ position: "absolute", left: `${slot.x}%`, top: `${slot.y}%`, transform: "translate(-50%,-50%)", textAlign: "center" }}>
-                <select value={playerId || ""} onChange={(e) => onChangeSlot(slot.id, e.target.value)}
-                  style={{
-                    width: 40, height: 40, borderRadius: "50%", border: `2px solid ${player ? "#fff" : "rgba(255,255,255,0.6)"}`,
-                    background: player ? RED : "rgba(255,255,255,0.15)", color: "#fff", fontSize: 10, fontWeight: 700,
-                    textAlign: "center", textAlignLast: "center", cursor: "pointer", appearance: "none", padding: 0,
-                  }}>
-                  <option value="" style={{ color: INK }}>{slot.label}</option>
-                  {roster.map((rp) => (
-                    <option key={rp.id} value={rp.id} style={{ color: INK }}>{rp.numero ? `${rp.numero} ` : ""}{rp.nome}</option>
-                  ))}
-                </select>
-                {player && (
-                  <div style={{ fontSize: 9, color: "#fff", marginTop: 2, maxWidth: 50, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {player.nome.split(" ")[0]}
+                <div style={{ position: "relative", width: 40, height: 40, margin: "0 auto" }}>
+                  <select value={slotData.titolare || ""} onChange={(e) => onChangeSlot(slot.id, "titolare", e.target.value)}
+                    style={{
+                      position: "absolute", inset: 0, width: 40, height: 40, borderRadius: "50%",
+                      border: `2px solid ${titolarePlayer ? "#fff" : "rgba(255,255,255,0.6)"}`,
+                      background: titolarePlayer ? RED : "rgba(255,255,255,0.15)", color: "#fff", fontSize: 10, fontWeight: 700,
+                      textAlign: "center", textAlignLast: "center", cursor: "pointer", appearance: "none", padding: 0,
+                    }}>
+                    <option value="" style={{ color: INK }}>{slot.label}</option>
+                    {roster.map((rp) => (
+                      <option key={rp.id} value={rp.id} style={{ color: INK }}>{rp.nome}</option>
+                    ))}
+                  </select>
+                  <select value={slotData.subentrato || ""} onChange={(e) => onChangeSlot(slot.id, "subentrato", e.target.value)}
+                    style={{
+                      position: "absolute", bottom: -6, right: -6, width: 22, height: 22, borderRadius: "50%", zIndex: 2,
+                      border: "2px solid #fff",
+                      background: subPlayer ? SUB_COLOR : "rgba(255,255,255,0.25)", color: "#fff", fontSize: 8, fontWeight: 700,
+                      textAlign: "center", textAlignLast: "center", cursor: "pointer", appearance: "none", padding: 0,
+                    }}>
+                    <option value="" style={{ color: INK }}>+</option>
+                    {roster.map((rp) => (
+                      <option key={rp.id} value={rp.id} style={{ color: INK }}>{rp.nome}</option>
+                    ))}
+                  </select>
+                </div>
+                {titolarePlayer && (
+                  <div style={{ fontSize: 9, color: "#fff", marginTop: 2, maxWidth: 62, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {titolarePlayer.nome.split(" ")[0]}
+                  </div>
+                )}
+                {subPlayer && (
+                  <div style={{ fontSize: 8, color: "#cfe3d3", marginTop: 1, maxWidth: 62, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    ⇄ {subPlayer.nome.split(" ")[0]}
                   </div>
                 )}
               </div>
@@ -1102,8 +1145,8 @@ function GironeATracker() {
   // --- ROSA SQUADRA ---
   function addRosterPlayer() {
     if (!rosterDraft.nome) return;
-    setRoster((prev) => [...prev, { id: Date.now().toString(), nome: rosterDraft.nome, numero: rosterDraft.numero || "" }]);
-    setRosterDraft({ nome: "", numero: "" });
+    setRoster((prev) => [...prev, { id: Date.now().toString(), nome: rosterDraft.nome }]);
+    setRosterDraft({ nome: "" });
   }
 
   function removeRosterPlayer(id) {
@@ -1112,14 +1155,14 @@ function GironeATracker() {
 
   function startEditRoster(p) {
     setEditingRosterId(p.id);
-    setRosterDraft({ nome: p.nome, numero: p.numero || "" });
+    setRosterDraft({ nome: p.nome });
   }
 
   function saveEditRoster(id) {
     if (!rosterDraft.nome) return;
-    setRoster((prev) => prev.map((p) => (p.id === id ? { ...p, nome: rosterDraft.nome, numero: rosterDraft.numero || "" } : p)));
+    setRoster((prev) => prev.map((p) => (p.id === id ? { ...p, nome: rosterDraft.nome } : p)));
     setEditingRosterId(null);
-    setRosterDraft({ nome: "", numero: "" });
+    setRosterDraft({ nome: "" });
   }
 
 
@@ -1323,7 +1366,7 @@ function GironeATracker() {
                 {roster.map((rp) => (
                   <button key={rp.id} onClick={() => setScorerDraft((prev) => ({ ...prev, [fx.id]: { ...prev[fx.id], giocatore: rp.nome } }))}
                     style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: sd.giocatore === rp.nome ? RED : "#fff", color: sd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
-                    {rp.numero ? `${rp.numero} · ` : ""}{rp.nome}
+                    {rp.nome}
                   </button>
                 ))}
               </div>
@@ -1401,7 +1444,7 @@ function GironeATracker() {
                 {roster.map((rp) => (
                   <button key={rp.id} onClick={() => setRatingDraft((prev) => ({ ...prev, [fx.id]: { ...prev[fx.id], giocatore: rp.nome } }))}
                     style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: rd.giocatore === rp.nome ? RED : "#fff", color: rd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
-                    {rp.numero ? `${rp.numero} · ` : ""}{rp.nome}
+                    {rp.nome}
                   </button>
                 ))}
               </div>
@@ -1428,7 +1471,7 @@ function GironeATracker() {
                     const stato = presenze[rp.id];
                     return (
                       <div key={rp.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                        <span>{rp.numero ? `${rp.numero} · ` : ""}{rp.nome}</span>
+                        <span>{rp.nome}</span>
                         <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                           {PLAYER_STATUSES.map((s) => (
                             <button key={s} onClick={() => setPresenza(fx.id, rp.id, s)}
@@ -1449,7 +1492,7 @@ function GironeATracker() {
                 <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Formazione</div>
                 {renderPitch(
                   (detailsShared[fx.id] && detailsShared[fx.id].formazione) || {},
-                  (slotId, playerId) => setFormazione(fx.id, slotId, playerId),
+                  (slotId, role, playerId) => setFormazione(fx.id, slotId, role, playerId),
                   (detailsShared[fx.id] && detailsShared[fx.id].modulo) || DEFAULT_MODULO,
                   (modulo) => setModulo(fx.id, modulo)
                 )}
@@ -1604,7 +1647,7 @@ function GironeATracker() {
                 {roster.map((rp) => (
                   <button key={rp.id} onClick={() => setScorerDraftF((prev) => ({ ...prev, [f.id]: { ...prev[f.id], giocatore: rp.nome } }))}
                     style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: sdF.giocatore === rp.nome ? RED : "#fff", color: sdF.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
-                    {rp.numero ? `${rp.numero} · ` : ""}{rp.nome}
+                    {rp.nome}
                   </button>
                 ))}
               </div>
@@ -1681,7 +1724,7 @@ function GironeATracker() {
               {roster.map((rp) => (
                 <button key={rp.id} onClick={() => setRatingDraftF((prev) => ({ ...prev, [f.id]: { ...prev[f.id], giocatore: rp.nome } }))}
                   style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: rd.giocatore === rp.nome ? RED : "#fff", color: rd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
-                  {rp.numero ? `${rp.numero} · ` : ""}{rp.nome}
+                  {rp.nome}
                 </button>
               ))}
             </div>
@@ -1706,7 +1749,7 @@ function GironeATracker() {
                     const stato = presenzeF[rp.id];
                     return (
                       <div key={rp.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                        <span>{rp.numero ? `${rp.numero} · ` : ""}{rp.nome}</span>
+                        <span>{rp.nome}</span>
                         <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                           {PLAYER_STATUSES.map((s) => (
                             <button key={s} onClick={() => setPresenzaF(f.id, rp.id, s)}
@@ -1727,7 +1770,7 @@ function GironeATracker() {
                 <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Formazione</div>
                 {renderPitch(
                   friendlyFormazione[f.id] || {},
-                  (slotId, playerId) => setFormazioneF(f.id, slotId, playerId),
+                  (slotId, role, playerId) => setFormazioneF(f.id, slotId, role, playerId),
                   friendlyModulo[f.id] || DEFAULT_MODULO,
                   (modulo) => setModuloF(f.id, modulo)
                 )}
@@ -2126,12 +2169,10 @@ function GironeATracker() {
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, background: "#fff", padding: 12, borderRadius: 4, border: `1px solid ${LINE}` }}>
               <input placeholder="Nome giocatore" value={rosterDraft.nome} onChange={(e) => setRosterDraft((p) => ({ ...p, nome: e.target.value }))}
                 style={{ flex: 1, minWidth: 140, padding: 6, border: `1px solid ${LINE}` }} />
-              <input placeholder="Numero" value={rosterDraft.numero} onChange={(e) => setRosterDraft((p) => ({ ...p, numero: e.target.value }))}
-                style={{ width: 80, padding: 6, border: `1px solid ${LINE}` }} />
               {editingRosterId ? (
                 <>
                   <button onClick={() => saveEditRoster(editingRosterId)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
-                  <button onClick={() => { setEditingRosterId(null); setRosterDraft({ nome: "", numero: "" }); }} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
+                  <button onClick={() => { setEditingRosterId(null); setRosterDraft({ nome: "" }); }} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
                 </>
               ) : (
                 <button onClick={addRosterPlayer} style={{ background: RED, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Aggiungi</button>
@@ -2146,7 +2187,7 @@ function GironeATracker() {
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {roster.map((rp) => (
                   <div key={rp.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", padding: "8px 12px", border: `1px solid ${LINE}`, borderRadius: 4, fontSize: 13 }}>
-                    <span>{rp.numero && <strong style={{ marginRight: 8 }}>{rp.numero}</strong>}{rp.nome}</span>
+                    <span>{rp.nome}</span>
                     <span style={{ display: "flex", gap: 10 }}>
                       <button onClick={() => startEditRoster(rp)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
                       <button onClick={() => removeRosterPlayer(rp.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 16 }}>×</button>
