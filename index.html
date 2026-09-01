@@ -253,8 +253,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "1.1";
-const TRACKER_VERSION_DATE = "01/09/2026@17.20";
+const TRACKER_VERSION = "1.2";
+const TRACKER_VERSION_DATE = "01/09/2026@19.10";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -379,6 +379,17 @@ function GironeATracker() {
   // scattino 13 salvataggi simultanei (uno per ogni pezzo di dato) per dati appena letti e non modificati,
   // che possono sovraccaricare lo script Google e far comparire falsi "salvataggio non riuscito".
   const suppressSaveRef = useRef(true);
+  // Un timer di debounce per ciascuna chiave salvata (punto 9): una raffica di modifiche ravvicinate
+  // (click multipli, digitazione) produce UN SOLO salvataggio con lo stato finale invece di N salvataggi
+  // in corsa tra loro, che altrimenti possono sovraccaricare lo script Google e causare falsi errori.
+  const saveTimersRef = useRef({});
+  function debouncedSave(key, name, value) {
+    if (suppressSaveRef.current) return;
+    clearTimeout(saveTimersRef.current[name]);
+    saveTimersRef.current[name] = setTimeout(() => {
+      window.storage.set(key, JSON.stringify(value), true).catch(() => {});
+    }, 500);
+  }
   const [friendlies, setFriendlies] = useState([]); // CONDIVISO (senza voti)
   const [friendlyVoti, setFriendlyVoti] = useState({}); // { friendlyId: [voti] } — CONDIVISO, ogni voto etichettato con l'autore
   const [friendlyMarcatori, setFriendlyMarcatori] = useState({}); // { friendlyId: [marcatori] } — CONDIVISO
@@ -387,6 +398,7 @@ function GironeATracker() {
   const [friendlyModulo, setFriendlyModuloState] = useState({}); // { friendlyId: "352"|"442"|... } — CONDIVISO
   const [friendlyFormazione2, setFriendlyFormazione2] = useState({}); // { friendlyId: {slotId: playerId} } — CONDIVISO (mappa "cambi/fine partita")
   const [friendlyModulo2, setFriendlyModulo2State] = useState({}); // { friendlyId: "352"|"442"|... } — CONDIVISO
+  const [friendlyFormazione2Touched, setFriendlyFormazione2Touched] = useState({}); // { friendlyId: true } — CONDIVISO: segna quando la mappa 2 si è "sganciata" dalla mappa 1
   const [roster, setRoster] = useState([]); // [{id, nome}] — CONDIVISO
   const [loaded, setLoaded] = useState(false);
   const [roundIdx, setRoundIdx] = useState(() => {
@@ -459,7 +471,7 @@ function GironeATracker() {
       let resultsData, detailsSharedData, oldPrivateData, friendliesData0,
         friendlyVotiData0, teamVotoData0, friendlyMarcatoriData0, friendlyConvocatiData,
         friendlyFormazioneData0, friendlyModuloData0, friendlyFormazione2Data,
-        friendlyModulo2Data, rosterData0, voterOptionsExtraData;
+        friendlyModulo2Data, rosterData0, voterOptionsExtraData, friendlyFormazione2TouchedData;
 
       if (bulkRaw) {
         // --- Percorso veloce: un'unica richiesta di rete già completata, il resto è solo lettura in memoria ---
@@ -482,13 +494,14 @@ function GironeATracker() {
         friendlyModulo2Data = get("girone-a-friendly-modulo2");
         rosterData0 = get("girone-a-roster");
         voterOptionsExtraData = get("girone-a-voter-options");
+        friendlyFormazione2TouchedData = get("girone-a-friendly-formazione2-touched");
       } else {
         // --- Fallback: bulk non disponibile, si torna alle letture individuali in parallelo ---
         [
           resultsData, detailsSharedData, oldPrivateData, friendliesData0,
           friendlyVotiData0, teamVotoData0, friendlyMarcatoriData0, friendlyConvocatiData,
           friendlyFormazioneData0, friendlyModuloData0, friendlyFormazione2Data,
-          friendlyModulo2Data, rosterData0, voterOptionsExtraData,
+          friendlyModulo2Data, rosterData0, voterOptionsExtraData, friendlyFormazione2TouchedData,
         ] = await Promise.all([
           safeGet("girone-a-results", true),
           safeGet("girone-a-details-shared", true),
@@ -504,6 +517,7 @@ function GironeATracker() {
           safeGet("girone-a-friendly-modulo2", true),
           safeGet("girone-a-roster", true),
           safeGet("girone-a-voter-options", true),
+          safeGet("girone-a-friendly-formazione2-touched", true),
         ]);
       }
 
@@ -567,6 +581,7 @@ function GironeATracker() {
       if (friendlyModuloData0) setFriendlyModuloState(friendlyModuloData0);
       if (friendlyFormazione2Data) setFriendlyFormazione2(friendlyFormazione2Data);
       if (friendlyModulo2Data) setFriendlyModulo2State(friendlyModulo2Data);
+      if (friendlyFormazione2TouchedData) setFriendlyFormazione2Touched(friendlyFormazione2TouchedData);
 
       // --- ROSA SQUADRA ---
       let rosterFinal = rosterData0;
@@ -587,27 +602,27 @@ function GironeATracker() {
   }, []);
 
   useEffect(() => {
-    if (!suppressSaveRef.current) window.storage.set("girone-a-results", JSON.stringify(results), true).catch(() => {});
+    debouncedSave("girone-a-results", "results", results);
   }, [results, loaded]);
 
   useEffect(() => {
-    if (!suppressSaveRef.current) window.storage.set("girone-a-voter-options", JSON.stringify(voterOptionsExtra), true).catch(() => {});
+    debouncedSave("girone-a-voter-options", "voterOptionsExtra", voterOptionsExtra);
   }, [voterOptionsExtra, loaded]);
 
   useEffect(() => {
-    if (!suppressSaveRef.current) window.storage.set("girone-a-details-shared", JSON.stringify(detailsShared), true).catch(() => {});
+    debouncedSave("girone-a-details-shared", "detailsShared", detailsShared);
   }, [detailsShared, loaded]);
 
   useEffect(() => {
-    if (!suppressSaveRef.current) window.storage.set("girone-a-friendlies", JSON.stringify(friendlies), true).catch(() => {});
+    debouncedSave("girone-a-friendlies", "friendlies", friendlies);
   }, [friendlies, loaded]);
 
   useEffect(() => {
-    if (!suppressSaveRef.current) window.storage.set("girone-a-friendly-voti", JSON.stringify(friendlyVoti), true).catch(() => {});
+    debouncedSave("girone-a-friendly-voti", "friendlyVoti", friendlyVoti);
   }, [friendlyVoti, loaded]);
 
   useEffect(() => {
-    if (!suppressSaveRef.current) window.storage.set("girone-a-friendly-team-voto", JSON.stringify(friendlyTeamVoto), true).catch(() => {});
+    debouncedSave("girone-a-friendly-team-voto", "friendlyTeamVoto", friendlyTeamVoto);
   }, [friendlyTeamVoto, loaded]);
 
   useEffect(() => {
@@ -619,34 +634,38 @@ function GironeATracker() {
   }, [voterName]);
 
   useEffect(() => {
-    if (!suppressSaveRef.current) window.storage.set("girone-a-friendly-marcatori", JSON.stringify(friendlyMarcatori), true).catch(() => {});
+    debouncedSave("girone-a-friendly-marcatori", "friendlyMarcatori", friendlyMarcatori);
   }, [friendlyMarcatori, loaded]);
 
   useEffect(() => {
-    if (!suppressSaveRef.current) window.storage.set("girone-a-friendly-convocati", JSON.stringify(friendlyConvocati), true).catch(() => {});
+    debouncedSave("girone-a-friendly-convocati", "friendlyConvocati", friendlyConvocati);
   }, [friendlyConvocati, loaded]);
 
   useEffect(() => {
-    if (!suppressSaveRef.current) window.storage.set("girone-a-friendly-formazione", JSON.stringify(friendlyFormazione), true).catch(() => {});
+    debouncedSave("girone-a-friendly-formazione", "friendlyFormazione", friendlyFormazione);
   }, [friendlyFormazione, loaded]);
 
   useEffect(() => {
-    if (!suppressSaveRef.current) window.storage.set("girone-a-friendly-modulo", JSON.stringify(friendlyModulo), true).catch(() => {});
+    debouncedSave("girone-a-friendly-modulo", "friendlyModulo", friendlyModulo);
   }, [friendlyModulo, loaded]);
 
   useEffect(() => {
-    if (!suppressSaveRef.current) window.storage.set("girone-a-friendly-formazione2", JSON.stringify(friendlyFormazione2), true).catch(() => {});
+    debouncedSave("girone-a-friendly-formazione2", "friendlyFormazione2", friendlyFormazione2);
   }, [friendlyFormazione2, loaded]);
 
   useEffect(() => {
-    if (!suppressSaveRef.current) window.storage.set("girone-a-friendly-modulo2", JSON.stringify(friendlyModulo2), true).catch(() => {});
+    debouncedSave("girone-a-friendly-modulo2", "friendlyModulo2", friendlyModulo2);
   }, [friendlyModulo2, loaded]);
 
   useEffect(() => {
-    if (!suppressSaveRef.current) window.storage.set("girone-a-roster", JSON.stringify(roster), true).catch(() => {});
+    debouncedSave("girone-a-friendly-formazione2-touched", "friendlyFormazione2Touched", friendlyFormazione2Touched);
+  }, [friendlyFormazione2Touched, loaded]);
+
+  useEffect(() => {
+    debouncedSave("girone-a-roster", "roster", roster);
   }, [roster, loaded]);
 
-  // Effetto "sblocco": deve stare DOPO tutti i 13 useEffect di salvataggio qui sopra (l'ordine con cui sono
+  // Effetto "sblocco": deve stare DOPO tutti i useEffect di salvataggio qui sopra (l'ordine con cui sono
   // dichiarati negli hook è anche l'ordine con cui React li esegue). Al primo giro in cui "loaded" diventa
   // vero, tutti i salvataggi qui sopra vedono ancora suppressSaveRef.current = true e quindi non scrivono
   // nulla; solo a questo punto lo sblocchiamo, così le vere modifiche successive dell'utente vengono salvate.
@@ -1055,7 +1074,18 @@ function GironeATracker() {
   }
 
   function removeFriendly(id) {
+    const ok = window.confirm("Eliminare questa amichevole e tutti i dati collegati (voti, marcatori, formazione, convocati)? L'operazione non è reversibile.");
+    if (!ok) return;
     setFriendlies((prev) => prev.filter((f) => f.id !== id));
+    setFriendlyVoti((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setFriendlyTeamVoto((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setFriendlyMarcatori((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setFriendlyConvocati((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setFriendlyFormazione((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setFriendlyFormazione2((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setFriendlyModuloState((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setFriendlyModulo2State((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setFriendlyFormazione2Touched((prev) => { const next = { ...prev }; delete next[id]; return next; });
   }
 
   function startEditFriendly(f) {
@@ -1194,17 +1224,37 @@ function GironeATracker() {
   }
 
   // --- FORMAZIONE (modulo 3-5-2) ---
+  // --- FORMAZIONE (modulo 3-5-2) ---
+  // Punto 8: finché l'utente non tocca DIRETTAMENTE la mappa 2 (un pallino o il suo modulo), questa resta
+  // agganciata alla mappa 1 e viene copiata per davvero (non solo mostrata a video) ad ogni modifica di
+  // formazione1/modulo1. Il flag "formazione2Touched" segna il momento dello sgancio: da lì in poi la
+  // mappa 2 passa sotto controllo manuale e formazione1 smette di sovrascriverla.
   function setFormazione(fixtureId, slotId, playerId) {
     setDetailsShared((prev) => {
       const cur = prev[fixtureId] || {};
       const formazione = { ...(cur.formazione || {}) };
       if (playerId) formazione[slotId] = playerId; else delete formazione[slotId];
-      return { ...prev, [fixtureId]: { ...cur, formazione } };
+      const next = { ...cur, formazione };
+      if (!cur.formazione2Touched) {
+        const formazione2 = { ...(cur.formazione2 || {}) };
+        if (playerId) formazione2[slotId] = playerId; else delete formazione2[slotId];
+        next.formazione2 = formazione2;
+        next.modulo2 = cur.modulo || DEFAULT_MODULO;
+      }
+      return { ...prev, [fixtureId]: next };
     });
   }
 
   function setModulo(fixtureId, modulo) {
-    setDetailsShared((prev) => ({ ...prev, [fixtureId]: { ...(prev[fixtureId] || {}), modulo } }));
+    setDetailsShared((prev) => {
+      const cur = prev[fixtureId] || {};
+      const next = { ...cur, modulo };
+      if (!cur.formazione2Touched) {
+        next.modulo2 = modulo;
+        next.formazione2 = { ...(cur.formazione || {}) }; // stesso modulo => corrispondenza diretta 1:1
+      }
+      return { ...prev, [fixtureId]: next };
+    });
   }
 
   function setFormazione2(fixtureId, slotId, playerId) {
@@ -1212,18 +1262,18 @@ function GironeATracker() {
       const cur = prev[fixtureId] || {};
       const formazione2 = { ...(cur.formazione2 || {}) };
       if (playerId) formazione2[slotId] = playerId; else delete formazione2[slotId];
-      return { ...prev, [fixtureId]: { ...cur, formazione2 } };
+      return { ...prev, [fixtureId]: { ...cur, formazione2, formazione2Touched: true } };
     });
   }
 
   function setModulo2(fixtureId, modulo) {
     setDetailsShared((prev) => {
       const cur = prev[fixtureId] || {};
-      const formazione2 = cur.formazione2 || {};
-      const next = { ...cur, modulo2: modulo };
-      // Se la mappa CAMBI/FINE non ha ancora assegnazioni proprie, la si ripopola per davvero
-      // (non solo a video) con l'undici di INIZIO, negli slot compatibili col nuovo modulo.
-      if (Object.keys(formazione2).length === 0) {
+      const wasTouched = !!cur.formazione2Touched;
+      const next = { ...cur, modulo2: modulo, formazione2Touched: true };
+      if (!wasTouched) {
+        // Primo sgancio: prova a ripopolare per davvero con l'undici di INIZIO negli slot compatibili
+        // col nuovo modulo, poi da qui in poi la mappa 2 resta sotto controllo manuale dell'utente.
         const copied = copyMatchingSlots(cur.formazione, modulo);
         if (Object.keys(copied).length > 0) next.formazione2 = copied;
       }
@@ -1237,10 +1287,22 @@ function GironeATracker() {
       if (playerId) cur[slotId] = playerId; else delete cur[slotId];
       return { ...prev, [friendlyId]: cur };
     });
+    if (!friendlyFormazione2Touched[friendlyId]) {
+      setFriendlyFormazione2((prev) => {
+        const cur2 = { ...(prev[friendlyId] || {}) };
+        if (playerId) cur2[slotId] = playerId; else delete cur2[slotId];
+        return { ...prev, [friendlyId]: cur2 };
+      });
+      setFriendlyModulo2State((prev) => ({ ...prev, [friendlyId]: friendlyModulo[friendlyId] || DEFAULT_MODULO }));
+    }
   }
 
   function setModuloF(friendlyId, modulo) {
     setFriendlyModuloState((prev) => ({ ...prev, [friendlyId]: modulo }));
+    if (!friendlyFormazione2Touched[friendlyId]) {
+      setFriendlyModulo2State((prev) => ({ ...prev, [friendlyId]: modulo }));
+      setFriendlyFormazione2((prev) => ({ ...prev, [friendlyId]: { ...(friendlyFormazione[friendlyId] || {}) } }));
+    }
   }
 
   function setFormazioneF2(friendlyId, slotId, playerId) {
@@ -1249,38 +1311,36 @@ function GironeATracker() {
       if (playerId) cur[slotId] = playerId; else delete cur[slotId];
       return { ...prev, [friendlyId]: cur };
     });
+    setFriendlyFormazione2Touched((prev) => ({ ...prev, [friendlyId]: true }));
   }
 
   function setModuloF2(friendlyId, modulo) {
+    const wasTouched = !!friendlyFormazione2Touched[friendlyId];
     setFriendlyModulo2State((prev) => ({ ...prev, [friendlyId]: modulo }));
-    setFriendlyFormazione2((prev) => {
-      const formazione2 = prev[friendlyId] || {};
-      if (Object.keys(formazione2).length > 0) return prev;
+    setFriendlyFormazione2Touched((prev) => ({ ...prev, [friendlyId]: true }));
+    if (!wasTouched) {
       const formazione1 = friendlyFormazione[friendlyId] || {};
       const copied = copyMatchingSlots(formazione1, modulo);
-      if (Object.keys(copied).length === 0) return prev;
-      return { ...prev, [friendlyId]: copied };
-    });
+      setFriendlyFormazione2((prev) => ({ ...prev, [friendlyId]: copied }));
+    }
   }
+
 
   function renderPitch(formazione, onChangeSlot, modulo, onChangeModulo, playerPool, opts) {
     opts = opts || {};
     const compact = !!opts.compact;
-    const mirrorFrom = opts.mirrorFrom || null;
-    const mirrorActive = !!opts.mirrorActive;
     const moduloKey = modulo || DEFAULT_MODULO;
     const slots = FORMATIONS[moduloKey].slots;
     const poolRoster = roster.filter((r) => playerPool.includes(r.id));
     const circleSize = compact ? 34 : 44;
     const labelFont = compact ? 8 : 9;
     const pitchMaxWidth = compact ? "100%" : 320;
-    // Valore effettivo (esplicito oppure ereditato dallo specchio) di ogni slot, usato per: colore titolare/subentrato
-    // e per evitare che lo stesso giocatore compaia in più di uno slot di questa stessa mappa.
+    // Valore di ogni slot (sempre dato reale: la mappa 2 ora è una copia scritta per davvero di formazione1,
+    // finché l'utente non la tocca — vedi setFormazione/setModulo/setFormazione2/setModulo2), usato per:
+    // colore titolare/subentrato ed evitare che lo stesso giocatore compaia in più di uno slot di questa mappa.
     const effectiveBySlot = {};
     slots.forEach((slot) => {
-      const explicit = typeof formazione[slot.id] === "string" ? formazione[slot.id] : "";
-      const mirrored = mirrorActive && mirrorFrom ? (typeof mirrorFrom[slot.id] === "string" ? mirrorFrom[slot.id] : "") : "";
-      effectiveBySlot[slot.id] = explicit || mirrored;
+      effectiveBySlot[slot.id] = typeof formazione[slot.id] === "string" ? formazione[slot.id] : "";
     });
     const startersIds = opts.startersIds || null;
     return (
@@ -1303,7 +1363,7 @@ function GironeATracker() {
             ))}
           </select>
         )}
-        {poolRoster.length === 0 && !mirrorActive && (
+        {poolRoster.length === 0 && (
           <div style={{ fontSize: 11, color: MUTED, marginBottom: 8 }}>Nessun giocatore disponibile da piazzare qui al momento.</div>
         )}
         <div style={{
@@ -1352,10 +1412,9 @@ function GironeATracker() {
     );
   }
 
-  function renderDualPitch(formazione1, onChangeSlot1, modulo1, onChangeModulo1, poolIniziale, formazione2, onChangeSlot2, modulo2, onChangeModulo2, convocatiIds) {
+  function renderDualPitch(formazione1, onChangeSlot1, modulo1, onChangeModulo1, poolIniziale, formazione2, onChangeSlot2, modulo2, onChangeModulo2, convocatiIds, touched) {
     const modulo1Key = modulo1 || DEFAULT_MODULO;
     const modulo2Key = modulo2 || DEFAULT_MODULO;
-    const mirrorActive = modulo1Key === modulo2Key;
     // Titolari = tutti i playerId presenti in QUALSIASI slot di formazione1, indipendentemente da slot/modulo:
     // così il colore titolare/subentrato sulla mappa 2 è corretto anche quando i due moduli differiscono.
     const startersIds = new Set(Object.values(formazione1 || {}).filter((v) => typeof v === "string" && v));
@@ -1369,11 +1428,11 @@ function GironeATracker() {
             <span style={{ width: 10, height: 10, borderRadius: "50%", background: SUB_COLOR, display: "inline-block" }} /> Subentrato
           </span>
         </div>
-        {!mirrorActive && (
-          <div style={{ fontSize: 11, color: MUTED, marginBottom: 8, fontStyle: "italic" }}>
-            I moduli delle due mappe sono diversi: la mappa di destra riparte dall'undici di "INIZIO" dove possibile, ma va controllata e completata a mano.
-          </div>
-        )}
+        <div style={{ fontSize: 11, color: MUTED, marginBottom: 8, fontStyle: "italic" }}>
+          {touched
+            ? "Mappa 2 gestita manualmente: da qui in poi le modifiche a INIZIO non la toccano più."
+            : "Mappa 2 agganciata a INIZIO: si aggiorna in automatico finché non la tocchi direttamente."}
+        </div>
         <div style={{ display: "flex", gap: 10 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 10, color: MUTED, marginBottom: 4, fontWeight: 700, textAlign: "center" }}>INIZIO</div>
@@ -1381,7 +1440,7 @@ function GironeATracker() {
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 10, color: MUTED, marginBottom: 4, fontWeight: 700, textAlign: "center" }}>CAMBI / FINE</div>
-            {renderPitch(formazione2, onChangeSlot2, modulo2Key, onChangeModulo2, convocatiIds, { compact: true, mirrorFrom: formazione1, mirrorActive, startersIds })}
+            {renderPitch(formazione2, onChangeSlot2, modulo2Key, onChangeModulo2, convocatiIds, { compact: true, startersIds })}
           </div>
         </div>
       </div>
@@ -1494,6 +1553,7 @@ function GironeATracker() {
     const formazioneFinale = (detailsShared[fx.id] && detailsShared[fx.id].formazione2) || {};
     const moduloIniziale = (detailsShared[fx.id] && detailsShared[fx.id].modulo) || DEFAULT_MODULO;
     const moduloFinale = (detailsShared[fx.id] && detailsShared[fx.id].modulo2) || DEFAULT_MODULO;
+    const formazione2Touched = !!(detailsShared[fx.id] && detailsShared[fx.id].formazione2Touched);
     const subCount = countSubstitutions(formazioneIniziale, formazioneFinale, moduloIniziale, moduloFinale);
     const tvd = teamVotoDraft[fx.id] || {};
     const isNextMatch = fx.id === nextCimianoMatchId;
@@ -1585,7 +1645,8 @@ function GironeATracker() {
                   (slotId, playerId) => setFormazione2(fx.id, slotId, playerId),
                   moduloFinale,
                   (modulo) => setModulo2(fx.id, modulo),
-                  convocatiIds
+                  convocatiIds,
+                  formazione2Touched
                 )}
               </div>
             )}
@@ -1792,6 +1853,7 @@ function GironeATracker() {
     const formazioneFinaleF = friendlyFormazione2[f.id] || {};
     const moduloInizialeF = friendlyModulo[f.id] || DEFAULT_MODULO;
     const moduloFinaleF = friendlyModulo2[f.id] || DEFAULT_MODULO;
+    const formazione2TouchedF = !!friendlyFormazione2Touched[f.id];
     const subCountF = countSubstitutions(formazioneInizialeF, formazioneFinaleF, moduloInizialeF, moduloFinaleF);
     const hasScore = f.golCimiano !== "" && f.golCimiano !== undefined && f.golAvv !== "" && f.golAvv !== undefined;
     const isEditingF = editingFriendly === f.id;
@@ -1887,7 +1949,8 @@ function GironeATracker() {
                   (slotId, playerId) => setFormazioneF2(f.id, slotId, playerId),
                   moduloFinaleF,
                   (modulo) => setModuloF2(f.id, modulo),
-                  convocatiIdsF
+                  convocatiIdsF,
+                  formazione2TouchedF
                 )}
               </div>
             )}
