@@ -168,8 +168,8 @@ const FORMATIONS = {
   },
 };
 const DEFAULT_MODULO = "352";
-const TRACKER_VERSION = "6";
-const TRACKER_VERSION_DATE = "01/09/2026 ore 10.27";
+const TRACKER_VERSION = "7";
+const TRACKER_VERSION_DATE = "01/09/2026 ore 10.38";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -1101,41 +1101,62 @@ function GironeATracker() {
     setFriendlyModulo2State((prev) => ({ ...prev, [friendlyId]: modulo }));
   }
 
-  function renderPitch(formazione, onChangeSlot, modulo, onChangeModulo, playerPool) {
+  function renderPitch(formazione, onChangeSlot, modulo, onChangeModulo, playerPool, opts) {
+    opts = opts || {};
+    const compact = !!opts.compact;
+    const mirrorFrom = opts.mirrorFrom || null;
+    const mirrorActive = !!opts.mirrorActive;
     const moduloKey = modulo || DEFAULT_MODULO;
     const slots = FORMATIONS[moduloKey].slots;
     const poolRoster = roster.filter((r) => playerPool.includes(r.id));
+    const circleSize = compact ? 34 : 44;
+    const labelFont = compact ? 8 : 9;
+    const pitchMaxWidth = compact ? "100%" : 320;
     return (
       <div>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-          {Object.entries(FORMATIONS).map(([key, f]) => (
-            <button key={key} onClick={() => onChangeModulo(key)}
-              style={{ fontSize: 11, padding: "4px 10px", borderRadius: 10, border: `1px solid ${LINE}`, background: moduloKey === key ? RED : "#fff", color: moduloKey === key ? "#fff" : INK, cursor: "pointer", fontWeight: 600 }}>
-              {f.label}
-            </button>
-          ))}
-        </div>
-        {poolRoster.length === 0 && (
+        {!compact && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+            {Object.entries(FORMATIONS).map(([key, f]) => (
+              <button key={key} onClick={() => onChangeModulo(key)}
+                style={{ fontSize: 11, padding: "4px 10px", borderRadius: 10, border: `1px solid ${LINE}`, background: moduloKey === key ? RED : "#fff", color: moduloKey === key ? "#fff" : INK, cursor: "pointer", fontWeight: 600 }}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {compact && (
+          <select value={moduloKey} onChange={(e) => onChangeModulo(e.target.value)}
+            style={{ fontSize: 10, padding: "2px 4px", border: `1px solid ${LINE}`, borderRadius: 4, marginBottom: 6, width: "100%" }}>
+            {Object.entries(FORMATIONS).map(([key, f]) => (
+              <option key={key} value={key}>{f.label}</option>
+            ))}
+          </select>
+        )}
+        {poolRoster.length === 0 && !mirrorActive && (
           <div style={{ fontSize: 11, color: MUTED, marginBottom: 8 }}>Nessun giocatore disponibile da piazzare qui al momento.</div>
         )}
         <div style={{
-          position: "relative", width: "100%", maxWidth: 320, aspectRatio: "2 / 3", margin: "0 auto",
+          position: "relative", width: "100%", maxWidth: pitchMaxWidth, aspectRatio: "2 / 3", margin: "0 auto",
           background: "linear-gradient(180deg, #3f9142 0%, #368239 100%)", borderRadius: 8, border: `2px solid #2c6b2f`, overflow: "hidden",
         }}>
           {/* linee di campo */}
           <div style={{ position: "absolute", left: "10%", right: "10%", top: "50%", height: 1, background: "rgba(255,255,255,0.5)" }} />
-          <div style={{ position: "absolute", left: "50%", top: "50%", width: 60, height: 60, border: "1px solid rgba(255,255,255,0.5)", borderRadius: "50%", transform: "translate(-50%,-50%)" }} />
+          <div style={{ position: "absolute", left: "50%", top: "50%", width: compact ? 36 : 60, height: compact ? 36 : 60, border: "1px solid rgba(255,255,255,0.5)", borderRadius: "50%", transform: "translate(-50%,-50%)" }} />
           <div style={{ position: "absolute", left: "25%", right: "25%", bottom: 0, height: "14%", border: "1px solid rgba(255,255,255,0.5)", borderTop: "none" }} />
           <div style={{ position: "absolute", left: "25%", right: "25%", top: 0, height: "14%", border: "1px solid rgba(255,255,255,0.5)", borderBottom: "none" }} />
           {slots.map((slot) => {
-            const playerId = typeof formazione[slot.id] === "string" ? formazione[slot.id] : "";
+            const explicit = typeof formazione[slot.id] === "string" ? formazione[slot.id] : "";
+            const mirroredValue = mirrorActive && mirrorFrom ? (typeof mirrorFrom[slot.id] === "string" ? mirrorFrom[slot.id] : "") : "";
+            const playerId = explicit || mirroredValue;
             const player = roster.find((r) => r.id === playerId);
+            const isSub = mirrorActive && explicit && explicit !== mirroredValue;
+            const circleColor = isSub ? SUB_COLOR : RED;
             return (
               <div key={slot.id} style={{ position: "absolute", left: `${slot.x}%`, top: `${slot.y}%`, transform: "translate(-50%,-50%)", textAlign: "center" }}>
                 <select value={playerId} onChange={(e) => onChangeSlot(slot.id, e.target.value)}
                   style={{
-                    width: 44, height: 44, borderRadius: "50%", border: `2px solid ${player ? "#fff" : "rgba(255,255,255,0.6)"}`,
-                    background: player ? RED : "rgba(255,255,255,0.15)", color: "#fff", fontSize: 10, fontWeight: 700,
+                    width: circleSize, height: circleSize, borderRadius: "50%", border: `2px solid ${player ? "#fff" : "rgba(255,255,255,0.6)"}`,
+                    background: player ? circleColor : "rgba(255,255,255,0.15)", color: "#fff", fontSize: compact ? 8 : 10, fontWeight: 700,
                     textAlign: "center", textAlignLast: "center", cursor: "pointer", appearance: "none", padding: 0,
                   }}>
                   <option value="" style={{ color: INK }}>{slot.label}</option>
@@ -1144,13 +1165,46 @@ function GironeATracker() {
                   ))}
                 </select>
                 {player && (
-                  <div style={{ fontSize: 9, color: "#fff", marginTop: 2, maxWidth: 62, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <div style={{ fontSize: labelFont, color: "#fff", marginTop: 2, maxWidth: compact ? 46 : 62, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {player.nome.split(" ")[0]}
                   </div>
                 )}
               </div>
             );
           })}
+        </div>
+      </div>
+    );
+  }
+
+  function renderDualPitch(formazione1, onChangeSlot1, modulo1, onChangeModulo1, titolariIds, formazione2, onChangeSlot2, modulo2, onChangeModulo2, convocatiIds) {
+    const modulo1Key = modulo1 || DEFAULT_MODULO;
+    const modulo2Key = modulo2 || DEFAULT_MODULO;
+    const mirrorActive = modulo1Key === modulo2Key;
+    return (
+      <div>
+        <div style={{ display: "flex", gap: 14, marginBottom: 8, fontSize: 11, color: MUTED }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: RED, display: "inline-block" }} /> Titolare
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: SUB_COLOR, display: "inline-block" }} /> Subentrato
+          </span>
+        </div>
+        {!mirrorActive && (
+          <div style={{ fontSize: 11, color: MUTED, marginBottom: 8, fontStyle: "italic" }}>
+            I moduli delle due mappe sono diversi: la mappa di destra non eredita più i titolari, va compilata a parte.
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 10, color: MUTED, marginBottom: 4, fontWeight: 700, textAlign: "center" }}>INIZIO</div>
+            {renderPitch(formazione1, onChangeSlot1, modulo1Key, onChangeModulo1, titolariIds, { compact: true })}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 10, color: MUTED, marginBottom: 4, fontWeight: 700, textAlign: "center" }}>CAMBI / FINE</div>
+            {renderPitch(formazione2, onChangeSlot2, modulo2Key, onChangeModulo2, convocatiIds, { compact: true, mirrorFrom: formazione1, mirrorActive })}
+          </div>
         </div>
       </div>
     );
@@ -1390,16 +1444,12 @@ function GironeATracker() {
             {titolariIds.length > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>3. Modulo</div>
-                <div style={{ fontSize: 11, color: MUTED, marginBottom: 6, fontWeight: 600 }}>Titolari (inizio partita)</div>
-                {renderPitch(
+                {renderDualPitch(
                   (detailsShared[fx.id] && detailsShared[fx.id].formazione) || {},
                   (slotId, playerId) => setFormazione(fx.id, slotId, playerId),
                   (detailsShared[fx.id] && detailsShared[fx.id].modulo) || DEFAULT_MODULO,
                   (modulo) => setModulo(fx.id, modulo),
-                  titolariIds
-                )}
-                <div style={{ fontSize: 11, color: MUTED, margin: "16px 0 6px", fontWeight: 600 }}>Cambi / fine partita</div>
-                {renderPitch(
+                  titolariIds,
                   (detailsShared[fx.id] && detailsShared[fx.id].formazione2) || {},
                   (slotId, playerId) => setFormazione2(fx.id, slotId, playerId),
                   (detailsShared[fx.id] && detailsShared[fx.id].modulo2) || DEFAULT_MODULO,
@@ -1694,16 +1744,12 @@ function GironeATracker() {
             {titolariIdsF.length > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>3. Modulo</div>
-                <div style={{ fontSize: 11, color: MUTED, marginBottom: 6, fontWeight: 600 }}>Titolari (inizio partita)</div>
-                {renderPitch(
+                {renderDualPitch(
                   friendlyFormazione[f.id] || {},
                   (slotId, playerId) => setFormazioneF(f.id, slotId, playerId),
                   friendlyModulo[f.id] || DEFAULT_MODULO,
                   (modulo) => setModuloF(f.id, modulo),
-                  titolariIdsF
-                )}
-                <div style={{ fontSize: 11, color: MUTED, margin: "16px 0 6px", fontWeight: 600 }}>Cambi / fine partita</div>
-                {renderPitch(
+                  titolariIdsF,
                   friendlyFormazione2[f.id] || {},
                   (slotId, playerId) => setFormazioneF2(f.id, slotId, playerId),
                   friendlyModulo2[f.id] || DEFAULT_MODULO,
