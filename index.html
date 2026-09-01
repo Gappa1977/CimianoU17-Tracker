@@ -1,0 +1,2240 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Girone A Tracker · Cimiano Calcio</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/prop-types@15/prop-types.min.js" crossorigin></script>
+<script src="https://unpkg.com/recharts@2/umd/Recharts.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js" crossorigin></script>
+<style>
+  html, body { margin: 0; padding: 0; background: #f7f4ec; font-family: system-ui, sans-serif; }
+  #app-root { max-width: 720px; margin: 0 auto; min-height: 100vh; }
+  #setup-screen { max-width: 480px; margin: 60px auto; padding: 24px; background: #fff; border: 1px solid #ddd8c8; border-radius: 8px; }
+  #setup-screen h2 { margin-top: 0; font-size: 18px; }
+  #setup-screen p { color: #6b6b63; font-size: 13px; line-height: 1.5; }
+  #setup-screen input { width: 100%; padding: 8px; border: 1px solid #ddd8c8; border-radius: 4px; box-sizing: border-box; font-size: 13px; margin-bottom: 10px; }
+  #setup-screen button { background: #c8102e; color: #fff; border: none; padding: 10px 18px; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 13px; }
+  #loading { max-width: 720px; margin: 40px auto; padding: 20px; color: #6b6b63; text-align: center; }
+</style>
+</head>
+<body>
+
+<div id="setup-screen" style="display:none;">
+  <h2>⚙️ Configurazione iniziale</h2>
+  <p>Questo tracker salva i dati su un Google Sheet condiviso. Inserisci qui l'indirizzo (URL) del backend che termina in <code>/exec</code> — te lo fornisce chi ha creato il tracker.</p>
+  <input id="api-url-input" type="text" placeholder="https://script.google.com/macros/s/XXXXX/exec" />
+  <button id="api-url-save">Salva e continua</button>
+  <p id="setup-error" style="color:#c8102e;"></p>
+</div>
+
+<div id="app-root"><div id="loading">Caricamento in corso…</div></div>
+
+<script>
+  const STORAGE_KEY = "gironeA_apiUrl";
+
+  function showSetupScreen(errorMsg) {
+    document.getElementById("app-root").style.display = "none";
+    document.getElementById("setup-screen").style.display = "block";
+    if (errorMsg) document.getElementById("setup-error").textContent = errorMsg;
+    document.getElementById("api-url-save").onclick = function () {
+      const val = document.getElementById("api-url-input").value.trim();
+      if (!val.startsWith("http")) {
+        document.getElementById("setup-error").textContent = "Inserisci un URL valido (deve iniziare con https://).";
+        return;
+      }
+      localStorage.setItem(STORAGE_KEY, val);
+      window.location.reload();
+    };
+  }
+
+  const apiUrl = localStorage.getItem(STORAGE_KEY);
+  if (!apiUrl) {
+    showSetupScreen();
+  } else {
+    // Storage collegato al Google Sheet condiviso, tramite Apps Script.
+    window.storage = {
+      get: async function (key) {
+        try {
+          const res = await fetch(apiUrl + "?key=" + encodeURIComponent(key));
+          const data = await res.json();
+          if (data.value === null || data.value === undefined) return null;
+          return { key: key, value: data.value };
+        } catch (e) {
+          console.error("storage.get failed", key, e);
+          return null;
+        }
+      },
+      set: async function (key, value) {
+        try {
+          await fetch(apiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({ key: key, value: value }),
+          });
+          return { key: key, value: value };
+        } catch (e) {
+          console.error("storage.set failed", key, e);
+          return null;
+        }
+      },
+    };
+  }
+</script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo } = React;
+const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = Recharts;
+
+const CIMIANO_LOGO = "data:image/jpeg;base64,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";
+
+const TEAMS = [
+  "Accademia Internazionale",
+  "Accademia Pavese",
+  "Calvairate 1946",
+  "Aldini",
+  "Ausonia 1931",
+  "Casatese Merate",
+  "Cimiano Calcio",
+  "Enotria 1908",
+  "Leon",
+  "Rozzano Calcio",
+  "Sant'Angelo",
+  "Seguro",
+  "Sempione Half 1919",
+  "Speranza Agrate",
+  "Franco Scarioni 1925",
+  "Villa",
+];
+
+// Mappa nomi come compaiono nel calendario ufficiale -> nomi canonici
+const NAME_MAP = {
+  "Leon": "Leon",
+  "Accademia Pavese": "Accademia Pavese",
+  "Seguro": "Seguro",
+  "Ausonia 1931": "Ausonia 1931",
+  "Franco Scarioni": "Franco Scarioni 1925",
+  "Academy Calvairate": "Calvairate 1946",
+  "Speranza Agrate": "Speranza Agrate",
+  "Enotria 1908": "Enotria 1908",
+  "Cimiano": "Cimiano Calcio",
+  "Sant'Angelo": "Sant'Angelo",
+  "Casatese Merate": "Casatese Merate",
+  "Accademia Inter": "Accademia Internazionale",
+  "Sempione Half 1919": "Sempione Half 1919",
+  "Villa": "Villa",
+  "Rozzano Calcio": "Rozzano Calcio",
+  "Aldini": "Aldini",
+};
+
+const CIMIANO = "Cimiano Calcio";
+const RED = "#c8102e";
+const GREEN = "#0f2818";
+const CREAM = "#f7f4ec";
+const INK = "#1a1a1a";
+const MUTED = "#6b6b63";
+const LINE = "#ddd8c8";
+const TEAM_BOX_BG = "#e7f3e9";
+const TEAM_BOX_BORDER = "#bfe0c6";
+const PLAYER_BOX_BG = "#fdf6d8";
+const PLAYER_BOX_BORDER = "#eadfa0";
+const AUTHOR_BADGE_BG = "#e8e6df";
+const AUTHOR_BADGE_TEXT = "#5a5648";
+const STATUS_COLORS = {
+  played: { bg: "#e3f5e6", border: "#a9d8b1" },
+  next: { bg: "#fff6c4", border: "#e6d27a" },
+  upcoming: { bg: "#fbe1df", border: "#e8b3ae" },
+};
+
+// Moduli disponibili: ogni modulo ha 11 slot posizionati in percentuale sul campo
+// (0,0 = alto sinistra, attacco verso l'alto, portiere in basso)
+const FORMATIONS = {
+  "352": {
+    label: "3-5-2",
+    slots: [
+      { id: "gk", label: "P", x: 50, y: 90 },
+      { id: "d1", label: "D", x: 18, y: 72 }, { id: "d2", label: "D", x: 50, y: 72 }, { id: "d3", label: "D", x: 82, y: 72 },
+      { id: "m1", label: "C", x: 8, y: 50 }, { id: "m2", label: "C", x: 30, y: 50 }, { id: "m3", label: "C", x: 50, y: 50 }, { id: "m4", label: "C", x: 70, y: 50 }, { id: "m5", label: "C", x: 92, y: 50 },
+      { id: "f1", label: "A", x: 35, y: 22 }, { id: "f2", label: "A", x: 65, y: 22 },
+    ],
+  },
+  "442": {
+    label: "4-4-2",
+    slots: [
+      { id: "gk", label: "P", x: 50, y: 90 },
+      { id: "d1", label: "D", x: 12, y: 72 }, { id: "d2", label: "D", x: 37, y: 74 }, { id: "d3", label: "D", x: 63, y: 74 }, { id: "d4", label: "D", x: 88, y: 72 },
+      { id: "m1", label: "C", x: 15, y: 50 }, { id: "m2", label: "C", x: 40, y: 52 }, { id: "m3", label: "C", x: 60, y: 52 }, { id: "m4", label: "C", x: 85, y: 50 },
+      { id: "f1", label: "A", x: 35, y: 22 }, { id: "f2", label: "A", x: 65, y: 22 },
+    ],
+  },
+  "433": {
+    label: "4-3-3",
+    slots: [
+      { id: "gk", label: "P", x: 50, y: 90 },
+      { id: "d1", label: "D", x: 12, y: 72 }, { id: "d2", label: "D", x: 37, y: 74 }, { id: "d3", label: "D", x: 63, y: 74 }, { id: "d4", label: "D", x: 88, y: 72 },
+      { id: "m1", label: "C", x: 25, y: 50 }, { id: "m2", label: "C", x: 50, y: 52 }, { id: "m3", label: "C", x: 75, y: 50 },
+      { id: "f1", label: "A", x: 20, y: 22 }, { id: "f2", label: "A", x: 50, y: 18 }, { id: "f3", label: "A", x: 80, y: 22 },
+    ],
+  },
+  "3412": {
+    label: "3-4-1-2",
+    slots: [
+      { id: "gk", label: "P", x: 50, y: 90 },
+      { id: "d1", label: "D", x: 20, y: 72 }, { id: "d2", label: "D", x: 50, y: 74 }, { id: "d3", label: "D", x: 80, y: 72 },
+      { id: "m1", label: "C", x: 12, y: 52 }, { id: "m2", label: "C", x: 38, y: 54 }, { id: "m3", label: "C", x: 62, y: 54 }, { id: "m4", label: "C", x: 88, y: 52 },
+      { id: "t1", label: "T", x: 50, y: 34 },
+      { id: "f1", label: "A", x: 35, y: 16 }, { id: "f2", label: "A", x: 65, y: 16 },
+    ],
+  },
+  "343": {
+    label: "3-4-3",
+    slots: [
+      { id: "gk", label: "P", x: 50, y: 90 },
+      { id: "d1", label: "D", x: 20, y: 72 }, { id: "d2", label: "D", x: 50, y: 74 }, { id: "d3", label: "D", x: 80, y: 72 },
+      { id: "m1", label: "C", x: 12, y: 50 }, { id: "m2", label: "C", x: 38, y: 52 }, { id: "m3", label: "C", x: 62, y: 52 }, { id: "m4", label: "C", x: 88, y: 50 },
+      { id: "f1", label: "A", x: 20, y: 22 }, { id: "f2", label: "A", x: 50, y: 18 }, { id: "f3", label: "A", x: 80, y: 22 },
+    ],
+  },
+};
+const DEFAULT_MODULO = "352";
+const VOTER_OPTIONS = ["Gappa", "Dario"];
+
+// Calendario ufficiale Girone A - Allievi Elite U17 2026/27
+const RAW_ROUNDS = [
+  { g: 1, andata: "2026-09-12", ritorno: "2027-01-09", pairs: [
+    ["Leon","Accademia Pavese"],["Seguro","Ausonia 1931"],["Franco Scarioni","Academy Calvairate"],
+    ["Speranza Agrate","Enotria 1908"],["Cimiano","Sant'Angelo"],["Casatese Merate","Accademia Inter"],
+    ["Sempione Half 1919","Villa"],["Rozzano Calcio","Aldini"] ] },
+  { g: 2, andata: "2026-09-19", ritorno: "2027-01-16", pairs: [
+    ["Accademia Inter","Leon"],["Ausonia 1931","Speranza Agrate"],["Academy Calvairate","Sempione Half 1919"],
+    ["Accademia Pavese","Franco Scarioni"],["Enotria 1908","Rozzano Calcio"],["Villa","Seguro"],
+    ["Aldini","Cimiano"],["Sant'Angelo","Casatese Merate"] ] },
+  { g: 3, andata: "2026-09-26", ritorno: "2027-01-23", pairs: [
+    ["Seguro","Academy Calvairate"],["Franco Scarioni","Leon"],["Speranza Agrate","Villa"],
+    ["Cimiano","Enotria 1908"],["Casatese Merate","Aldini"],["Sempione Half 1919","Accademia Pavese"],
+    ["Rozzano Calcio","Ausonia 1931"],["Sant'Angelo","Accademia Inter"] ] },
+  { g: 4, andata: "2026-10-03", ritorno: "2027-01-30", pairs: [
+    ["Accademia Inter","Franco Scarioni"],["Leon","Sempione Half 1919"],["Ausonia 1931","Cimiano"],
+    ["Academy Calvairate","Speranza Agrate"],["Accademia Pavese","Seguro"],["Enotria 1908","Casatese Merate"],
+    ["Villa","Rozzano Calcio"],["Aldini","Sant'Angelo"] ] },
+  { g: 5, andata: "2026-10-10", ritorno: "2027-02-06", pairs: [
+    ["Seguro","Leon"],["Speranza Agrate","Accademia Pavese"],["Cimiano","Villa"],
+    ["Casatese Merate","Ausonia 1931"],["Aldini","Accademia Inter"],["Sempione Half 1919","Franco Scarioni"],
+    ["Rozzano Calcio","Academy Calvairate"],["Sant'Angelo","Enotria 1908"] ] },
+  { g: 6, andata: "2026-10-17", ritorno: "2027-02-13", pairs: [
+    ["Accademia Inter","Sempione Half 1919"],["Leon","Speranza Agrate"],["Ausonia 1931","Sant'Angelo"],
+    ["Franco Scarioni","Seguro"],["Academy Calvairate","Cimiano"],["Accademia Pavese","Rozzano Calcio"],
+    ["Enotria 1908","Aldini"],["Villa","Casatese Merate"] ] },
+  { g: 7, andata: "2026-10-24", ritorno: "2027-02-17", pairs: [
+    ["Seguro","Sempione Half 1919"],["Enotria 1908","Accademia Inter"],["Speranza Agrate","Franco Scarioni"],
+    ["Cimiano","Accademia Pavese"],["Casatese Merate","Academy Calvairate"],["Aldini","Ausonia 1931"],
+    ["Rozzano Calcio","Leon"],["Sant'Angelo","Villa"] ] },
+  { g: 8, andata: "2026-10-31", ritorno: "2027-02-20", pairs: [
+    ["Accademia Inter","Seguro"],["Leon","Cimiano"],["Ausonia 1931","Enotria 1908"],
+    ["Franco Scarioni","Rozzano Calcio"],["Academy Calvairate","Sant'Angelo"],["Accademia Pavese","Casatese Merate"],
+    ["Villa","Aldini"],["Sempione Half 1919","Speranza Agrate"] ] },
+  { g: 9, andata: "2026-11-07", ritorno: "2027-02-27", pairs: [
+    ["Ausonia 1931","Accademia Inter"],["Enotria 1908","Villa"],["Speranza Agrate","Seguro"],
+    ["Cimiano","Franco Scarioni"],["Casatese Merate","Leon"],["Aldini","Academy Calvairate"],
+    ["Rozzano Calcio","Sempione Half 1919"],["Sant'Angelo","Accademia Pavese"] ] },
+  { g: 10, andata: "2026-11-14", ritorno: "2027-03-03", pairs: [
+    ["Accademia Inter","Speranza Agrate"],["Leon","Sant'Angelo"],["Seguro","Rozzano Calcio"],
+    ["Franco Scarioni","Casatese Merate"],["Academy Calvairate","Enotria 1908"],["Accademia Pavese","Aldini"],
+    ["Villa","Ausonia 1931"],["Sempione Half 1919","Cimiano"] ] },
+  { g: 11, andata: "2026-11-21", ritorno: "2027-03-06", pairs: [
+    ["Ausonia 1931","Academy Calvairate"],["Enotria 1908","Accademia Pavese"],["Villa","Accademia Inter"],
+    ["Cimiano","Seguro"],["Casatese Merate","Sempione Half 1919"],["Aldini","Leon"],
+    ["Rozzano Calcio","Speranza Agrate"],["Sant'Angelo","Franco Scarioni"] ] },
+  { g: 12, andata: "2026-11-28", ritorno: "2027-03-13", pairs: [
+    ["Accademia Inter","Rozzano Calcio"],["Leon","Enotria 1908"],["Seguro","Casatese Merate"],
+    ["Franco Scarioni","Aldini"],["Academy Calvairate","Villa"],["Accademia Pavese","Ausonia 1931"],
+    ["Speranza Agrate","Cimiano"],["Sempione Half 1919","Sant'Angelo"] ] },
+  { g: 13, andata: "2026-12-05", ritorno: "2027-03-20", pairs: [
+    ["Ausonia 1931","Leon"],["Academy Calvairate","Accademia Inter"],["Enotria 1908","Franco Scarioni"],
+    ["Villa","Accademia Pavese"],["Cimiano","Rozzano Calcio"],["Casatese Merate","Speranza Agrate"],
+    ["Aldini","Sempione Half 1919"],["Sant'Angelo","Seguro"] ] },
+  { g: 14, andata: "2026-12-12", ritorno: "2027-04-03", pairs: [
+    ["Leon","Villa"],["Seguro","Aldini"],["Franco Scarioni","Ausonia 1931"],
+    ["Accademia Pavese","Academy Calvairate"],["Speranza Agrate","Sant'Angelo"],["Cimiano","Accademia Inter"],
+    ["Sempione Half 1919","Enotria 1908"],["Rozzano Calcio","Casatese Merate"] ] },
+  { g: 15, andata: "2026-12-19", ritorno: "2027-04-10", pairs: [
+    ["Accademia Inter","Accademia Pavese"],["Ausonia 1931","Sempione Half 1919"],["Academy Calvairate","Leon"],
+    ["Enotria 1908","Seguro"],["Villa","Franco Scarioni"],["Casatese Merate","Cimiano"],
+    ["Aldini","Speranza Agrate"],["Sant'Angelo","Rozzano Calcio"] ] },
+];
+
+function buildRounds() {
+  const rounds = [];
+  RAW_ROUNDS.forEach((r) => {
+    rounds.push({
+      key: `${r.g}A`, giornata: r.g, half: "andata", data: r.andata,
+      matches: r.pairs.map(([h, a], idx) => ({
+        id: `${r.g}A-${idx}`, home: NAME_MAP[h], away: NAME_MAP[a],
+      })),
+    });
+    rounds.push({
+      key: `${r.g}R`, giornata: r.g, half: "ritorno", data: r.ritorno,
+      matches: r.pairs.map(([h, a], idx) => ({
+        id: `${r.g}R-${idx}`, home: NAME_MAP[a], away: NAME_MAP[h],
+      })),
+    });
+  });
+  rounds.sort((x, y) => x.data.localeCompare(y.data));
+  return rounds;
+}
+
+const ROUNDS = buildRounds();
+
+// Coppa Lombardia Allievi U17 Elite - Girone 9 (fase a gironi)
+const COPPA_GIRONE = "9";
+const COPPA_TEAMS = ["Villa", "Enotria 1908", "Cimiano Calcio"];
+const COPPA_FIXTURES = [
+  { id: "coppa9-1", data: "2026-09-06", ora: "10:15", home: "Villa", away: "Enotria 1908" },
+  { id: "coppa9-2", data: "2026-09-16", ora: "20:00", home: "Enotria 1908", away: "Cimiano Calcio" },
+  { id: "coppa9-3", data: "2026-09-30", ora: "20:00", home: "Cimiano Calcio", away: "Villa" },
+];
+
+function fmtDate(iso) {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function emptyStanding(name) {
+  return { name, pg: 0, v: 0, n: 0, p: 0, gf: 0, gs: 0, pt: 0 };
+}
+
+function GironeATracker() {
+  const [tab, setTab] = useState("classifica");
+  const [macroTab, setMacroTab] = useState("stagione"); // "campionato" | "coppa" | "stagione"
+  const [campSub, setCampSub] = useState("classifica"); // "classifica" | "risultati"
+  const [coppaSub, setCoppaSub] = useState("classifica"); // "classifica" | "risultati"
+  const [stagSub, setStagSub] = useState("cimiano"); // "cimiano" | "giocatori" | "rosa" | "cannonieri"
+  const [results, setResults] = useState({}); // { fixtureId: {golHome, golAway} } — CONDIVISO
+  const [detailsShared, setDetailsShared] = useState({}); // { fixtureId: {marcatori, voti, votoSquadra, presenze, formazione, modulo} } — CONDIVISO, i voti sono etichettati con l'autore
+  const [voterName, setVoterNameState] = useState(""); // identità di chi vota su questo dispositivo — LOCALE
+  const [friendlies, setFriendlies] = useState([]); // CONDIVISO (senza voti)
+  const [friendlyVoti, setFriendlyVoti] = useState({}); // { friendlyId: [voti] } — CONDIVISO, ogni voto etichettato con l'autore
+  const [friendlyMarcatori, setFriendlyMarcatori] = useState({}); // { friendlyId: [marcatori] } — CONDIVISO
+  const [friendlyPresenze, setFriendlyPresenze] = useState({}); // { friendlyId: {playerId: stato} } — CONDIVISO
+  const [friendlyFormazione, setFriendlyFormazione] = useState({}); // { friendlyId: {slotId: playerId} } — CONDIVISO
+  const [friendlyModulo, setFriendlyModuloState] = useState({}); // { friendlyId: "352"|"442"|... } — CONDIVISO
+  const [roster, setRoster] = useState([]); // [{id, nome, numero}] — CONDIVISO
+  const [loaded, setLoaded] = useState(false);
+  const [roundIdx, setRoundIdx] = useState(() => {
+    const today = "2026-08-31";
+    const i = ROUNDS.findIndex((r) => r.data >= today);
+    return i === -1 ? 0 : i;
+  });
+  const [draft, setDraft] = useState({});
+
+  const [fForm, setFForm] = useState({ avversario: "", golCimiano: "", golAvv: "", data: "", ora: "", note: "" });
+  const [expandedFriendly, setExpandedFriendly] = useState({});
+  const [ratingDraftF, setRatingDraftF] = useState({});
+  const [editingRatingF, setEditingRatingF] = useState(null); // `${friendlyId}:${voteId}`
+  const [editingFriendly, setEditingFriendly] = useState(null); // friendlyId
+  const [friendlyEditDraft, setFriendlyEditDraft] = useState({});
+  const [expanded, setExpanded] = useState({});
+  const [scorerDraft, setScorerDraft] = useState({});
+  const [ratingDraft, setRatingDraft] = useState({});
+  const [editingScorer, setEditingScorer] = useState(null); // `${fixtureId}:${scorerId}`
+  const [editingRating, setEditingRating] = useState(null); // `${fixtureId}:${voteId}`
+  const [expandedPlayer, setExpandedPlayer] = useState({});
+  const [teamVotoDraft, setTeamVotoDraft] = useState({});
+  const [editingTeamVoto, setEditingTeamVoto] = useState(null); // fixtureId
+  const [friendlyTeamVoto, setFriendlyTeamVoto] = useState({}); // { friendlyId: [{id, autore, voto, nota}] } — CONDIVISO
+  const [teamVotoDraftF, setTeamVotoDraftF] = useState({});
+  const [editingTeamVotoF, setEditingTeamVotoF] = useState(null); // friendlyId
+  const [scorerDraftF, setScorerDraftF] = useState({});
+  const [editingScorerF, setEditingScorerF] = useState(null); // `${friendlyId}:${scorerId}`
+  const [rosterDraft, setRosterDraft] = useState({ nome: "", numero: "" });
+  const [playerVoteFilter, setPlayerVoteFilter] = useState({});
+  const [teamVoteFilter, setTeamVoteFilter] = useState({});
+  const [editingRosterId, setEditingRosterId] = useState(null);
+
+  const PLAYER_STATUSES = ["Titolare", "Subentrato", "Panchina", "Assente"];
+
+  const PLAYER_COLORS = [RED, "#2b6cb0", "#2f855a", "#b7791f", "#6b46c1", "#c05621"];
+
+  useEffect(() => {
+    (async () => {
+      // --- IDENTITÀ DI CHI VOTA (locale, non condivisa) ---
+      try {
+        const vn = await window.storage.get("girone-a-voter-name", false);
+        if (vn) setVoterNameState(JSON.parse(vn.value));
+      } catch (e) {}
+
+      // --- RISULTATI CAMPIONATO ---
+      let resultsData = null;
+      try {
+        const r = await window.storage.get("girone-a-results", true);
+        if (r) resultsData = JSON.parse(r.value);
+      } catch (e) {}
+      if (resultsData) setResults(resultsData);
+
+      // --- DETTAGLI CONDIVISI (marcatori, voti, voto squadra, presenze, formazione) ---
+      let detailsSharedData = null;
+      try {
+        const ds = await window.storage.get("girone-a-details-shared", true);
+        if (ds) detailsSharedData = JSON.parse(ds.value);
+      } catch (e) {}
+
+      if (!detailsSharedData) {
+        // Migrazione: tutto ciò che prima era privato (marcatori, presenze, formazione, e i vecchi voti) diventa condiviso
+        let oldPrivate = null;
+        try {
+          const d = await window.storage.get("girone-a-details", false);
+          if (d) oldPrivate = JSON.parse(d.value);
+        } catch (e) {}
+        if (oldPrivate) {
+          const migrated = {};
+          Object.keys(oldPrivate).forEach((fixtureId) => {
+            const o = oldPrivate[fixtureId];
+            const entry = { ...o };
+            if (entry.voti && entry.voti.length) entry.voti = entry.voti.map((v) => ({ ...v, autore: v.autore || "Io" }));
+            if (entry.votoSquadra) {
+              entry.votoSquadra = Array.isArray(entry.votoSquadra)
+                ? entry.votoSquadra.map((v) => ({ ...v, autore: v.autore || "Io" }))
+                : [{ id: "migrated-" + fixtureId, autore: "Io", voto: entry.votoSquadra.voto, nota: entry.votoSquadra.nota || "" }];
+            }
+            migrated[fixtureId] = entry;
+          });
+          detailsSharedData = migrated;
+          await window.storage.set("girone-a-details-shared", JSON.stringify(detailsSharedData), true).catch(() => {});
+        }
+      }
+      if (detailsSharedData) setDetailsShared(detailsSharedData);
+
+      // --- AMICHEVOLI ---
+      let friendliesData = null;
+      try {
+        const f = await window.storage.get("girone-a-friendlies", true);
+        if (f) friendliesData = JSON.parse(f.value);
+      } catch (e) {}
+      if (!friendliesData) {
+        friendliesData = [{ id: "seed-1", avversario: "Vis Nova Giussano", golCimiano: 1, golAvv: 3, data: "2026-08-30", note: "Prima amichevole stagionale" }];
+        await window.storage.set("girone-a-friendlies", JSON.stringify(friendliesData), true).catch(() => {});
+      }
+      setFriendlies(friendliesData);
+
+      // --- VOTI AMICHEVOLI (condivisi, con autore) ---
+      let friendlyVotiData = null;
+      try {
+        const fv = await window.storage.get("girone-a-friendly-voti", true);
+        if (fv) friendlyVotiData = JSON.parse(fv.value);
+      } catch (e) {}
+      if (!friendlyVotiData) {
+        try {
+          const oldFv = await window.storage.get("girone-a-friendly-voti", false);
+          if (oldFv) {
+            const oldParsed = JSON.parse(oldFv.value);
+            friendlyVotiData = {};
+            Object.keys(oldParsed).forEach((fid) => {
+              friendlyVotiData[fid] = (oldParsed[fid] || []).map((v) => ({ ...v, autore: v.autore || "Io" }));
+            });
+            await window.storage.set("girone-a-friendly-voti", JSON.stringify(friendlyVotiData), true).catch(() => {});
+          }
+        } catch (e) {}
+      }
+      if (friendlyVotiData) setFriendlyVoti(friendlyVotiData);
+
+      // --- VOTO SQUADRA AMICHEVOLI (condiviso, array multi-autore) ---
+      let teamVotoData = null;
+      try {
+        const ftv = await window.storage.get("girone-a-friendly-team-voto", true);
+        if (ftv) teamVotoData = JSON.parse(ftv.value);
+      } catch (e) {}
+      if (!teamVotoData) {
+        teamVotoData = {};
+        try {
+          const oldFtv = await window.storage.get("girone-a-friendly-team-voto", false);
+          if (oldFtv) {
+            const oldParsed = JSON.parse(oldFtv.value);
+            Object.keys(oldParsed).forEach((fid) => {
+              const o = oldParsed[fid];
+              teamVotoData[fid] = Array.isArray(o) ? o.map((v) => ({ ...v, autore: v.autore || "Io" })) : [{ id: "migrated-" + fid, autore: "Io", voto: o.voto, nota: o.nota || "" }];
+            });
+          }
+        } catch (e) {}
+        // Migrazione aggiuntiva: recupera la vecchia "Nota" della partita (campo rimosso) dentro la nota del Voto Squadra
+        friendliesData.forEach((f) => {
+          if (f.note && (!teamVotoData[f.id] || teamVotoData[f.id].length === 0)) {
+            teamVotoData[f.id] = [{ id: "migrated-note-" + f.id, autore: "Io", voto: "", nota: f.note }];
+          }
+        });
+        await window.storage.set("girone-a-friendly-team-voto", JSON.stringify(teamVotoData), true).catch(() => {});
+      }
+      setFriendlyTeamVoto(teamVotoData);
+
+      // --- MARCATORI, PRESENZE, FORMAZIONE, MODULO AMICHEVOLI (condivisi) ---
+      let friendlyMarcatoriData = null;
+      try {
+        const fm = await window.storage.get("girone-a-friendly-marcatori", true);
+        if (fm) friendlyMarcatoriData = JSON.parse(fm.value);
+      } catch (e) {}
+      if (!friendlyMarcatoriData) {
+        try {
+          const old = await window.storage.get("girone-a-friendly-marcatori", false);
+          if (old) {
+            friendlyMarcatoriData = JSON.parse(old.value);
+            await window.storage.set("girone-a-friendly-marcatori", JSON.stringify(friendlyMarcatoriData), true).catch(() => {});
+          }
+        } catch (e) {}
+      }
+      if (friendlyMarcatoriData) setFriendlyMarcatori(friendlyMarcatoriData);
+
+      let friendlyPresenzeData = null;
+      try {
+        const fp = await window.storage.get("girone-a-friendly-presenze", true);
+        if (fp) friendlyPresenzeData = JSON.parse(fp.value);
+      } catch (e) {}
+      if (!friendlyPresenzeData) {
+        try {
+          const old = await window.storage.get("girone-a-friendly-presenze", false);
+          if (old) {
+            friendlyPresenzeData = JSON.parse(old.value);
+            await window.storage.set("girone-a-friendly-presenze", JSON.stringify(friendlyPresenzeData), true).catch(() => {});
+          }
+        } catch (e) {}
+      }
+      if (friendlyPresenzeData) setFriendlyPresenze(friendlyPresenzeData);
+
+      let friendlyFormazioneData = null;
+      try {
+        const ff = await window.storage.get("girone-a-friendly-formazione", true);
+        if (ff) friendlyFormazioneData = JSON.parse(ff.value);
+      } catch (e) {}
+      if (!friendlyFormazioneData) {
+        try {
+          const old = await window.storage.get("girone-a-friendly-formazione", false);
+          if (old) {
+            friendlyFormazioneData = JSON.parse(old.value);
+            await window.storage.set("girone-a-friendly-formazione", JSON.stringify(friendlyFormazioneData), true).catch(() => {});
+          }
+        } catch (e) {}
+      }
+      if (friendlyFormazioneData) setFriendlyFormazione(friendlyFormazioneData);
+
+      let friendlyModuloData = null;
+      try {
+        const fmo = await window.storage.get("girone-a-friendly-modulo", true);
+        if (fmo) friendlyModuloData = JSON.parse(fmo.value);
+      } catch (e) {}
+      if (!friendlyModuloData) {
+        try {
+          const old = await window.storage.get("girone-a-friendly-modulo", false);
+          if (old) {
+            friendlyModuloData = JSON.parse(old.value);
+            await window.storage.set("girone-a-friendly-modulo", JSON.stringify(friendlyModuloData), true).catch(() => {});
+          }
+        } catch (e) {}
+      }
+      if (friendlyModuloData) setFriendlyModuloState(friendlyModuloData);
+
+      // --- ROSA SQUADRA ---
+      let rosterData = null;
+      try {
+        const ro = await window.storage.get("girone-a-roster", true);
+        if (ro) rosterData = JSON.parse(ro.value);
+      } catch (e) {}
+      if (!rosterData) {
+        rosterData = [
+          { id: "p1", nome: "Nicolò Lodi", numero: "" },
+          { id: "p2", nome: "Favour Maira", numero: "" },
+          { id: "p3", nome: "Lorenzo Crocetti", numero: "" },
+        ];
+        await window.storage.set("girone-a-roster", JSON.stringify(rosterData), true).catch(() => {});
+      }
+      setRoster(rosterData);
+
+      setLoaded(true);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (loaded) window.storage.set("girone-a-results", JSON.stringify(results), true).catch(() => {});
+  }, [results, loaded]);
+
+  useEffect(() => {
+    if (loaded) window.storage.set("girone-a-details-shared", JSON.stringify(detailsShared), true).catch(() => {});
+  }, [detailsShared, loaded]);
+
+  useEffect(() => {
+    if (loaded) window.storage.set("girone-a-friendlies", JSON.stringify(friendlies), true).catch(() => {});
+  }, [friendlies, loaded]);
+
+  useEffect(() => {
+    if (loaded) window.storage.set("girone-a-friendly-voti", JSON.stringify(friendlyVoti), true).catch(() => {});
+  }, [friendlyVoti, loaded]);
+
+  useEffect(() => {
+    if (loaded) window.storage.set("girone-a-friendly-team-voto", JSON.stringify(friendlyTeamVoto), true).catch(() => {});
+  }, [friendlyTeamVoto, loaded]);
+
+  useEffect(() => {
+    if (loaded) window.storage.set("girone-a-voter-name", JSON.stringify(voterName), false).catch(() => {});
+  }, [voterName, loaded]);
+
+  useEffect(() => {
+    if (loaded) window.storage.set("girone-a-friendly-marcatori", JSON.stringify(friendlyMarcatori), true).catch(() => {});
+  }, [friendlyMarcatori, loaded]);
+
+  useEffect(() => {
+    if (loaded) window.storage.set("girone-a-friendly-presenze", JSON.stringify(friendlyPresenze), true).catch(() => {});
+  }, [friendlyPresenze, loaded]);
+
+  useEffect(() => {
+    if (loaded) window.storage.set("girone-a-friendly-formazione", JSON.stringify(friendlyFormazione), true).catch(() => {});
+  }, [friendlyFormazione, loaded]);
+
+  useEffect(() => {
+    if (loaded) window.storage.set("girone-a-friendly-modulo", JSON.stringify(friendlyModulo), true).catch(() => {});
+  }, [friendlyModulo, loaded]);
+
+  useEffect(() => {
+    if (loaded) window.storage.set("girone-a-roster", JSON.stringify(roster), true).catch(() => {});
+  }, [roster, loaded]);
+
+  const standings = useMemo(() => {
+    const table = {};
+    TEAMS.forEach((t) => (table[t] = emptyStanding(t)));
+    ROUNDS.forEach((round) => {
+      round.matches.forEach((fx) => {
+        const res = results[fx.id];
+        if (!res) return;
+        const gh = parseInt(res.golHome, 10);
+        const ga = parseInt(res.golAway, 10);
+        if (isNaN(gh) || isNaN(ga)) return;
+        const h = table[fx.home], a = table[fx.away];
+        h.pg++; a.pg++; h.gf += gh; h.gs += ga; a.gf += ga; a.gs += gh;
+        if (gh > ga) { h.v++; h.pt += 3; a.p++; }
+        else if (gh < ga) { a.v++; a.pt += 3; h.p++; }
+        else { h.n++; a.n++; h.pt += 1; a.pt += 1; }
+      });
+    });
+    return Object.values(table).sort((x, y) => {
+      if (y.pt !== x.pt) return y.pt - x.pt;
+      const dx = x.gf - x.gs, dy = y.gf - y.gs;
+      if (dy !== dx) return dy - dx;
+      return y.gf - x.gf;
+    });
+  }, [results]);
+
+  const cimianoPos = standings.findIndex((s) => s.name === CIMIANO) + 1;
+  const cimianoRow = standings.find((s) => s.name === CIMIANO);
+  const playedCount = Object.keys(results).filter((k) => results[k] && results[k].golHome !== "" && results[k].golAway !== "").length;
+
+  const allCimianoMatches = useMemo(() => {
+    const campionato = [];
+    ROUNDS.forEach((r) => {
+      r.matches.forEach((fx) => {
+        if (fx.home !== CIMIANO && fx.away !== CIMIANO) return;
+        campionato.push({
+          type: "campionato", date: r.data, id: fx.id,
+          giornata: r.giornata, half: r.half,
+          home: fx.home, away: fx.away,
+        });
+      });
+    });
+    const coppa = COPPA_FIXTURES
+      .filter((fx) => fx.home === CIMIANO || fx.away === CIMIANO)
+      .map((fx) => ({ type: "coppa", date: fx.data, id: fx.id, home: fx.home, away: fx.away }));
+    const amichevoli = friendlies.map((f) => ({ type: "amichevole", date: f.data || "9999-99-99", id: f.id }));
+    return [...campionato, ...coppa, ...amichevoli].sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"));
+  }, [friendlies]);
+
+  const coppaStandings = useMemo(() => {
+    const table = {};
+    COPPA_TEAMS.forEach((t) => (table[t] = emptyStanding(t)));
+    COPPA_FIXTURES.forEach((fx) => {
+      const res = results[fx.id];
+      if (!res) return;
+      const gh = parseInt(res.golHome, 10);
+      const ga = parseInt(res.golAway, 10);
+      if (isNaN(gh) || isNaN(ga)) return;
+      const h = table[fx.home], a = table[fx.away];
+      h.pg++; a.pg++; h.gf += gh; h.gs += ga; a.gf += ga; a.gs += gh;
+      if (gh > ga) { h.v++; h.pt += 3; a.p++; }
+      else if (gh < ga) { a.v++; a.pt += 3; h.p++; }
+      else { h.n++; a.n++; h.pt += 1; a.pt += 1; }
+    });
+    return Object.values(table).sort((x, y) => {
+      if (y.pt !== x.pt) return y.pt - x.pt;
+      const dx = x.gf - x.gs, dy = y.gf - y.gs;
+      if (dy !== dx) return dy - dx;
+      return y.gf - x.gf;
+    });
+  }, [results]);
+
+  const playerStats = useMemo(() => {
+    const map = {};
+    function addEntry(giocatore, entry) {
+      if (!giocatore) return;
+      if (!map[giocatore]) map[giocatore] = [];
+      map[giocatore].push(entry);
+    }
+    ROUNDS.forEach((r) => {
+      r.matches.forEach((fx) => {
+        if (fx.home !== CIMIANO && fx.away !== CIMIANO) return;
+        const voti = (detailsShared[fx.id] && detailsShared[fx.id].voti) || [];
+        const opponent = fx.home === CIMIANO ? fx.away : fx.home;
+        voti.forEach((v) => {
+          addEntry(v.giocatore, {
+            date: r.data, opponent, tipo: "campionato",
+            giornata: r.giornata, half: r.half,
+            voto: v.voto, minutaggio: v.minutaggio, nota: v.nota, autore: v.autore,
+          });
+        });
+      });
+    });
+    friendlies.forEach((f) => {
+      const voti = friendlyVoti[f.id] || [];
+      voti.forEach((v) => {
+        addEntry(v.giocatore, {
+          date: f.data || "0000-00-00", opponent: f.avversario, tipo: "amichevole",
+          voto: v.voto, minutaggio: v.minutaggio, nota: v.nota, autore: v.autore,
+        });
+      });
+    });
+    Object.keys(map).forEach((name) => {
+      map[name].sort((a, b) => (b.date || "0000").localeCompare(a.date || "0000"));
+    });
+    const names = Array.from(new Set([...roster.map((p) => p.nome), ...Object.keys(map)]));
+    return names.map((name) => {
+      const entries = map[name] || [];
+      const voti = entries.map((e) => parseFloat(e.voto)).filter((n) => !isNaN(n));
+      const minuti = entries.map((e) => parseInt(e.minutaggio, 10)).filter((n) => !isNaN(n));
+      const media = voti.length ? (voti.reduce((s, x) => s + x, 0) / voti.length) : null;
+      const minutiTot = minuti.length ? minuti.reduce((s, x) => s + x, 0) : null;
+      return { name, entries, presenze: entries.length, media, minutiTot };
+    });
+  }, [detailsShared, friendlies, friendlyVoti, roster]);
+
+  const playersWithData = useMemo(() => playerStats.filter((p) => p.entries.length > 0), [playerStats]);
+
+  const chartData = useMemo(() => {
+    const byDate = {};
+    const counts = {};
+    playerStats.forEach((p) => {
+      p.entries.forEach((e) => {
+        const voto = parseFloat(e.voto);
+        if (isNaN(voto) || !e.date || e.date === "0000-00-00") return;
+        if (!byDate[e.date]) byDate[e.date] = { date: e.date };
+        const key = `${e.date}|${p.name}`;
+        if (byDate[e.date][p.name] === undefined) {
+          byDate[e.date][p.name] = voto;
+          counts[key] = 1;
+        } else {
+          // Media se più autori hanno votato lo stesso giocatore nella stessa data
+          const n = counts[key];
+          byDate[e.date][p.name] = (byDate[e.date][p.name] * n + voto) / (n + 1);
+          counts[key] = n + 1;
+        }
+      });
+    });
+    return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
+  }, [playerStats]);
+
+  // --- CANNONIERI CIMIANO (campionato + coppa + amichevoli) ---
+  const cannonieri = useMemo(() => {
+    const counts = {};
+    function add(nome) {
+      if (!nome) return;
+      counts[nome] = (counts[nome] || 0) + 1;
+    }
+    Object.keys(detailsShared).forEach((fixtureId) => {
+      ((detailsShared[fixtureId] && detailsShared[fixtureId].marcatori) || []).forEach((s) => add(s.giocatore));
+    });
+    Object.keys(friendlyMarcatori).forEach((friendlyId) => {
+      (friendlyMarcatori[friendlyId] || []).forEach((s) => add(s.giocatore));
+    });
+    return Object.entries(counts)
+      .map(([name, gol]) => ({ name, gol }))
+      .sort((a, b) => b.gol - a.gol);
+  }, [detailsShared, friendlyMarcatori]);
+
+  // --- FORMA RECENTE (ultime 5 partite Cimiano, campionato + coppa + amichevoli) ---
+  const formaRecente = useMemo(() => {
+    const played = [];
+    ROUNDS.forEach((r) => {
+      r.matches.forEach((fx) => {
+        if (fx.home !== CIMIANO && fx.away !== CIMIANO) return;
+        const res = results[fx.id];
+        if (!res) return;
+        const gh = parseInt(res.golHome, 10), ga = parseInt(res.golAway, 10);
+        if (isNaN(gh) || isNaN(ga)) return;
+        const isHome = fx.home === CIMIANO;
+        const golFatti = isHome ? gh : ga;
+        const golSubiti = isHome ? ga : gh;
+        const opponent = isHome ? fx.away : fx.home;
+        let esito = "N";
+        if (golFatti > golSubiti) esito = "V";
+        else if (golFatti < golSubiti) esito = "P";
+        played.push({ date: r.data, esito, opponent, golFatti, golSubiti });
+      });
+    });
+    COPPA_FIXTURES.forEach((fx) => {
+      if (fx.home !== CIMIANO && fx.away !== CIMIANO) return;
+      const res = results[fx.id];
+      if (!res) return;
+      const gh = parseInt(res.golHome, 10), ga = parseInt(res.golAway, 10);
+      if (isNaN(gh) || isNaN(ga)) return;
+      const isHome = fx.home === CIMIANO;
+      const golFatti = isHome ? gh : ga;
+      const golSubiti = isHome ? ga : gh;
+      const opponent = isHome ? fx.away : fx.home;
+      let esito = "N";
+      if (golFatti > golSubiti) esito = "V";
+      else if (golFatti < golSubiti) esito = "P";
+      played.push({ date: fx.data, esito, opponent, golFatti, golSubiti });
+    });
+    friendlies.forEach((f) => {
+      if (f.golCimiano === "" || f.golCimiano === undefined || f.golAvv === "" || f.golAvv === undefined) return;
+      const golFatti = parseInt(f.golCimiano, 10), golSubiti = parseInt(f.golAvv, 10);
+      if (isNaN(golFatti) || isNaN(golSubiti)) return;
+      let esito = "N";
+      if (golFatti > golSubiti) esito = "V";
+      else if (golFatti < golSubiti) esito = "P";
+      played.push({ date: f.data || "0000-00-00", esito, opponent: f.avversario, golFatti, golSubiti });
+    });
+    played.sort((a, b) => (a.date || "0000").localeCompare(b.date || "0000"));
+    return played.slice(-5);
+  }, [results, friendlies]);
+
+  // --- ANDAMENTO CLASSIFICA NEL TEMPO (solo campionato) ---
+  const positionHistory = useMemo(() => {
+    const table = {};
+    TEAMS.forEach((t) => (table[t] = emptyStanding(t)));
+    const points = [];
+    ROUNDS.forEach((r) => {
+      let any = false;
+      r.matches.forEach((fx) => {
+        const res = results[fx.id];
+        if (!res) return;
+        const gh = parseInt(res.golHome, 10), ga = parseInt(res.golAway, 10);
+        if (isNaN(gh) || isNaN(ga)) return;
+        any = true;
+        const h = table[fx.home], a = table[fx.away];
+        h.pg++; a.pg++; h.gf += gh; h.gs += ga; a.gf += ga; a.gs += gh;
+        if (gh > ga) { h.v++; h.pt += 3; a.p++; }
+        else if (gh < ga) { a.v++; a.pt += 3; h.p++; }
+        else { h.n++; a.n++; h.pt += 1; a.pt += 1; }
+      });
+      if (!any) return;
+      const sorted = Object.values(table).sort((x, y) => {
+        if (y.pt !== x.pt) return y.pt - x.pt;
+        const dx = x.gf - x.gs, dy = y.gf - y.gs;
+        if (dy !== dx) return dy - dx;
+        return y.gf - x.gf;
+      });
+      const pos = sorted.findIndex((s) => s.name === CIMIANO) + 1;
+      points.push({ label: `G${r.giornata}${r.half === "andata" ? "A" : "R"}`, posizione: pos });
+    });
+    return points;
+  }, [results]);
+
+  const round = ROUNDS[roundIdx];
+
+  function saveResult(fixtureId) {
+    const d = draft[fixtureId];
+    if (!d || d.golHome === "" || d.golAway === "" || d.golHome == null || d.golAway == null) return;
+    setResults((prev) => ({ ...prev, [fixtureId]: { golHome: d.golHome, golAway: d.golAway } }));
+  }
+
+  function clearResult(fixtureId) {
+    setResults((prev) => {
+      const next = { ...prev };
+      delete next[fixtureId];
+      return next;
+    });
+    setDraft((prev) => ({ ...prev, [fixtureId]: undefined }));
+  }
+
+  function addScorer(fixtureId) {
+    const d = scorerDraft[fixtureId];
+    if (!d || !d.giocatore) return;
+    setDetailsShared((prev) => {
+      const cur = prev[fixtureId] || {};
+      const list = cur.marcatori || [];
+      return { ...prev, [fixtureId]: { ...cur, marcatori: [...list, { id: Date.now().toString(), giocatore: d.giocatore, minuto: d.minuto || "" }] } };
+    });
+    setScorerDraft((prev) => ({ ...prev, [fixtureId]: { giocatore: "", minuto: "" } }));
+  }
+
+  function removeScorer(fixtureId, id) {
+    setDetailsShared((prev) => {
+      const cur = prev[fixtureId] || {};
+      return { ...prev, [fixtureId]: { ...cur, marcatori: (cur.marcatori || []).filter((s) => s.id !== id) } };
+    });
+  }
+
+  function startEditScorer(fixtureId, s) {
+    setEditingScorer(`${fixtureId}:${s.id}`);
+    setScorerDraft((prev) => ({ ...prev, [`edit-${fixtureId}`]: { giocatore: s.giocatore, minuto: s.minuto || "" } }));
+  }
+
+  function saveEditScorer(fixtureId, id) {
+    const d = scorerDraft[`edit-${fixtureId}`];
+    if (!d || !d.giocatore) return;
+    setDetailsShared((prev) => {
+      const cur = prev[fixtureId] || {};
+      const list = (cur.marcatori || []).map((s) => (s.id === id ? { ...s, giocatore: d.giocatore, minuto: d.minuto || "" } : s));
+      return { ...prev, [fixtureId]: { ...cur, marcatori: list } };
+    });
+    setEditingScorer(null);
+  }
+
+  function addRating(fixtureId) {
+    const d = ratingDraft[fixtureId];
+    if (!d || !d.giocatore || !d.voto) return;
+    setDetailsShared((prev) => {
+      const cur = prev[fixtureId] || {};
+      const list = cur.voti || [];
+      return { ...prev, [fixtureId]: { ...cur, voti: [...list, { id: Date.now().toString(), autore: voterName || "Anonimo", giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "" }] } };
+    });
+    setRatingDraft((prev) => ({ ...prev, [fixtureId]: { giocatore: "", voto: "", minutaggio: "", nota: "" } }));
+  }
+
+  function removeRating(fixtureId, id) {
+    setDetailsShared((prev) => {
+      const cur = prev[fixtureId] || {};
+      return { ...prev, [fixtureId]: { ...cur, voti: (cur.voti || []).filter((v) => v.id !== id) } };
+    });
+  }
+
+  function startEditRating(fixtureId, v) {
+    setEditingRating(`${fixtureId}:${v.id}`);
+    setRatingDraft((prev) => ({ ...prev, [`edit-${fixtureId}`]: { giocatore: v.giocatore, voto: v.voto, minutaggio: v.minutaggio || "", nota: v.nota || "" } }));
+  }
+
+  function saveEditRating(fixtureId, id) {
+    const d = ratingDraft[`edit-${fixtureId}`];
+    if (!d || !d.giocatore || !d.voto) return;
+    setDetailsShared((prev) => {
+      const cur = prev[fixtureId] || {};
+      const list = (cur.voti || []).map((v) => (v.id === id ? { ...v, giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "" } : v));
+      return { ...prev, [fixtureId]: { ...cur, voti: list } };
+    });
+    setEditingRating(null);
+  }
+
+  function addFriendly() {
+    if (!fForm.avversario) return;
+    setFriendlies((prev) => [...prev, { id: Date.now().toString(), ...fForm }]);
+    setFForm({ avversario: "", golCimiano: "", golAvv: "", data: "", ora: "", note: "" });
+  }
+
+  function removeFriendly(id) {
+    setFriendlies((prev) => prev.filter((f) => f.id !== id));
+  }
+
+  function startEditFriendly(f) {
+    setEditingFriendly(f.id);
+    setFriendlyEditDraft({ avversario: f.avversario, golCimiano: f.golCimiano ?? "", golAvv: f.golAvv ?? "", data: f.data || "", ora: f.ora || "", note: f.note || "" });
+  }
+
+  function saveEditFriendly(id) {
+    if (!friendlyEditDraft.avversario) return;
+    setFriendlies((prev) => prev.map((f) => (f.id === id ? { ...f, ...friendlyEditDraft } : f)));
+    setEditingFriendly(null);
+  }
+
+  function addRatingFriendly(friendlyId) {
+    const d = ratingDraftF[friendlyId];
+    if (!d || !d.giocatore || !d.voto) return;
+    setFriendlyVoti((prev) => {
+      const list = prev[friendlyId] || [];
+      return { ...prev, [friendlyId]: [...list, { id: Date.now().toString(), autore: voterName || "Anonimo", giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "" }] };
+    });
+    setRatingDraftF((prev) => ({ ...prev, [friendlyId]: { giocatore: "", voto: "", minutaggio: "", nota: "" } }));
+  }
+
+  function removeRatingFriendly(friendlyId, id) {
+    setFriendlyVoti((prev) => ({ ...prev, [friendlyId]: (prev[friendlyId] || []).filter((v) => v.id !== id) }));
+  }
+
+  function startEditRatingF(friendlyId, v) {
+    setEditingRatingF(`${friendlyId}:${v.id}`);
+    setRatingDraftF((prev) => ({ ...prev, [`edit-${friendlyId}`]: { giocatore: v.giocatore, voto: v.voto, minutaggio: v.minutaggio || "", nota: v.nota || "" } }));
+  }
+
+  function saveEditRatingF(friendlyId, id) {
+    const d = ratingDraftF[`edit-${friendlyId}`];
+    if (!d || !d.giocatore || !d.voto) return;
+    setFriendlyVoti((prev) => ({
+      ...prev,
+      [friendlyId]: (prev[friendlyId] || []).map((v) => (v.id === id ? { ...v, giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "" } : v)),
+    }));
+    setEditingRatingF(null);
+  }
+
+  // --- MARCATORI AMICHEVOLI ---
+  function addScorerF(friendlyId) {
+    const d = scorerDraftF[friendlyId];
+    if (!d || !d.giocatore) return;
+    setFriendlyMarcatori((prev) => {
+      const list = prev[friendlyId] || [];
+      return { ...prev, [friendlyId]: [...list, { id: Date.now().toString(), giocatore: d.giocatore, minuto: d.minuto || "" }] };
+    });
+    setScorerDraftF((prev) => ({ ...prev, [friendlyId]: { giocatore: "", minuto: "" } }));
+  }
+
+  function removeScorerF(friendlyId, id) {
+    setFriendlyMarcatori((prev) => ({ ...prev, [friendlyId]: (prev[friendlyId] || []).filter((s) => s.id !== id) }));
+  }
+
+  function startEditScorerF(friendlyId, s) {
+    setEditingScorerF(`${friendlyId}:${s.id}`);
+    setScorerDraftF((prev) => ({ ...prev, [`edit-${friendlyId}`]: { giocatore: s.giocatore, minuto: s.minuto || "" } }));
+  }
+
+  function saveEditScorerF(friendlyId, id) {
+    const d = scorerDraftF[`edit-${friendlyId}`];
+    if (!d || !d.giocatore) return;
+    setFriendlyMarcatori((prev) => ({
+      ...prev,
+      [friendlyId]: (prev[friendlyId] || []).map((s) => (s.id === id ? { ...s, giocatore: d.giocatore, minuto: d.minuto || "" } : s)),
+    }));
+    setEditingScorerF(null);
+  }
+
+  // --- SEDE PARTITA (campionato/coppa) ---
+  // --- PRESENZE ---
+  function setPresenza(fixtureId, playerId, stato) {
+    setDetailsShared((prev) => {
+      const cur = prev[fixtureId] || {};
+      const presenze = { ...(cur.presenze || {}) };
+      if (presenze[playerId] === stato) delete presenze[playerId];
+      else presenze[playerId] = stato;
+      return { ...prev, [fixtureId]: { ...cur, presenze } };
+    });
+  }
+
+  function setPresenzaF(friendlyId, playerId, stato) {
+    setFriendlyPresenze((prev) => {
+      const cur = { ...(prev[friendlyId] || {}) };
+      if (cur[playerId] === stato) delete cur[playerId];
+      else cur[playerId] = stato;
+      return { ...prev, [friendlyId]: cur };
+    });
+  }
+
+  // --- FORMAZIONE (modulo 3-5-2) ---
+  function setFormazione(fixtureId, slotId, playerId) {
+    setDetailsShared((prev) => {
+      const cur = prev[fixtureId] || {};
+      const formazione = { ...(cur.formazione || {}) };
+      if (playerId) formazione[slotId] = playerId; else delete formazione[slotId];
+      return { ...prev, [fixtureId]: { ...cur, formazione } };
+    });
+  }
+
+  function setModulo(fixtureId, modulo) {
+    setDetailsShared((prev) => ({ ...prev, [fixtureId]: { ...(prev[fixtureId] || {}), modulo } }));
+  }
+
+  function setFormazioneF(friendlyId, slotId, playerId) {
+    setFriendlyFormazione((prev) => {
+      const cur = { ...(prev[friendlyId] || {}) };
+      if (playerId) cur[slotId] = playerId; else delete cur[slotId];
+      return { ...prev, [friendlyId]: cur };
+    });
+  }
+
+  function setModuloF(friendlyId, modulo) {
+    setFriendlyModuloState((prev) => ({ ...prev, [friendlyId]: modulo }));
+  }
+
+  function renderPitch(formazione, onChangeSlot, modulo, onChangeModulo) {
+    const moduloKey = modulo || DEFAULT_MODULO;
+    const slots = FORMATIONS[moduloKey].slots;
+    return (
+      <div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+          {Object.entries(FORMATIONS).map(([key, f]) => (
+            <button key={key} onClick={() => onChangeModulo(key)}
+              style={{ fontSize: 11, padding: "4px 10px", borderRadius: 10, border: `1px solid ${LINE}`, background: moduloKey === key ? RED : "#fff", color: moduloKey === key ? "#fff" : INK, cursor: "pointer", fontWeight: 600 }}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div style={{
+          position: "relative", width: "100%", maxWidth: 320, aspectRatio: "2 / 3", margin: "0 auto",
+          background: "linear-gradient(180deg, #3f9142 0%, #368239 100%)", borderRadius: 8, border: `2px solid #2c6b2f`, overflow: "hidden",
+        }}>
+          {/* linee di campo */}
+          <div style={{ position: "absolute", left: "10%", right: "10%", top: "50%", height: 1, background: "rgba(255,255,255,0.5)" }} />
+          <div style={{ position: "absolute", left: "50%", top: "50%", width: 60, height: 60, border: "1px solid rgba(255,255,255,0.5)", borderRadius: "50%", transform: "translate(-50%,-50%)" }} />
+          <div style={{ position: "absolute", left: "25%", right: "25%", bottom: 0, height: "14%", border: "1px solid rgba(255,255,255,0.5)", borderTop: "none" }} />
+          <div style={{ position: "absolute", left: "25%", right: "25%", top: 0, height: "14%", border: "1px solid rgba(255,255,255,0.5)", borderBottom: "none" }} />
+          {slots.map((slot) => {
+            const playerId = formazione[slot.id];
+            const player = roster.find((r) => r.id === playerId);
+            return (
+              <div key={slot.id} style={{ position: "absolute", left: `${slot.x}%`, top: `${slot.y}%`, transform: "translate(-50%,-50%)", textAlign: "center" }}>
+                <select value={playerId || ""} onChange={(e) => onChangeSlot(slot.id, e.target.value)}
+                  style={{
+                    width: 40, height: 40, borderRadius: "50%", border: `2px solid ${player ? "#fff" : "rgba(255,255,255,0.6)"}`,
+                    background: player ? RED : "rgba(255,255,255,0.15)", color: "#fff", fontSize: 10, fontWeight: 700,
+                    textAlign: "center", textAlignLast: "center", cursor: "pointer", appearance: "none", padding: 0,
+                  }}>
+                  <option value="" style={{ color: INK }}>{slot.label}</option>
+                  {roster.map((rp) => (
+                    <option key={rp.id} value={rp.id} style={{ color: INK }}>{rp.numero ? `${rp.numero} ` : ""}{rp.nome}</option>
+                  ))}
+                </select>
+                {player && (
+                  <div style={{ fontSize: 9, color: "#fff", marginTop: 2, maxWidth: 50, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {player.nome.split(" ")[0]}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // --- ROSA SQUADRA ---
+  function addRosterPlayer() {
+    if (!rosterDraft.nome) return;
+    setRoster((prev) => [...prev, { id: Date.now().toString(), nome: rosterDraft.nome, numero: rosterDraft.numero || "" }]);
+    setRosterDraft({ nome: "", numero: "" });
+  }
+
+  function removeRosterPlayer(id) {
+    setRoster((prev) => prev.filter((p) => p.id !== id));
+  }
+
+  function startEditRoster(p) {
+    setEditingRosterId(p.id);
+    setRosterDraft({ nome: p.nome, numero: p.numero || "" });
+  }
+
+  function saveEditRoster(id) {
+    if (!rosterDraft.nome) return;
+    setRoster((prev) => prev.map((p) => (p.id === id ? { ...p, nome: rosterDraft.nome, numero: rosterDraft.numero || "" } : p)));
+    setEditingRosterId(null);
+    setRosterDraft({ nome: "", numero: "" });
+  }
+
+
+
+  function addTeamVoto(fixtureId) {
+    const d = teamVotoDraft[fixtureId];
+    if (!d || !d.voto) return;
+    setDetailsShared((prev) => {
+      const cur = prev[fixtureId] || {};
+      const list = cur.votoSquadra || [];
+      return { ...prev, [fixtureId]: { ...cur, votoSquadra: [...list, { id: Date.now().toString(), autore: voterName || "Anonimo", voto: d.voto, nota: d.nota || "" }] } };
+    });
+    setTeamVotoDraft((prev) => ({ ...prev, [fixtureId]: { voto: "", nota: "" } }));
+  }
+
+  function removeTeamVoto(fixtureId, id) {
+    setDetailsShared((prev) => {
+      const cur = prev[fixtureId] || {};
+      return { ...prev, [fixtureId]: { ...cur, votoSquadra: (cur.votoSquadra || []).filter((v) => v.id !== id) } };
+    });
+  }
+
+  function startEditTeamVoto(fixtureId, v) {
+    setEditingTeamVoto(`${fixtureId}:${v.id}`);
+    setTeamVotoDraft((prev) => ({ ...prev, [`edit-${fixtureId}`]: { voto: v.voto, nota: v.nota || "" } }));
+  }
+
+  function saveEditTeamVoto(fixtureId, id) {
+    const d = teamVotoDraft[`edit-${fixtureId}`];
+    if (!d || !d.voto) return;
+    setDetailsShared((prev) => {
+      const cur = prev[fixtureId] || {};
+      const list = (cur.votoSquadra || []).map((v) => (v.id === id ? { ...v, voto: d.voto, nota: d.nota || "" } : v));
+      return { ...prev, [fixtureId]: { ...cur, votoSquadra: list } };
+    });
+    setEditingTeamVoto(null);
+  }
+
+  function addTeamVotoF(friendlyId) {
+    const d = teamVotoDraftF[friendlyId];
+    if (!d || !d.voto) return;
+    setFriendlyTeamVoto((prev) => {
+      const list = prev[friendlyId] || [];
+      return { ...prev, [friendlyId]: [...list, { id: Date.now().toString(), autore: voterName || "Anonimo", voto: d.voto, nota: d.nota || "" }] };
+    });
+    setTeamVotoDraftF((prev) => ({ ...prev, [friendlyId]: { voto: "", nota: "" } }));
+  }
+
+  function removeTeamVotoF(friendlyId, id) {
+    setFriendlyTeamVoto((prev) => ({ ...prev, [friendlyId]: (prev[friendlyId] || []).filter((v) => v.id !== id) }));
+  }
+
+  function startEditTeamVotoF(friendlyId, v) {
+    setEditingTeamVotoF(`${friendlyId}:${v.id}`);
+    setTeamVotoDraftF((prev) => ({ ...prev, [`edit-${friendlyId}`]: { voto: v.voto, nota: v.nota || "" } }));
+  }
+
+  function saveEditTeamVotoF(friendlyId, id) {
+    const d = teamVotoDraftF[`edit-${friendlyId}`];
+    if (!d || !d.voto) return;
+    setFriendlyTeamVoto((prev) => ({
+      ...prev,
+      [friendlyId]: (prev[friendlyId] || []).map((v) => (v.id === id ? { ...v, voto: d.voto, nota: d.nota || "" } : v)),
+    }));
+    setEditingTeamVotoF(null);
+  }
+
+  function renderCampionatoRow(fx, metaLabel, statusColor) {
+    const played = results[fx.id];
+    const d = draft[fx.id] || {};
+    const isCimianoMatch = fx.home === CIMIANO || fx.away === CIMIANO;
+    const isOpen = !!expanded[fx.id];
+    const sd = scorerDraft[fx.id] || {};
+    const rd = ratingDraft[fx.id] || {};
+    const marcatori = (detailsShared[fx.id] && detailsShared[fx.id].marcatori) || [];
+    const voti = (detailsShared[fx.id] && detailsShared[fx.id].voti) || [];
+    const votoSquadraList = (detailsShared[fx.id] && detailsShared[fx.id].votoSquadra) || [];
+    const tvd = teamVotoDraft[fx.id] || {};
+    const sc = statusColor ? STATUS_COLORS[statusColor] : null;
+    const rowBg = sc ? sc.bg : (isCimianoMatch ? "#fdeceb" : "#fff");
+    const rowBorder = sc ? sc.border : LINE;
+    return (
+      <div key={fx.id} style={{ background: rowBg, border: `1px solid ${rowBorder}`, borderRadius: 4, fontSize: 13 }}>
+        {metaLabel && (
+          <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 12px 0" }}>{metaLabel}</div>
+        )}
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 84px minmax(0,1fr) auto", alignItems: "center", columnGap: 10, padding: metaLabel ? "4px 12px 8px" : "8px 12px" }}>
+          <span style={{ fontWeight: fx.home === CIMIANO ? 700 : 400, color: fx.home === CIMIANO ? RED : INK, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fx.home}</span>
+          {played ? (
+            <span style={{ fontWeight: 700, textAlign: "center" }}>{played.golHome} – {played.golAway}</span>
+          ) : (
+            <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+              <input className="score-input" type="number" min="0" value={d.golHome ?? ""}
+                onChange={(e) => setDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], golHome: e.target.value } }))} />
+              <span style={{ color: MUTED }}>–</span>
+              <input className="score-input" type="number" min="0" value={d.golAway ?? ""}
+                onChange={(e) => setDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], golAway: e.target.value } }))} />
+            </span>
+          )}
+          <span style={{ fontWeight: fx.away === CIMIANO ? 700 : 400, color: fx.away === CIMIANO ? RED : INK, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fx.away}</span>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", justifySelf: "end" }}>
+            {played && isCimianoMatch && (
+              <button onClick={() => setExpanded((p) => ({ ...p, [fx.id]: !p[fx.id] }))}
+                style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                {isOpen ? "chiudi dettagli" : "marcatori & voti"}
+              </button>
+            )}
+            {played ? (
+              <button onClick={() => clearResult(fx.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+            ) : (
+              <button onClick={() => saveResult(fx.id)} style={{ background: RED, color: "#fff", border: "none", padding: "5px 12px", borderRadius: 3, fontWeight: 600, cursor: "pointer", fontSize: 12 }}>Salva</button>
+            )}
+          </div>
+        </div>
+
+        {isOpen && played && isCimianoMatch && (
+          <div style={{ borderTop: `1px solid ${LINE}`, padding: "10px 12px", background: "#fff" }}>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                <span>
+                  Voto Squadra {votoSquadraList.length > 0 && `— media ${(votoSquadraList.reduce((s, v) => s + parseFloat(v.voto), 0) / votoSquadraList.length).toFixed(1)} (${votoSquadraList.length})`}
+                </span>
+                {Array.from(new Set(votoSquadraList.map((v) => v.autore))).length > 1 && (
+                  <select value={teamVoteFilter[fx.id] || ""} onChange={(e) => setTeamVoteFilter((p) => ({ ...p, [fx.id]: e.target.value }))}
+                    style={{ fontSize: 11, padding: "2px 4px", border: `1px solid ${LINE}`, borderRadius: 3, textTransform: "none", fontWeight: 400 }}>
+                    <option value="">Tutti</option>
+                    {Array.from(new Set(votoSquadraList.map((v) => v.autore))).map((a) => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              {votoSquadraList.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
+                  {votoSquadraList.filter((v) => !teamVoteFilter[fx.id] || v.autore === teamVoteFilter[fx.id]).map((v) => {
+                    const isEditingV = editingTeamVoto === `${fx.id}:${v.id}`;
+                    const ed = teamVotoDraft[`edit-${fx.id}`] || {};
+                    return isEditingV ? (
+                      <div key={v.id} style={{ display: "flex", gap: 6, alignItems: "center", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 6, padding: 8 }}>
+                        <input type="number" min="1" max="10" step="0.5" placeholder="Voto" value={ed.voto || ""} onChange={(e) => setTeamVotoDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], voto: e.target.value } }))}
+                          style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                        <input placeholder="Nota" value={ed.nota || ""} onChange={(e) => setTeamVotoDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], nota: e.target.value } }))}
+                          style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                        <button onClick={() => saveEditTeamVoto(fx.id, v.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
+                        <button onClick={() => setEditingTeamVoto(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
+                      </div>
+                    ) : (
+                      <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 6, padding: "8px 10px", gap: 8 }}>
+                        <div>
+                          <div><strong>{v.voto}</strong>{v.nota ? ` · ${v.nota}` : ""}</div>
+                          <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 8 }}>{v.autore}</span>
+                        </div>
+                        <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                          <button onClick={() => startEditTeamVoto(fx.id, v)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+                          <button onClick={() => removeTeamVoto(fx.id, v.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input type="number" min="1" max="10" step="0.5" placeholder="Voto" value={tvd.voto || ""} onChange={(e) => setTeamVotoDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], voto: e.target.value } }))}
+                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <input placeholder="Nota (opz.)" value={tvd.nota || ""} onChange={(e) => setTeamVotoDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], nota: e.target.value } }))}
+                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <button onClick={() => addTeamVoto(fx.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>+</button>
+              </div>
+              {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per far vedere chi ha votato.</div>}
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Marcatori</div>
+              {marcatori.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
+                  {marcatori.map((s) => {
+                    const isEditing = editingScorer === `${fx.id}:${s.id}`;
+                    const ed = scorerDraft[`edit-${fx.id}`] || {};
+                    return isEditing ? (
+                      <div key={s.id} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <input value={ed.giocatore || ""} onChange={(e) => setScorerDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], giocatore: e.target.value } }))}
+                          style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                        <input placeholder="Min." value={ed.minuto || ""} onChange={(e) => setScorerDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], minuto: e.target.value } }))}
+                          style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                        <button onClick={() => saveEditScorer(fx.id, s.id)} style={{ background: RED, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>Salva</button>
+                        <button onClick={() => setEditingScorer(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>annulla</button>
+                      </div>
+                    ) : (
+                      <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span>⚽ {s.giocatore}{s.minuto ? ` (${s.minuto}')` : ""}</span>
+                        <span style={{ display: "flex", gap: 8 }}>
+                          <button onClick={() => startEditScorer(fx.id, s)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+                          <button onClick={() => removeScorer(fx.id, s.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                {roster.map((rp) => (
+                  <button key={rp.id} onClick={() => setScorerDraft((prev) => ({ ...prev, [fx.id]: { ...prev[fx.id], giocatore: rp.nome } }))}
+                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: sd.giocatore === rp.nome ? RED : "#fff", color: sd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
+                    {rp.numero ? `${rp.numero} · ` : ""}{rp.nome}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input placeholder="Giocatore" value={sd.giocatore || ""} onChange={(e) => setScorerDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], giocatore: e.target.value } }))}
+                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <input placeholder="Min." value={sd.minuto || ""} onChange={(e) => setScorerDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], minuto: e.target.value } }))}
+                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <button onClick={() => addScorer(fx.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>+</button>
+              </div>
+            </div>
+
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 6 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>Voti</div>
+                {Array.from(new Set(voti.map((v) => v.autore))).length > 1 && (
+                  <select value={playerVoteFilter[fx.id] || ""} onChange={(e) => setPlayerVoteFilter((p) => ({ ...p, [fx.id]: e.target.value }))}
+                    style={{ fontSize: 11, padding: "2px 4px", border: `1px solid ${LINE}`, borderRadius: 3 }}>
+                    <option value="">Tutti</option>
+                    {Array.from(new Set(voti.map((v) => v.autore))).map((a) => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              {voti.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
+                  {Object.entries(
+                    voti.filter((v) => !playerVoteFilter[fx.id] || v.autore === playerVoteFilter[fx.id])
+                      .reduce((acc, v) => { (acc[v.giocatore] = acc[v.giocatore] || []).push(v); return acc; }, {})
+                  ).map(([giocatore, entries]) => {
+                    const media = entries.reduce((s, v) => s + parseFloat(v.voto), 0) / entries.length;
+                    return (
+                      <div key={giocatore}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: INK, marginBottom: 4 }}>
+                          {giocatore} <span style={{ color: MUTED, fontWeight: 400 }}>— media {media.toFixed(1)} ({entries.length})</span>
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {entries.map((v) => {
+                            const isEditing = editingRating === `${fx.id}:${v.id}`;
+                            const ed = ratingDraft[`edit-${fx.id}`] || {};
+                            return isEditing ? (
+                              <div key={v.id} style={{ display: "flex", gap: 6, alignItems: "center", background: PLAYER_BOX_BG, border: `1px solid ${PLAYER_BOX_BORDER}`, borderRadius: 6, padding: 8 }}>
+                                <input value={ed.giocatore || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], giocatore: e.target.value } }))}
+                                  style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                                <input type="number" min="1" max="10" step="0.5" placeholder="Voto" value={ed.voto || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], voto: e.target.value } }))}
+                                  style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                                <input type="number" min="0" max="120" placeholder="Min'" value={ed.minutaggio || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], minutaggio: e.target.value } }))}
+                                  style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                                <input placeholder="Nota" value={ed.nota || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], nota: e.target.value } }))}
+                                  style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                                <button onClick={() => saveEditRating(fx.id, v.id)} style={{ background: RED, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>Salva</button>
+                                <button onClick={() => setEditingRating(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>annulla</button>
+                              </div>
+                            ) : (
+                              <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: PLAYER_BOX_BG, border: `1px solid ${PLAYER_BOX_BORDER}`, borderRadius: 6, padding: "8px 10px", gap: 8 }}>
+                                <div>
+                                  <div><strong>{v.voto}</strong>{v.minutaggio ? ` (${v.minutaggio}')` : ""}{v.nota ? ` · ${v.nota}` : ""}</div>
+                                  <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 8 }}>{v.autore}</span>
+                                </div>
+                                <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                                  <button onClick={() => startEditRating(fx.id, v)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+                                  <button onClick={() => removeRating(fx.id, v.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                {roster.map((rp) => (
+                  <button key={rp.id} onClick={() => setRatingDraft((prev) => ({ ...prev, [fx.id]: { ...prev[fx.id], giocatore: rp.nome } }))}
+                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: rd.giocatore === rp.nome ? RED : "#fff", color: rd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
+                    {rp.numero ? `${rp.numero} · ` : ""}{rp.nome}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input placeholder="Giocatore" value={rd.giocatore || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], giocatore: e.target.value } }))}
+                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <input placeholder="Voto" type="number" min="1" max="10" step="0.5" value={rd.voto || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], voto: e.target.value } }))}
+                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <input placeholder="Min'" type="number" min="0" max="120" value={rd.minutaggio || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], minutaggio: e.target.value } }))}
+                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <input placeholder="Nota (opz.)" value={rd.nota || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], nota: e.target.value } }))}
+                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <button onClick={() => addRating(fx.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>+</button>
+              </div>
+            </div>
+
+            {roster.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Presenze</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {roster.map((rp) => {
+                    const presenze = (detailsShared[fx.id] && detailsShared[fx.id].presenze) || {};
+                    const stato = presenze[rp.id];
+                    return (
+                      <div key={rp.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <span>{rp.numero ? `${rp.numero} · ` : ""}{rp.nome}</span>
+                        <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          {PLAYER_STATUSES.map((s) => (
+                            <button key={s} onClick={() => setPresenza(fx.id, rp.id, s)}
+                              style={{ fontSize: 10, padding: "3px 7px", borderRadius: 8, border: `1px solid ${LINE}`, background: stato === s ? RED : "#fff", color: stato === s ? "#fff" : MUTED, cursor: "pointer" }}>
+                              {s}
+                            </button>
+                          ))}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {roster.length > 0 && (
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Formazione</div>
+                {renderPitch(
+                  (detailsShared[fx.id] && detailsShared[fx.id].formazione) || {},
+                  (slotId, playerId) => setFormazione(fx.id, slotId, playerId),
+                  (detailsShared[fx.id] && detailsShared[fx.id].modulo) || DEFAULT_MODULO,
+                  (modulo) => setModulo(fx.id, modulo)
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function renderFriendlyRow(f, statusColor) {
+    const isOpen = !!expandedFriendly[f.id];
+    const rd = ratingDraftF[f.id] || {};
+    const voti = friendlyVoti[f.id] || [];
+    const marcatoriF = friendlyMarcatori[f.id] || [];
+    const sdF = scorerDraftF[f.id] || {};
+    const presenzeF = friendlyPresenze[f.id] || {};
+    const hasScore = f.golCimiano !== "" && f.golCimiano !== undefined && f.golAvv !== "" && f.golAvv !== undefined;
+    const isEditingF = editingFriendly === f.id;
+    const votoSquadraListF = friendlyTeamVoto[f.id] || [];
+    const tvdF = teamVotoDraftF[f.id] || {};
+    const sc = statusColor ? STATUS_COLORS[statusColor] : null;
+    const rowBg = sc ? sc.bg : "#fff";
+    const rowBorder = sc ? sc.border : LINE;
+    return (
+      <div key={f.id} style={{ background: rowBg, border: `1px solid ${rowBorder}`, borderRadius: 4, fontSize: 13 }}>
+        {isEditingF ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "10px 12px", alignItems: "center" }}>
+            <input placeholder="Avversario" value={friendlyEditDraft.avversario || ""} onChange={(e) => setFriendlyEditDraft((p) => ({ ...p, avversario: e.target.value }))}
+              style={{ flex: 1, minWidth: 120, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+            <input type="date" value={friendlyEditDraft.data || ""} onChange={(e) => setFriendlyEditDraft((p) => ({ ...p, data: e.target.value }))}
+              style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+            <input type="time" value={friendlyEditDraft.ora || ""} onChange={(e) => setFriendlyEditDraft((p) => ({ ...p, ora: e.target.value }))}
+              style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+            <input type="number" placeholder="Gol Cimiano" value={friendlyEditDraft.golCimiano ?? ""} onChange={(e) => setFriendlyEditDraft((p) => ({ ...p, golCimiano: e.target.value }))}
+              style={{ width: 100, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+            <span style={{ color: MUTED }}>–</span>
+            <input type="number" placeholder="Gol avv." value={friendlyEditDraft.golAvv ?? ""} onChange={(e) => setFriendlyEditDraft((p) => ({ ...p, golAvv: e.target.value }))}
+              style={{ width: 90, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+            <button onClick={() => saveEditFriendly(f.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
+            <button onClick={() => setEditingFriendly(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", flexWrap: "wrap", gap: 6 }}>
+            <div>
+              <span style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginRight: 8 }}>Amichevole</span>
+              {hasScore ? (
+                <><strong style={{ color: RED }}>Cimiano</strong> {f.golCimiano} – {f.golAvv} <strong>{f.avversario}</strong></>
+              ) : (
+                <><strong style={{ color: RED }}>Cimiano</strong> vs <strong>{f.avversario}</strong>
+                  <span style={{ marginLeft: 8, fontSize: 11, color: RED, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>in programma</span></>
+              )}
+              {f.data && <span style={{ color: MUTED, marginLeft: 8 }}>{fmtDate(f.data)}{f.ora ? ` ore ${f.ora}` : ""}</span>}
+            </div>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <button onClick={() => startEditFriendly(f)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>modifica</button>
+              <button onClick={() => setExpandedFriendly((p) => ({ ...p, [f.id]: !p[f.id] }))}
+                style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                {isOpen ? "chiudi" : "commenti e voti"}
+              </button>
+              <button onClick={() => removeFriendly(f.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 16 }}>×</button>
+            </div>
+          </div>
+        )}
+
+        {isOpen && (
+          <div style={{ borderTop: `1px solid ${LINE}`, padding: "10px 12px" }}>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                <span>
+                  Voto Squadra {votoSquadraListF.length > 0 && `— media ${(votoSquadraListF.reduce((s, v) => s + parseFloat(v.voto), 0) / votoSquadraListF.length).toFixed(1)} (${votoSquadraListF.length})`}
+                </span>
+                {Array.from(new Set(votoSquadraListF.map((v) => v.autore))).length > 1 && (
+                  <select value={teamVoteFilter[f.id] || ""} onChange={(e) => setTeamVoteFilter((p) => ({ ...p, [f.id]: e.target.value }))}
+                    style={{ fontSize: 11, padding: "2px 4px", border: `1px solid ${LINE}`, borderRadius: 3, textTransform: "none", fontWeight: 400 }}>
+                    <option value="">Tutti</option>
+                    {Array.from(new Set(votoSquadraListF.map((v) => v.autore))).map((a) => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              {votoSquadraListF.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
+                  {votoSquadraListF.filter((v) => !teamVoteFilter[f.id] || v.autore === teamVoteFilter[f.id]).map((v) => {
+                    const isEditingV = editingTeamVotoF === `${f.id}:${v.id}`;
+                    const ed = teamVotoDraftF[`edit-${f.id}`] || {};
+                    return isEditingV ? (
+                      <div key={v.id} style={{ display: "flex", gap: 6, alignItems: "center", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 6, padding: 8 }}>
+                        <input type="number" min="1" max="10" step="0.5" placeholder="Voto" value={ed.voto || ""} onChange={(e) => setTeamVotoDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], voto: e.target.value } }))}
+                          style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                        <input placeholder="Nota" value={ed.nota || ""} onChange={(e) => setTeamVotoDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], nota: e.target.value } }))}
+                          style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                        <button onClick={() => saveEditTeamVotoF(f.id, v.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
+                        <button onClick={() => setEditingTeamVotoF(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
+                      </div>
+                    ) : (
+                      <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 6, padding: "8px 10px", gap: 8 }}>
+                        <div>
+                          <div><strong>{v.voto || "— (nessun voto)"}</strong>{v.nota ? ` · ${v.nota}` : ""}</div>
+                          <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 8 }}>{v.autore}</span>
+                        </div>
+                        <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                          <button onClick={() => startEditTeamVotoF(f.id, v)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+                          <button onClick={() => removeTeamVotoF(f.id, v.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input type="number" min="1" max="10" step="0.5" placeholder="Voto" value={tvdF.voto || ""} onChange={(e) => setTeamVotoDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], voto: e.target.value } }))}
+                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <input placeholder="Nota (opz.)" value={tvdF.nota || ""} onChange={(e) => setTeamVotoDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], nota: e.target.value } }))}
+                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <button onClick={() => addTeamVotoF(f.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>+</button>
+              </div>
+              {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per far vedere chi ha votato.</div>}
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Marcatori</div>
+              {marcatoriF.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
+                  {marcatoriF.map((s) => {
+                    const isEditingS = editingScorerF === `${f.id}:${s.id}`;
+                    const ed = scorerDraftF[`edit-${f.id}`] || {};
+                    return isEditingS ? (
+                      <div key={s.id} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <input value={ed.giocatore || ""} onChange={(e) => setScorerDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], giocatore: e.target.value } }))}
+                          style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                        <input placeholder="Min." value={ed.minuto || ""} onChange={(e) => setScorerDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], minuto: e.target.value } }))}
+                          style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                        <button onClick={() => saveEditScorerF(f.id, s.id)} style={{ background: RED, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>Salva</button>
+                        <button onClick={() => setEditingScorerF(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>annulla</button>
+                      </div>
+                    ) : (
+                      <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span>⚽ {s.giocatore}{s.minuto ? ` (${s.minuto}')` : ""}</span>
+                        <span style={{ display: "flex", gap: 8 }}>
+                          <button onClick={() => startEditScorerF(f.id, s)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+                          <button onClick={() => removeScorerF(f.id, s.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                {roster.map((rp) => (
+                  <button key={rp.id} onClick={() => setScorerDraftF((prev) => ({ ...prev, [f.id]: { ...prev[f.id], giocatore: rp.nome } }))}
+                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: sdF.giocatore === rp.nome ? RED : "#fff", color: sdF.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
+                    {rp.numero ? `${rp.numero} · ` : ""}{rp.nome}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input placeholder="Giocatore" value={sdF.giocatore || ""} onChange={(e) => setScorerDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], giocatore: e.target.value } }))}
+                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <input placeholder="Min." value={sdF.minuto || ""} onChange={(e) => setScorerDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], minuto: e.target.value } }))}
+                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <button onClick={() => addScorerF(f.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>+</button>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 6 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>Voti</div>
+              {Array.from(new Set(voti.map((v) => v.autore))).length > 1 && (
+                <select value={playerVoteFilter[f.id] || ""} onChange={(e) => setPlayerVoteFilter((p) => ({ ...p, [f.id]: e.target.value }))}
+                  style={{ fontSize: 11, padding: "2px 4px", border: `1px solid ${LINE}`, borderRadius: 3 }}>
+                  <option value="">Tutti</option>
+                  {Array.from(new Set(voti.map((v) => v.autore))).map((a) => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {voti.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
+                {Object.entries(
+                  voti.filter((v) => !playerVoteFilter[f.id] || v.autore === playerVoteFilter[f.id])
+                    .reduce((acc, v) => { (acc[v.giocatore] = acc[v.giocatore] || []).push(v); return acc; }, {})
+                ).map(([giocatore, entries]) => {
+                  const media = entries.reduce((s, v) => s + parseFloat(v.voto), 0) / entries.length;
+                  return (
+                    <div key={giocatore}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: INK, marginBottom: 4 }}>
+                        {giocatore} <span style={{ color: MUTED, fontWeight: 400 }}>— media {media.toFixed(1)} ({entries.length})</span>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {entries.map((v) => {
+                          const isEditingV = editingRatingF === `${f.id}:${v.id}`;
+                          const ed = ratingDraftF[`edit-${f.id}`] || {};
+                          return isEditingV ? (
+                            <div key={v.id} style={{ display: "flex", gap: 6, alignItems: "center", background: PLAYER_BOX_BG, border: `1px solid ${PLAYER_BOX_BORDER}`, borderRadius: 6, padding: 8 }}>
+                              <input value={ed.giocatore || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], giocatore: e.target.value } }))}
+                                style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                              <input type="number" min="1" max="10" step="0.5" placeholder="Voto" value={ed.voto || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], voto: e.target.value } }))}
+                                style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                              <input type="number" min="0" max="120" placeholder="Min'" value={ed.minutaggio || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], minutaggio: e.target.value } }))}
+                                style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                              <input placeholder="Nota" value={ed.nota || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], nota: e.target.value } }))}
+                                style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                              <button onClick={() => saveEditRatingF(f.id, v.id)} style={{ background: RED, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>Salva</button>
+                              <button onClick={() => setEditingRatingF(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>annulla</button>
+                            </div>
+                          ) : (
+                            <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: PLAYER_BOX_BG, border: `1px solid ${PLAYER_BOX_BORDER}`, borderRadius: 6, padding: "8px 10px", gap: 8 }}>
+                              <div>
+                                <div><strong>{v.voto}</strong>{v.minutaggio ? ` (${v.minutaggio}')` : ""}{v.nota ? ` · ${v.nota}` : ""}</div>
+                                <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 8 }}>{v.autore}</span>
+                              </div>
+                              <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                                <button onClick={() => startEditRatingF(f.id, v)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+                                <button onClick={() => removeRatingFriendly(f.id, v.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+              {roster.map((rp) => (
+                <button key={rp.id} onClick={() => setRatingDraftF((prev) => ({ ...prev, [f.id]: { ...prev[f.id], giocatore: rp.nome } }))}
+                  style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: rd.giocatore === rp.nome ? RED : "#fff", color: rd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
+                  {rp.numero ? `${rp.numero} · ` : ""}{rp.nome}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input placeholder="Giocatore" value={rd.giocatore || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], giocatore: e.target.value } }))}
+                style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+              <input placeholder="Voto" type="number" min="1" max="10" step="0.5" value={rd.voto || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], voto: e.target.value } }))}
+                style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+              <input placeholder="Min'" type="number" min="0" max="120" value={rd.minutaggio || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], minutaggio: e.target.value } }))}
+                style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+              <input placeholder="Nota (opz.)" value={rd.nota || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], nota: e.target.value } }))}
+                style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+              <button onClick={() => addRatingFriendly(f.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>+</button>
+            </div>
+
+            {roster.length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Presenze</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {roster.map((rp) => {
+                    const stato = presenzeF[rp.id];
+                    return (
+                      <div key={rp.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <span>{rp.numero ? `${rp.numero} · ` : ""}{rp.nome}</span>
+                        <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          {PLAYER_STATUSES.map((s) => (
+                            <button key={s} onClick={() => setPresenzaF(f.id, rp.id, s)}
+                              style={{ fontSize: 10, padding: "3px 7px", borderRadius: 8, border: `1px solid ${LINE}`, background: stato === s ? RED : "#fff", color: stato === s ? "#fff" : MUTED, cursor: "pointer" }}>
+                              {s}
+                            </button>
+                          ))}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {roster.length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Formazione</div>
+                {renderPitch(
+                  friendlyFormazione[f.id] || {},
+                  (slotId, playerId) => setFormazioneF(f.id, slotId, playerId),
+                  friendlyModulo[f.id] || DEFAULT_MODULO,
+                  (modulo) => setModuloF(f.id, modulo)
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',sans-serif", background: CREAM, minHeight: "100%", color: INK }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700;800&family=Inter:wght@400;500;600&display=swap');
+        .body-font { font-family: 'Inter', system-ui, sans-serif; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { padding: 8px 10px; text-align: left; }
+        tbody tr { border-bottom: 1px solid ${LINE}; }
+        input, select { font-family: 'Inter', system-ui, sans-serif; }
+        ::placeholder { color: #9a968a; }
+        .score-input { width: 40px; padding: 5px; border: 1px solid ${LINE}; text-align: center; border-radius: 3px; }
+      `}</style>
+
+      <div style={{ background: GREEN, color: CREAM, padding: "22px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="body-font" style={{ fontSize: 12, letterSpacing: 1, color: "#9fb5a5" }}>
+            Girone A · Allievi U17 Élite · Lombardia 2026/27
+          </div>
+          <div style={{ fontSize: 30, fontWeight: 800, marginTop: 2, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            Cimiano Calcio
+            {cimianoRow && cimianoRow.pg > 0 && (
+              <span style={{ fontSize: 15, fontWeight: 500, color: RED, background: CREAM, padding: "2px 8px", borderRadius: 3 }}>
+                {cimianoPos}° posto · {cimianoRow.pt} pt
+              </span>
+            )}
+          </div>
+          <div className="body-font" style={{ fontSize: 13, color: "#c7d4cb", marginTop: 4 }}>
+            {playedCount} / {ROUNDS.reduce((s, r) => s + r.matches.length, 0)} partite di campionato registrate
+          </div>
+          {formaRecente.length > 0 && (
+            <div className="body-font" style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
+              <span style={{ fontSize: 11, color: "#9fb5a5", textTransform: "uppercase", letterSpacing: 0.5 }}>Forma:</span>
+              {formaRecente.map((m, i) => (
+                <span key={i} title={`${m.esito === "V" ? "Vittoria" : m.esito === "P" ? "Sconfitta" : "Pareggio"} vs ${m.opponent} (${m.golFatti}-${m.golSubiti})`}
+                  style={{
+                    width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 11, fontWeight: 700, color: "#fff",
+                    background: m.esito === "V" ? "#3aa757" : m.esito === "P" ? "#d6483f" : "#9a9a9a",
+                  }}>
+                  {m.esito}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div style={{ background: CREAM, borderRadius: 10, padding: 8, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+          <img src={CIMIANO_LOGO} alt="Cimiano Calcio" width="80" height="80" style={{ display: "block", borderRadius: 6, objectFit: "cover" }} />
+          <select value={voterName} onChange={(e) => setVoterNameState(e.target.value)} className="body-font"
+            style={{ width: "100%", fontSize: 11, padding: "3px 4px", borderRadius: 4, border: `1px solid ${TEAM_BOX_BORDER}`, background: "#fff", color: INK, fontWeight: 600, textAlign: "center" }}>
+            <option value="">Chi vota?</option>
+            {VOTER_OPTIONS.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 6, padding: "10px 12px 0", background: GREEN }}>
+        {[
+          ["stagione", "Stagione"],
+          ["campionato", "Campionato"],
+          ["coppa", "Coppa Lombardia"],
+        ].map(([key, label]) => (
+          <button key={key} onClick={() => setMacroTab(key)} className="body-font"
+            style={{ flex: 1, padding: "10px 8px", border: "none", cursor: "pointer",
+              borderRadius: "6px 6px 0 0",
+              background: macroTab === key ? CREAM : "rgba(255,255,255,0.08)",
+              fontWeight: 700, fontSize: 14, color: macroTab === key ? INK : "#c7d4cb" }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ background: CREAM, borderBottom: `1px solid ${LINE}`, padding: "8px 12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span className="body-font" style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, borderRight: `1px solid ${LINE}`, paddingRight: 8 }}>
+            {macroTab === "campionato" ? "Campionato" : macroTab === "coppa" ? "Coppa Lombardia" : "Stagione"}
+          </span>
+          {macroTab === "campionato" && [
+            ["classifica", "Classifica"],
+            ["risultati", "Calendario & risultati"],
+          ].map(([key, label]) => (
+            <button key={key} onClick={() => setCampSub(key)} className="body-font"
+              style={{ padding: "6px 12px", border: "none", borderRadius: 14, cursor: "pointer",
+                background: campSub === key ? RED : "#fff",
+                fontWeight: 600, fontSize: 12, color: campSub === key ? "#fff" : MUTED }}>
+              {label}
+            </button>
+          ))}
+          {macroTab === "coppa" && [
+            ["classifica", "Classifica"],
+            ["risultati", "Calendario & risultati"],
+          ].map(([key, label]) => (
+            <button key={key} onClick={() => setCoppaSub(key)} className="body-font"
+              style={{ padding: "6px 12px", border: "none", borderRadius: 14, cursor: "pointer",
+                background: coppaSub === key ? RED : "#fff",
+                fontWeight: 600, fontSize: 12, color: coppaSub === key ? "#fff" : MUTED }}>
+              {label}
+            </button>
+          ))}
+          {macroTab === "stagione" && [
+            ["cimiano", "Partite"],
+            ["giocatori", "Giocatori"],
+            ["cannonieri", "Cannonieri"],
+            ["rosa", "Rosa"],
+          ].map(([key, label]) => (
+            <button key={key} onClick={() => setStagSub(key)} className="body-font"
+              style={{ padding: "6px 12px", border: "none", borderRadius: 14, cursor: "pointer",
+                background: stagSub === key ? RED : "#fff",
+                fontWeight: 600, fontSize: 12, color: stagSub === key ? "#fff" : MUTED }}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ padding: 18 }}>
+        {macroTab === "campionato" && campSub === "classifica" && (
+          <div className="body-font">
+            <table style={{ fontSize: 13 }}>
+              <thead>
+                <tr style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                  <th>#</th><th>Squadra</th><th style={{ textAlign: "center" }}>PG</th>
+                  <th style={{ textAlign: "center" }}>V</th><th style={{ textAlign: "center" }}>N</th>
+                  <th style={{ textAlign: "center" }}>P</th><th style={{ textAlign: "center" }}>GF</th>
+                  <th style={{ textAlign: "center" }}>GS</th><th style={{ textAlign: "center" }}>DR</th>
+                  <th style={{ textAlign: "center" }}>Pt</th>
+                </tr>
+              </thead>
+              <tbody>
+                {standings.map((s, i) => (
+                  <tr key={s.name} style={{ background: s.name === CIMIANO ? "#fdeceb" : "transparent", fontWeight: s.name === CIMIANO ? 700 : 400 }}>
+                    <td>{i + 1}</td>
+                    <td style={{ color: s.name === CIMIANO ? RED : INK }}>{s.name}</td>
+                    <td style={{ textAlign: "center" }}>{s.pg}</td>
+                    <td style={{ textAlign: "center" }}>{s.v}</td>
+                    <td style={{ textAlign: "center" }}>{s.n}</td>
+                    <td style={{ textAlign: "center" }}>{s.p}</td>
+                    <td style={{ textAlign: "center" }}>{s.gf}</td>
+                    <td style={{ textAlign: "center" }}>{s.gs}</td>
+                    <td style={{ textAlign: "center" }}>{s.gf - s.gs > 0 ? "+" : ""}{s.gf - s.gs}</td>
+                    <td style={{ textAlign: "center", fontWeight: 700 }}>{s.pt}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {positionHistory.length > 1 && (
+              <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 4, padding: "12px 8px 4px", marginTop: 20 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, paddingLeft: 8 }}>
+                  Andamento classifica Cimiano
+                </div>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={positionHistory} margin={{ top: 5, right: 12, left: -18, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={LINE} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: MUTED }} />
+                    <YAxis domain={[16, 1]} allowDecimals={false} tick={{ fontSize: 11, fill: MUTED }} />
+                    <Tooltip formatter={(v) => [`${v}° posto`, "Classifica"]} />
+                    <Line type="monotone" dataKey="posizione" stroke={RED} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        )}
+
+        {macroTab === "stagione" && stagSub === "cimiano" && (
+          <div className="body-font">
+            <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+              Aggiungi amichevole
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6, background: "#fff", padding: 12, borderRadius: 4, border: `1px solid ${LINE}` }}>
+              <input placeholder="Avversario" value={fForm.avversario} onChange={(e) => setFForm({ ...fForm, avversario: e.target.value })}
+                style={{ flex: 1, minWidth: 140, padding: 6, border: `1px solid ${LINE}` }} />
+              <input type="date" value={fForm.data} onChange={(e) => setFForm({ ...fForm, data: e.target.value })}
+                style={{ padding: 6, border: `1px solid ${LINE}` }} />
+              <input type="time" value={fForm.ora} onChange={(e) => setFForm({ ...fForm, ora: e.target.value })}
+                style={{ padding: 6, border: `1px solid ${LINE}` }} />
+              <input type="number" placeholder="Gol Cimiano" value={fForm.golCimiano} onChange={(e) => setFForm({ ...fForm, golCimiano: e.target.value })}
+                style={{ width: 100, padding: 6, border: `1px solid ${LINE}` }} />
+              <span style={{ alignSelf: "center", color: MUTED }}>–</span>
+              <input type="number" placeholder="Gol avv." value={fForm.golAvv} onChange={(e) => setFForm({ ...fForm, golAvv: e.target.value })}
+                style={{ width: 90, padding: 6, border: `1px solid ${LINE}` }} />
+              <button onClick={addFriendly} style={{ background: RED, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>
+                Aggiungi
+              </button>
+            </div>
+            <div style={{ fontSize: 11, color: MUTED, marginBottom: 20 }}>
+              Se la partita non si è ancora giocata, lascia vuoti i gol: comparirà come "in programma" e potrai aggiungere il risultato dopo.
+            </div>
+
+            <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+              Tutte le partite
+            </div>
+            <div style={{ display: "flex", gap: 14, marginBottom: 10, fontSize: 11, color: MUTED, flexWrap: "wrap" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: STATUS_COLORS.played.bg, border: `1px solid ${STATUS_COLORS.played.border}`, display: "inline-block" }} /> giocata
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: STATUS_COLORS.next.bg, border: `1px solid ${STATUS_COLORS.next.border}`, display: "inline-block" }} /> prossima
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: STATUS_COLORS.upcoming.bg, border: `1px solid ${STATUS_COLORS.upcoming.border}`, display: "inline-block" }} /> in programma
+              </span>
+            </div>
+            {allCimianoMatches.length === 0 ? (
+              <div style={{ color: MUTED, fontSize: 13 }}>Nessuna partita registrata per il Cimiano al momento.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {(() => {
+                  let nextAssigned = false;
+                  return allCimianoMatches.map((m) => {
+                    let isPlayed;
+                    if (m.type === "amichevole") {
+                      const f = friendlies.find((fr) => fr.id === m.id);
+                      isPlayed = f ? (f.golCimiano !== "" && f.golCimiano !== undefined && f.golAvv !== "" && f.golAvv !== undefined) : false;
+                    } else {
+                      isPlayed = !!results[m.id];
+                    }
+                    let statusColor;
+                    if (isPlayed) {
+                      statusColor = "played";
+                    } else if (!nextAssigned) {
+                      statusColor = "next";
+                      nextAssigned = true;
+                    } else {
+                      statusColor = "upcoming";
+                    }
+
+                    if (m.type === "amichevole") {
+                      const f = friendlies.find((fr) => fr.id === m.id);
+                      return f ? renderFriendlyRow(f, statusColor) : null;
+                    }
+                    const label = m.type === "coppa"
+                      ? `Coppa Lombardia · Girone ${COPPA_GIRONE} · ${fmtDate(m.date)}`
+                      : `Campionato · G${m.giornata} ${m.half === "andata" ? "A" : "R"} · ${fmtDate(m.date)}`;
+                    return renderCampionatoRow(
+                      { id: m.id, home: m.home, away: m.away },
+                      label,
+                      statusColor
+                    );
+                  });
+                })()}
+              </div>
+            )}
+          </div>
+        )}
+
+        {macroTab === "stagione" && stagSub === "giocatori" && (
+          <div className="body-font">
+            {chartData.length > 1 && (
+              <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 4, padding: "12px 8px 4px", marginBottom: 16 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, paddingLeft: 8 }}>
+                  Andamento voti
+                </div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={chartData} margin={{ top: 5, right: 12, left: -18, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={LINE} />
+                    <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fontSize: 11, fill: MUTED }} />
+                    <YAxis domain={[1, 10]} tick={{ fontSize: 11, fill: MUTED }} />
+                    <Tooltip labelFormatter={fmtDate} />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    {playersWithData.map((p, i) => (
+                      <Line key={p.name} type="monotone" dataKey={p.name} stroke={PLAYER_COLORS[i % PLAYER_COLORS.length]}
+                        strokeWidth={2} connectNulls dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            <div style={{ fontSize: 12, color: MUTED, marginBottom: 16 }}>
+              Storico voti, minutaggio e commenti per giocatore, dalla partita più recente alla più vecchia.
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {playerStats.map((p) => {
+                const isOpen = !!expandedPlayer[p.name];
+                return (
+                  <div key={p.name} style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 4, fontSize: 13 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", flexWrap: "wrap", gap: 6 }}>
+                      <div>
+                        <strong style={{ fontSize: 15 }}>{p.name}</strong>
+                        <div style={{ color: MUTED, fontSize: 12, marginTop: 2 }}>
+                          {p.presenze} {p.presenze === 1 ? "presenza" : "presenze"}
+                          {p.media !== null && ` · media voto ${p.media.toFixed(1)}`}
+                          {p.minutiTot !== null && ` · ${p.minutiTot}' totali`}
+                        </div>
+                      </div>
+                      {p.entries.length > 0 && (
+                        <button onClick={() => setExpandedPlayer((prev) => ({ ...prev, [p.name]: !prev[p.name] }))}
+                          style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                          {isOpen ? "chiudi storico" : "vedi storico"}
+                        </button>
+                      )}
+                    </div>
+
+                    {isOpen && (
+                      <div style={{ borderTop: `1px solid ${LINE}`, padding: "10px 12px" }}>
+                        {(() => {
+                          const byDate = {};
+                          p.entries.forEach((e) => {
+                            const voto = parseFloat(e.voto);
+                            if (isNaN(voto) || !e.date || e.date === "0000-00-00") return;
+                            if (!byDate[e.date]) byDate[e.date] = { sum: 0, count: 0 };
+                            byDate[e.date].sum += voto;
+                            byDate[e.date].count += 1;
+                          });
+                          const playerChartData = Object.keys(byDate)
+                            .sort((a, b) => a.localeCompare(b))
+                            .map((date) => ({ date, voto: byDate[date].sum / byDate[date].count }));
+                          if (playerChartData.length < 2) return null;
+                          return (
+                            <div style={{ marginBottom: 14 }}>
+                              <ResponsiveContainer width="100%" height={140}>
+                                <LineChart data={playerChartData} margin={{ top: 5, right: 12, left: -28, bottom: 5 }}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke={LINE} />
+                                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fontSize: 10, fill: MUTED }} />
+                                  <YAxis domain={[1, 10]} tick={{ fontSize: 10, fill: MUTED }} />
+                                  <Tooltip labelFormatter={fmtDate} formatter={(v) => [v.toFixed(1), "Voto"]} />
+                                  <Line type="monotone" dataKey="voto" stroke={RED} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                                </LineChart>
+                              </ResponsiveContainer>
+                            </div>
+                          );
+                        })()}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          {p.entries.map((e, i) => (
+                            <div key={i} style={{ borderBottom: i < p.entries.length - 1 ? `1px solid ${LINE}` : "none", paddingBottom: 8 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 6 }}>
+                                <span>
+                                  <span style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginRight: 6 }}>
+                                    {e.tipo === "campionato" ? `G${e.giornata} ${e.half === "andata" ? "A" : "R"}` : "Amichevole"}
+                                  </span>
+                                  vs <strong>{e.opponent}</strong>
+                                  <span style={{ color: MUTED, marginLeft: 6 }}>{e.date && e.date !== "0000-00-00" ? fmtDate(e.date) : ""}</span>
+                                </span>
+                                <span style={{ fontWeight: 700 }}>
+                                  {e.voto}{e.minutaggio ? ` · ${e.minutaggio}'` : ""}
+                                </span>
+                              </div>
+                              {e.nota && <div style={{ color: MUTED, fontSize: 12, fontStyle: "italic", marginTop: 2 }}>{e.nota}</div>}
+                              {e.autore && <div style={{ color: MUTED, fontSize: 11, marginTop: 2 }}>votato da {e.autore}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {macroTab === "stagione" && stagSub === "cannonieri" && (
+          <div className="body-font">
+            <div style={{ fontSize: 12, color: MUTED, marginBottom: 16 }}>
+              Gol segnati in tutte le competizioni: campionato, Coppa Lombardia e amichevoli.
+            </div>
+            {cannonieri.length === 0 ? (
+              <div style={{ color: MUTED, fontSize: 13 }}>Nessun marcatore registrato ancora.</div>
+            ) : (
+              <table style={{ fontSize: 13, width: "100%" }}>
+                <thead>
+                  <tr style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    <th style={{ textAlign: "left" }}>#</th><th style={{ textAlign: "left" }}>Giocatore</th><th style={{ textAlign: "center" }}>Gol</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cannonieri.map((c, i) => (
+                    <tr key={c.name} style={{ borderBottom: `1px solid ${LINE}` }}>
+                      <td style={{ padding: "8px 0" }}>{i + 1}</td>
+                      <td style={{ padding: "8px 0", fontWeight: 600 }}>{c.name}</td>
+                      <td style={{ padding: "8px 0", textAlign: "center", fontWeight: 700, color: RED }}>⚽ {c.gol}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {macroTab === "stagione" && stagSub === "rosa" && (
+          <div className="body-font">
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, background: "#fff", padding: 12, borderRadius: 4, border: `1px solid ${LINE}` }}>
+              <input placeholder="Nome giocatore" value={rosterDraft.nome} onChange={(e) => setRosterDraft((p) => ({ ...p, nome: e.target.value }))}
+                style={{ flex: 1, minWidth: 140, padding: 6, border: `1px solid ${LINE}` }} />
+              <input placeholder="Numero" value={rosterDraft.numero} onChange={(e) => setRosterDraft((p) => ({ ...p, numero: e.target.value }))}
+                style={{ width: 80, padding: 6, border: `1px solid ${LINE}` }} />
+              {editingRosterId ? (
+                <>
+                  <button onClick={() => saveEditRoster(editingRosterId)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
+                  <button onClick={() => { setEditingRosterId(null); setRosterDraft({ nome: "", numero: "" }); }} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
+                </>
+              ) : (
+                <button onClick={addRosterPlayer} style={{ background: RED, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Aggiungi</button>
+              )}
+            </div>
+            <div style={{ fontSize: 11, color: MUTED, marginBottom: 16 }}>
+              Tutto qui è condiviso: rosa, voti (con autore e media calcolata automaticamente), marcatori, presenze e formazioni. Chi usa questo tracker vede sempre gli stessi dati.
+            </div>
+            {roster.length === 0 ? (
+              <div style={{ color: MUTED, fontSize: 13 }}>Nessun giocatore in rosa.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {roster.map((rp) => (
+                  <div key={rp.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", padding: "8px 12px", border: `1px solid ${LINE}`, borderRadius: 4, fontSize: 13 }}>
+                    <span>{rp.numero && <strong style={{ marginRight: 8 }}>{rp.numero}</strong>}{rp.nome}</span>
+                    <span style={{ display: "flex", gap: 10 }}>
+                      <button onClick={() => startEditRoster(rp)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+                      <button onClick={() => removeRosterPlayer(rp.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 16 }}>×</button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {macroTab === "campionato" && campSub === "risultati" && (
+          <div className="body-font">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 8, flexWrap: "wrap" }}>
+              <button onClick={() => setRoundIdx((i) => Math.max(0, i - 1))} disabled={roundIdx === 0}
+                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: "#fff", borderRadius: 3, cursor: "pointer" }}>‹ Prec.</button>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>Giornata {round.giornata} · {round.half === "andata" ? "Andata" : "Ritorno"}</div>
+                <div style={{ fontSize: 12, color: MUTED }}>{fmtDate(round.data)}</div>
+              </div>
+              <button onClick={() => setRoundIdx((i) => Math.min(ROUNDS.length - 1, i + 1))} disabled={roundIdx === ROUNDS.length - 1}
+                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: "#fff", borderRadius: 3, cursor: "pointer" }}>Succ. ›</button>
+            </div>
+
+            <select value={roundIdx} onChange={(e) => setRoundIdx(Number(e.target.value))}
+              style={{ width: "100%", padding: 6, border: `1px solid ${LINE}`, marginBottom: 14, borderRadius: 3 }}>
+              {ROUNDS.map((r, i) => (
+                <option key={r.key} value={i}>
+                  Giornata {r.giornata} ({r.half === "andata" ? "A" : "R"}) — {fmtDate(r.data)}
+                </option>
+              ))}
+            </select>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {round.matches.map((fx) => renderCampionatoRow(fx))}
+            </div>
+          </div>
+        )}
+
+        {macroTab === "coppa" && coppaSub === "classifica" && (
+          <div className="body-font">
+            <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+              Fase a gironi · Girone {COPPA_GIRONE} · 6-30 settembre 2026
+            </div>
+            <table style={{ fontSize: 13 }}>
+              <thead>
+                <tr style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                  <th>#</th><th>Squadra</th><th style={{ textAlign: "center" }}>PG</th>
+                  <th style={{ textAlign: "center" }}>V</th><th style={{ textAlign: "center" }}>N</th>
+                  <th style={{ textAlign: "center" }}>P</th><th style={{ textAlign: "center" }}>GF</th>
+                  <th style={{ textAlign: "center" }}>GS</th><th style={{ textAlign: "center" }}>DR</th>
+                  <th style={{ textAlign: "center" }}>Pt</th>
+                </tr>
+              </thead>
+              <tbody>
+                {coppaStandings.map((s, i) => (
+                  <tr key={s.name} style={{ background: s.name === CIMIANO ? "#fdeceb" : "transparent", fontWeight: s.name === CIMIANO ? 700 : 400 }}>
+                    <td>{i + 1}</td>
+                    <td style={{ color: s.name === CIMIANO ? RED : INK }}>{s.name}</td>
+                    <td style={{ textAlign: "center" }}>{s.pg}</td>
+                    <td style={{ textAlign: "center" }}>{s.v}</td>
+                    <td style={{ textAlign: "center" }}>{s.n}</td>
+                    <td style={{ textAlign: "center" }}>{s.p}</td>
+                    <td style={{ textAlign: "center" }}>{s.gf}</td>
+                    <td style={{ textAlign: "center" }}>{s.gs}</td>
+                    <td style={{ textAlign: "center" }}>{s.gf - s.gs > 0 ? "+" : ""}{s.gf - s.gs}</td>
+                    <td style={{ textAlign: "center", fontWeight: 700 }}>{s.pt}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {macroTab === "coppa" && coppaSub === "risultati" && (
+          <div className="body-font">
+            <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+              Fase a gironi · Girone {COPPA_GIRONE} · 6-30 settembre 2026
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {COPPA_FIXTURES.map((fx) => renderCampionatoRow(fx, `${fmtDate(fx.data)} ore ${fx.ora}`))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("app-root"));
+root.render(<GironeATracker />);
+
+</script>
+</body>
+</html>
