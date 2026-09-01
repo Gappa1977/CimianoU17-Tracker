@@ -12,76 +12,44 @@
 <style>
   html, body { margin: 0; padding: 0; background: #f7f4ec; font-family: system-ui, sans-serif; }
   #app-root { max-width: 720px; margin: 0 auto; min-height: 100vh; }
-  #setup-screen { max-width: 480px; margin: 60px auto; padding: 24px; background: #fff; border: 1px solid #ddd8c8; border-radius: 8px; }
-  #setup-screen h2 { margin-top: 0; font-size: 18px; }
-  #setup-screen p { color: #6b6b63; font-size: 13px; line-height: 1.5; }
-  #setup-screen input { width: 100%; padding: 8px; border: 1px solid #ddd8c8; border-radius: 4px; box-sizing: border-box; font-size: 13px; margin-bottom: 10px; }
-  #setup-screen button { background: #c8102e; color: #fff; border: none; padding: 10px 18px; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 13px; }
   #loading { max-width: 720px; margin: 40px auto; padding: 20px; color: #6b6b63; text-align: center; }
 </style>
 </head>
 <body>
 
-<div id="setup-screen" style="display:none;">
-  <h2>⚙️ Configurazione iniziale</h2>
-  <p>Questo tracker salva i dati su un Google Sheet condiviso. Inserisci qui l'indirizzo (URL) del backend che termina in <code>/exec</code> — te lo fornisce chi ha creato il tracker.</p>
-  <input id="api-url-input" type="text" placeholder="https://script.google.com/macros/s/XXXXX/exec" />
-  <button id="api-url-save">Salva e continua</button>
-  <p id="setup-error" style="color:#c8102e;"></p>
-</div>
-
 <div id="app-root"><div id="loading">Caricamento in corso…</div></div>
 
 <script>
-  const STORAGE_KEY = "gironeA_apiUrl";
+  // Storage collegato al Google Sheet condiviso, tramite Apps Script.
+  // URL fisso: nessuna configurazione richiesta a chi apre la pagina.
+  const apiUrl = "https://script.google.com/macros/s/AKfycbx3Hx1nbXYzguaKPdTCgVpIlTSurwc-zMTZx9upl2pRZLcUaKWFJLxOXLrKX7BMumxRsw/exec";
 
-  function showSetupScreen(errorMsg) {
-    document.getElementById("app-root").style.display = "none";
-    document.getElementById("setup-screen").style.display = "block";
-    if (errorMsg) document.getElementById("setup-error").textContent = errorMsg;
-    document.getElementById("api-url-save").onclick = function () {
-      const val = document.getElementById("api-url-input").value.trim();
-      if (!val.startsWith("http")) {
-        document.getElementById("setup-error").textContent = "Inserisci un URL valido (deve iniziare con https://).";
-        return;
+  window.storage = {
+    get: async function (key) {
+      try {
+        const res = await fetch(apiUrl + "?key=" + encodeURIComponent(key));
+        const data = await res.json();
+        if (data.value === null || data.value === undefined) return null;
+        return { key: key, value: data.value };
+      } catch (e) {
+        console.error("storage.get failed", key, e);
+        return null;
       }
-      localStorage.setItem(STORAGE_KEY, val);
-      window.location.reload();
-    };
-  }
-
-  const apiUrl = localStorage.getItem(STORAGE_KEY);
-  if (!apiUrl) {
-    showSetupScreen();
-  } else {
-    // Storage collegato al Google Sheet condiviso, tramite Apps Script.
-    window.storage = {
-      get: async function (key) {
-        try {
-          const res = await fetch(apiUrl + "?key=" + encodeURIComponent(key));
-          const data = await res.json();
-          if (data.value === null || data.value === undefined) return null;
-          return { key: key, value: data.value };
-        } catch (e) {
-          console.error("storage.get failed", key, e);
-          return null;
-        }
-      },
-      set: async function (key, value) {
-        try {
-          await fetch(apiUrl, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({ key: key, value: value }),
-          });
-          return { key: key, value: value };
-        } catch (e) {
-          console.error("storage.set failed", key, e);
-          return null;
-        }
-      },
-    };
-  }
+    },
+    set: async function (key, value) {
+      try {
+        await fetch(apiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ key: key, value: value }),
+        });
+        return { key: key, value: value };
+      } catch (e) {
+        console.error("storage.set failed", key, e);
+        return null;
+      }
+    },
+  };
 </script>
 
 <script type="text/babel" data-presets="react">
@@ -200,8 +168,8 @@ const FORMATIONS = {
   },
 };
 const DEFAULT_MODULO = "352";
-const TRACKER_VERSION = "3";
-const TRACKER_VERSION_DATE = "01/09/2026 ore 09.08";
+const TRACKER_VERSION = "5";
+const TRACKER_VERSION_DATE = "01/09/2026 ore 09.36";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -320,7 +288,9 @@ function GironeATracker() {
   const [friendlies, setFriendlies] = useState([]); // CONDIVISO (senza voti)
   const [friendlyVoti, setFriendlyVoti] = useState({}); // { friendlyId: [voti] } — CONDIVISO, ogni voto etichettato con l'autore
   const [friendlyMarcatori, setFriendlyMarcatori] = useState({}); // { friendlyId: [marcatori] } — CONDIVISO
-  const [friendlyPresenze, setFriendlyPresenze] = useState({}); // { friendlyId: {playerId: stato} } — CONDIVISO
+  const [friendlyConvocati, setFriendlyConvocati] = useState({}); // { friendlyId: {playerId: true} } — CONDIVISO
+  const [friendlyTitolari, setFriendlyTitolari] = useState({}); // { friendlyId: {playerId: true} } — CONDIVISO
+  const [friendlySostituzioni, setFriendlySostituzioni] = useState({}); // { friendlyId: [{id, out, in, minuto}] } — CONDIVISO
   const [friendlyFormazione, setFriendlyFormazione] = useState({}); // { friendlyId: {slotId: playerId} } — CONDIVISO
   const [friendlyModulo, setFriendlyModuloState] = useState({}); // { friendlyId: "352"|"442"|... } — CONDIVISO
   const [roster, setRoster] = useState([]); // [{id, nome}] — CONDIVISO
@@ -353,10 +323,12 @@ function GironeATracker() {
   const [editingScorerF, setEditingScorerF] = useState(null); // `${friendlyId}:${scorerId}`
   const [rosterDraft, setRosterDraft] = useState({ nome: "" });
   const [playerVoteFilter, setPlayerVoteFilter] = useState({});
+  const [subDraft, setSubDraft] = useState({});
+  const [subDraftF, setSubDraftF] = useState({});
   const [teamVoteFilter, setTeamVoteFilter] = useState({});
   const [editingRosterId, setEditingRosterId] = useState(null);
 
-  const PLAYER_STATUSES = ["Titolare", "Subentrato", "Panchina", "Assente"];
+
 
   const PLAYER_COLORS = [RED, "#2b6cb0", "#2f855a", "#b7791f", "#6b46c1", "#c05621"];
 
@@ -487,21 +459,28 @@ function GironeATracker() {
       }
       if (friendlyMarcatoriData) setFriendlyMarcatori(friendlyMarcatoriData);
 
-      let friendlyPresenzeData = null;
+
+
+      let friendlyConvocatiData = null;
       try {
-        const fp = await window.storage.get("girone-a-friendly-presenze", true);
-        if (fp) friendlyPresenzeData = JSON.parse(fp.value);
+        const fc = await window.storage.get("girone-a-friendly-convocati", true);
+        if (fc) friendlyConvocatiData = JSON.parse(fc.value);
       } catch (e) {}
-      if (!friendlyPresenzeData) {
-        try {
-          const old = await window.storage.get("girone-a-friendly-presenze", false);
-          if (old) {
-            friendlyPresenzeData = JSON.parse(old.value);
-            await window.storage.set("girone-a-friendly-presenze", JSON.stringify(friendlyPresenzeData), true).catch(() => {});
-          }
-        } catch (e) {}
-      }
-      if (friendlyPresenzeData) setFriendlyPresenze(friendlyPresenzeData);
+      if (friendlyConvocatiData) setFriendlyConvocati(friendlyConvocatiData);
+
+      let friendlyTitolariData = null;
+      try {
+        const ft = await window.storage.get("girone-a-friendly-titolari", true);
+        if (ft) friendlyTitolariData = JSON.parse(ft.value);
+      } catch (e) {}
+      if (friendlyTitolariData) setFriendlyTitolari(friendlyTitolariData);
+
+      let friendlySostituzioniData = null;
+      try {
+        const fs_ = await window.storage.get("girone-a-friendly-sostituzioni", true);
+        if (fs_) friendlySostituzioniData = JSON.parse(fs_.value);
+      } catch (e) {}
+      if (friendlySostituzioniData) setFriendlySostituzioni(friendlySostituzioniData);
 
       let friendlyFormazioneData = null;
       try {
@@ -584,8 +563,16 @@ function GironeATracker() {
   }, [friendlyMarcatori, loaded]);
 
   useEffect(() => {
-    if (loaded) window.storage.set("girone-a-friendly-presenze", JSON.stringify(friendlyPresenze), true).catch(() => {});
-  }, [friendlyPresenze, loaded]);
+    if (loaded) window.storage.set("girone-a-friendly-convocati", JSON.stringify(friendlyConvocati), true).catch(() => {});
+  }, [friendlyConvocati, loaded]);
+
+  useEffect(() => {
+    if (loaded) window.storage.set("girone-a-friendly-titolari", JSON.stringify(friendlyTitolari), true).catch(() => {});
+  }, [friendlyTitolari, loaded]);
+
+  useEffect(() => {
+    if (loaded) window.storage.set("girone-a-friendly-sostituzioni", JSON.stringify(friendlySostituzioni), true).catch(() => {});
+  }, [friendlySostituzioni, loaded]);
 
   useEffect(() => {
     if (loaded) window.storage.set("girone-a-friendly-formazione", JSON.stringify(friendlyFormazione), true).catch(() => {});
@@ -1004,41 +991,94 @@ function GironeATracker() {
 
   // --- SEDE PARTITA (campionato/coppa) ---
   // --- PRESENZE ---
-  function setPresenza(fixtureId, playerId, stato) {
+  // --- CONVOCATI / TITOLARI / SOSTITUZIONI (campionato & coppa) ---
+  function toggleConvocato(fixtureId, playerId) {
     setDetailsShared((prev) => {
       const cur = prev[fixtureId] || {};
-      const presenze = { ...(cur.presenze || {}) };
-      if (presenze[playerId] === stato) delete presenze[playerId];
-      else presenze[playerId] = stato;
-      return { ...prev, [fixtureId]: { ...cur, presenze } };
+      const convocati = { ...(cur.convocati || {}) };
+      const titolari = { ...(cur.titolari || {}) };
+      const sostituzioni = (cur.sostituzioni || []).filter((s) => s.out !== playerId && s.in !== playerId);
+      if (convocati[playerId]) {
+        delete convocati[playerId];
+        delete titolari[playerId];
+      } else {
+        convocati[playerId] = true;
+      }
+      return { ...prev, [fixtureId]: { ...cur, convocati, titolari, sostituzioni } };
     });
   }
 
-  function setPresenzaF(friendlyId, playerId, stato) {
-    setFriendlyPresenze((prev) => {
+  function setRuolo(fixtureId, playerId, ruolo) {
+    setDetailsShared((prev) => {
+      const cur = prev[fixtureId] || {};
+      const titolari = { ...(cur.titolari || {}) };
+      if (ruolo === "titolare") titolari[playerId] = true;
+      else delete titolari[playerId];
+      return { ...prev, [fixtureId]: { ...cur, titolari } };
+    });
+  }
+
+  function addSostituzione(fixtureId, outId, inId, minuto) {
+    if (!outId || !inId) return;
+    setDetailsShared((prev) => {
+      const cur = prev[fixtureId] || {};
+      const sostituzioni = [...(cur.sostituzioni || []), { id: Date.now().toString(), out: outId, in: inId, minuto: minuto || "" }];
+      return { ...prev, [fixtureId]: { ...cur, sostituzioni } };
+    });
+  }
+
+  function removeSostituzione(fixtureId, subId) {
+    setDetailsShared((prev) => {
+      const cur = prev[fixtureId] || {};
+      return { ...prev, [fixtureId]: { ...cur, sostituzioni: (cur.sostituzioni || []).filter((s) => s.id !== subId) } };
+    });
+  }
+
+  // --- CONVOCATI / TITOLARI / SOSTITUZIONI (amichevoli) ---
+  function toggleConvocatoF(friendlyId, playerId) {
+    setFriendlyConvocati((prev) => {
       const cur = { ...(prev[friendlyId] || {}) };
-      if (cur[playerId] === stato) delete cur[playerId];
-      else cur[playerId] = stato;
+      if (cur[playerId]) delete cur[playerId]; else cur[playerId] = true;
+      return { ...prev, [friendlyId]: cur };
+    });
+    setFriendlyTitolari((prev) => {
+      const cur = { ...(prev[friendlyId] || {}) };
+      delete cur[playerId];
+      return { ...prev, [friendlyId]: cur };
+    });
+    setFriendlySostituzioni((prev) => ({
+      ...prev,
+      [friendlyId]: (prev[friendlyId] || []).filter((s) => s.out !== playerId && s.in !== playerId),
+    }));
+  }
+
+  function setRuoloF(friendlyId, playerId, ruolo) {
+    setFriendlyTitolari((prev) => {
+      const cur = { ...(prev[friendlyId] || {}) };
+      if (ruolo === "titolare") cur[playerId] = true;
+      else delete cur[playerId];
       return { ...prev, [friendlyId]: cur };
     });
   }
 
-  // --- FORMAZIONE (modulo 3-5-2) ---
-  function getSlotData(formazione, slotId) {
-    const v = formazione[slotId];
-    if (!v) return { titolare: null, subentrato: null };
-    if (typeof v === "string") return { titolare: v, subentrato: null }; // formato precedente (un solo giocatore)
-    return { titolare: v.titolare || null, subentrato: v.subentrato || null };
+  function addSostituzioneF(friendlyId, outId, inId, minuto) {
+    if (!outId || !inId) return;
+    setFriendlySostituzioni((prev) => ({
+      ...prev,
+      [friendlyId]: [...(prev[friendlyId] || []), { id: Date.now().toString(), out: outId, in: inId, minuto: minuto || "" }],
+    }));
   }
 
-  function setFormazione(fixtureId, slotId, role, playerId) {
+  function removeSostituzioneF(friendlyId, subId) {
+    setFriendlySostituzioni((prev) => ({ ...prev, [friendlyId]: (prev[friendlyId] || []).filter((s) => s.id !== subId) }));
+  }
+
+  // --- FORMAZIONE (modulo 3-5-2) ---
+  function setFormazione(fixtureId, slotId, playerId) {
     setDetailsShared((prev) => {
       const cur = prev[fixtureId] || {};
       const formazione = { ...(cur.formazione || {}) };
-      const existing = getSlotData(formazione, slotId);
-      const updated = { ...existing, [role]: playerId || null };
-      if (!updated.titolare && !updated.subentrato) delete formazione[slotId];
-      else formazione[slotId] = updated;
+      if (playerId) formazione[slotId] = playerId; else delete formazione[slotId];
       return { ...prev, [fixtureId]: { ...cur, formazione } };
     });
   }
@@ -1047,13 +1087,10 @@ function GironeATracker() {
     setDetailsShared((prev) => ({ ...prev, [fixtureId]: { ...(prev[fixtureId] || {}), modulo } }));
   }
 
-  function setFormazioneF(friendlyId, slotId, role, playerId) {
+  function setFormazioneF(friendlyId, slotId, playerId) {
     setFriendlyFormazione((prev) => {
       const cur = { ...(prev[friendlyId] || {}) };
-      const existing = getSlotData(cur, slotId);
-      const updated = { ...existing, [role]: playerId || null };
-      if (!updated.titolare && !updated.subentrato) delete cur[slotId];
-      else cur[slotId] = updated;
+      if (playerId) cur[slotId] = playerId; else delete cur[slotId];
       return { ...prev, [friendlyId]: cur };
     });
   }
@@ -1062,9 +1099,10 @@ function GironeATracker() {
     setFriendlyModuloState((prev) => ({ ...prev, [friendlyId]: modulo }));
   }
 
-  function renderPitch(formazione, onChangeSlot, modulo, onChangeModulo) {
+  function renderPitch(formazione, onChangeSlot, modulo, onChangeModulo, titolariIds, sostituzioni) {
     const moduloKey = modulo || DEFAULT_MODULO;
     const slots = FORMATIONS[moduloKey].slots;
+    const titolariRoster = roster.filter((r) => titolariIds.includes(r.id));
     return (
       <div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
@@ -1075,6 +1113,9 @@ function GironeATracker() {
             </button>
           ))}
         </div>
+        {titolariRoster.length === 0 && (
+          <div style={{ fontSize: 11, color: MUTED, marginBottom: 8 }}>Segna prima i titolari qui sopra per poterli piazzare in campo.</div>
+        )}
         <div style={{ display: "flex", gap: 14, marginBottom: 8, fontSize: 11, color: MUTED }}>
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ width: 10, height: 10, borderRadius: "50%", background: RED, display: "inline-block" }} /> Titolare
@@ -1093,45 +1134,31 @@ function GironeATracker() {
           <div style={{ position: "absolute", left: "25%", right: "25%", bottom: 0, height: "14%", border: "1px solid rgba(255,255,255,0.5)", borderTop: "none" }} />
           <div style={{ position: "absolute", left: "25%", right: "25%", top: 0, height: "14%", border: "1px solid rgba(255,255,255,0.5)", borderBottom: "none" }} />
           {slots.map((slot) => {
-            const slotData = getSlotData(formazione, slot.id);
-            const titolarePlayer = roster.find((r) => r.id === slotData.titolare);
-            const subPlayer = roster.find((r) => r.id === slotData.subentrato);
+            const playerId = typeof formazione[slot.id] === "string" ? formazione[slot.id] : (formazione[slot.id] && formazione[slot.id].titolare) || "";
+            const player = roster.find((r) => r.id === playerId);
+            const sub = sostituzioni.find((s) => s.out === playerId);
+            const subPlayer = sub ? roster.find((r) => r.id === sub.in) : null;
             return (
               <div key={slot.id} style={{ position: "absolute", left: `${slot.x}%`, top: `${slot.y}%`, transform: "translate(-50%,-50%)", textAlign: "center" }}>
-                <div style={{ position: "relative", width: 40, height: 40, margin: "0 auto" }}>
-                  <select value={slotData.titolare || ""} onChange={(e) => onChangeSlot(slot.id, "titolare", e.target.value)}
-                    style={{
-                      position: "absolute", inset: 0, width: 40, height: 40, borderRadius: "50%",
-                      border: `2px solid ${titolarePlayer ? "#fff" : "rgba(255,255,255,0.6)"}`,
-                      background: titolarePlayer ? RED : "rgba(255,255,255,0.15)", color: "#fff", fontSize: 10, fontWeight: 700,
-                      textAlign: "center", textAlignLast: "center", cursor: "pointer", appearance: "none", padding: 0,
-                    }}>
-                    <option value="" style={{ color: INK }}>{slot.label}</option>
-                    {roster.map((rp) => (
-                      <option key={rp.id} value={rp.id} style={{ color: INK }}>{rp.nome}</option>
-                    ))}
-                  </select>
-                  <select value={slotData.subentrato || ""} onChange={(e) => onChangeSlot(slot.id, "subentrato", e.target.value)}
-                    style={{
-                      position: "absolute", bottom: -6, right: -6, width: 22, height: 22, borderRadius: "50%", zIndex: 2,
-                      border: "2px solid #fff",
-                      background: subPlayer ? SUB_COLOR : "rgba(255,255,255,0.25)", color: "#fff", fontSize: 8, fontWeight: 700,
-                      textAlign: "center", textAlignLast: "center", cursor: "pointer", appearance: "none", padding: 0,
-                    }}>
-                    <option value="" style={{ color: INK }}>+</option>
-                    {roster.map((rp) => (
-                      <option key={rp.id} value={rp.id} style={{ color: INK }}>{rp.nome}</option>
-                    ))}
-                  </select>
-                </div>
-                {titolarePlayer && (
+                <select value={playerId} onChange={(e) => onChangeSlot(slot.id, e.target.value)}
+                  style={{
+                    width: 44, height: 44, borderRadius: "50%", border: `2px solid ${player ? "#fff" : "rgba(255,255,255,0.6)"}`,
+                    background: player ? RED : "rgba(255,255,255,0.15)", color: "#fff", fontSize: 10, fontWeight: 700,
+                    textAlign: "center", textAlignLast: "center", cursor: "pointer", appearance: "none", padding: 0,
+                  }}>
+                  <option value="" style={{ color: INK }}>{slot.label}</option>
+                  {titolariRoster.map((rp) => (
+                    <option key={rp.id} value={rp.id} style={{ color: INK }}>{rp.nome}</option>
+                  ))}
+                </select>
+                {player && (
                   <div style={{ fontSize: 9, color: "#fff", marginTop: 2, maxWidth: 62, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {titolarePlayer.nome.split(" ")[0]}
+                    {player.nome.split(" ")[0]}
                   </div>
                 )}
                 {subPlayer && (
-                  <div style={{ fontSize: 8, color: "#cfe3d3", marginTop: 1, maxWidth: 62, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    ⇄ {subPlayer.nome.split(" ")[0]}
+                  <div style={{ fontSize: 9, color: SUB_COLOR, background: "#fff", borderRadius: 6, padding: "0 4px", marginTop: 2, fontWeight: 700, maxWidth: 68, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    ⇄ {subPlayer.nome.split(" ")[0]}{sub.minuto ? ` ${sub.minuto}'` : ""}
                   </div>
                 )}
               </div>
@@ -1240,6 +1267,13 @@ function GironeATracker() {
     const marcatori = (detailsShared[fx.id] && detailsShared[fx.id].marcatori) || [];
     const voti = (detailsShared[fx.id] && detailsShared[fx.id].voti) || [];
     const votoSquadraList = (detailsShared[fx.id] && detailsShared[fx.id].votoSquadra) || [];
+    const convocati = (detailsShared[fx.id] && detailsShared[fx.id].convocati) || {};
+    const titolari = (detailsShared[fx.id] && detailsShared[fx.id].titolari) || {};
+    const sostituzioni = (detailsShared[fx.id] && detailsShared[fx.id].sostituzioni) || [];
+    const convocatiIds = Object.keys(convocati);
+    const titolariIds = Object.keys(titolari).filter((id) => convocatiIds.includes(id));
+    const panchinaIds = convocatiIds.filter((id) => !titolari[id]);
+    const gia_subentrati = sostituzioni.map((s) => s.in);
     const tvd = teamVotoDraft[fx.id] || {};
     const sc = statusColor ? STATUS_COLORS[statusColor] : null;
     const rowBg = sc ? sc.bg : (isCimianoMatch ? "#fdeceb" : "#fff");
@@ -1333,6 +1367,93 @@ function GironeATracker() {
               </div>
               {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
             </div>
+
+            {roster.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+                  1. Convocati {convocatiIds.length > 0 && `(${convocatiIds.length})`}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {roster.map((rp) => (
+                    <button key={rp.id} onClick={() => toggleConvocato(fx.id, rp.id)}
+                      style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: `1px solid ${LINE}`, background: convocati[rp.id] ? RED : "#fff", color: convocati[rp.id] ? "#fff" : INK, cursor: "pointer" }}>
+                      {rp.nome}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {convocatiIds.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>2. Titolari / Panchina</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {roster.filter((rp) => convocati[rp.id]).map((rp) => (
+                    <div key={rp.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+                      <span>{rp.nome}</span>
+                      <span style={{ display: "flex", gap: 4 }}>
+                        <button onClick={() => setRuolo(fx.id, rp.id, "titolare")}
+                          style={{ fontSize: 11, padding: "3px 9px", borderRadius: 8, border: `1px solid ${LINE}`, background: titolari[rp.id] ? RED : "#fff", color: titolari[rp.id] ? "#fff" : MUTED, cursor: "pointer" }}>Titolare</button>
+                        <button onClick={() => setRuolo(fx.id, rp.id, "panchina")}
+                          style={{ fontSize: 11, padding: "3px 9px", borderRadius: 8, border: `1px solid ${LINE}`, background: !titolari[rp.id] ? RED : "#fff", color: !titolari[rp.id] ? "#fff" : MUTED, cursor: "pointer" }}>Panchina</button>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {titolariIds.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>3. Sostituzioni</div>
+                {sostituzioni.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
+                    {sostituzioni.map((s) => {
+                      const outP = roster.find((r) => r.id === s.out);
+                      const inP = roster.find((r) => r.id === s.in);
+                      return (
+                        <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: `1px solid ${LINE}`, borderRadius: 4, padding: "6px 10px", fontSize: 12 }}>
+                          <span>{s.minuto ? `${s.minuto}' — ` : ""}esce <strong>{outP ? outP.nome : "?"}</strong>, entra <strong style={{ color: SUB_COLOR }}>{inP ? inP.nome : "?"}</strong></span>
+                          <button onClick={() => removeSostituzione(fx.id, s.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 15 }}>×</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {panchinaIds.filter((id) => !gia_subentrati.includes(id)).length > 0 && (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                    <select value={(subDraft[fx.id] && subDraft[fx.id].out) || ""} onChange={(e) => setSubDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], out: e.target.value } }))}
+                      style={{ fontSize: 12, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }}>
+                      <option value="">Esce...</option>
+                      {roster.filter((r) => titolari[r.id]).map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
+                    </select>
+                    <select value={(subDraft[fx.id] && subDraft[fx.id].in) || ""} onChange={(e) => setSubDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], in: e.target.value } }))}
+                      style={{ fontSize: 12, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }}>
+                      <option value="">Entra...</option>
+                      {roster.filter((r) => panchinaIds.includes(r.id) && !gia_subentrati.includes(r.id)).map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
+                    </select>
+                    <input placeholder="Min'" type="number" min="0" max="120" value={(subDraft[fx.id] && subDraft[fx.id].minuto) || ""} onChange={(e) => setSubDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], minuto: e.target.value } }))}
+                      style={{ width: 50, fontSize: 12, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                    <button onClick={() => { const d = subDraft[fx.id] || {}; addSostituzione(fx.id, d.out, d.in, d.minuto); setSubDraft((p) => ({ ...p, [fx.id]: { out: "", in: "", minuto: "" } })); }}
+                      style={{ background: RED, color: "#fff", border: "none", padding: "5px 12px", borderRadius: 3, fontWeight: 600, cursor: "pointer", fontSize: 12 }}>+</button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {titolariIds.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>4. Formazione</div>
+                {renderPitch(
+                  (detailsShared[fx.id] && detailsShared[fx.id].formazione) || {},
+                  (slotId, playerId) => setFormazione(fx.id, slotId, playerId),
+                  (detailsShared[fx.id] && detailsShared[fx.id].modulo) || DEFAULT_MODULO,
+                  (modulo) => setModulo(fx.id, modulo),
+                  titolariIds,
+                  sostituzioni
+                )}
+              </div>
+            )}
 
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Marcatori</div>
@@ -1461,43 +1582,6 @@ function GironeATracker() {
               </div>
               {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
             </div>
-
-            {roster.length > 0 && (
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Presenze</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {roster.map((rp) => {
-                    const presenze = (detailsShared[fx.id] && detailsShared[fx.id].presenze) || {};
-                    const stato = presenze[rp.id];
-                    return (
-                      <div key={rp.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                        <span>{rp.nome}</span>
-                        <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                          {PLAYER_STATUSES.map((s) => (
-                            <button key={s} onClick={() => setPresenza(fx.id, rp.id, s)}
-                              style={{ fontSize: 10, padding: "3px 7px", borderRadius: 8, border: `1px solid ${LINE}`, background: stato === s ? RED : "#fff", color: stato === s ? "#fff" : MUTED, cursor: "pointer" }}>
-                              {s}
-                            </button>
-                          ))}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {roster.length > 0 && (
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Formazione</div>
-                {renderPitch(
-                  (detailsShared[fx.id] && detailsShared[fx.id].formazione) || {},
-                  (slotId, role, playerId) => setFormazione(fx.id, slotId, role, playerId),
-                  (detailsShared[fx.id] && detailsShared[fx.id].modulo) || DEFAULT_MODULO,
-                  (modulo) => setModulo(fx.id, modulo)
-                )}
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -1510,7 +1594,13 @@ function GironeATracker() {
     const voti = friendlyVoti[f.id] || [];
     const marcatoriF = friendlyMarcatori[f.id] || [];
     const sdF = scorerDraftF[f.id] || {};
-    const presenzeF = friendlyPresenze[f.id] || {};
+    const convocatiF = friendlyConvocati[f.id] || {};
+    const titolariF = friendlyTitolari[f.id] || {};
+    const sostituzioniF = friendlySostituzioni[f.id] || [];
+    const convocatiIdsF = Object.keys(convocatiF);
+    const titolariIdsF = Object.keys(titolariF).filter((id) => convocatiIdsF.includes(id));
+    const panchinaIdsF = convocatiIdsF.filter((id) => !titolariF[id]);
+    const gia_subentratiF = sostituzioniF.map((s) => s.in);
     const hasScore = f.golCimiano !== "" && f.golCimiano !== undefined && f.golAvv !== "" && f.golAvv !== undefined;
     const isEditingF = editingFriendly === f.id;
     const votoSquadraListF = friendlyTeamVoto[f.id] || [];
@@ -1614,6 +1704,93 @@ function GironeATracker() {
               </div>
               {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
             </div>
+
+            {roster.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+                  1. Convocati {convocatiIdsF.length > 0 && `(${convocatiIdsF.length})`}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {roster.map((rp) => (
+                    <button key={rp.id} onClick={() => toggleConvocatoF(f.id, rp.id)}
+                      style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: `1px solid ${LINE}`, background: convocatiF[rp.id] ? RED : "#fff", color: convocatiF[rp.id] ? "#fff" : INK, cursor: "pointer" }}>
+                      {rp.nome}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {convocatiIdsF.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>2. Titolari / Panchina</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {roster.filter((rp) => convocatiF[rp.id]).map((rp) => (
+                    <div key={rp.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+                      <span>{rp.nome}</span>
+                      <span style={{ display: "flex", gap: 4 }}>
+                        <button onClick={() => setRuoloF(f.id, rp.id, "titolare")}
+                          style={{ fontSize: 11, padding: "3px 9px", borderRadius: 8, border: `1px solid ${LINE}`, background: titolariF[rp.id] ? RED : "#fff", color: titolariF[rp.id] ? "#fff" : MUTED, cursor: "pointer" }}>Titolare</button>
+                        <button onClick={() => setRuoloF(f.id, rp.id, "panchina")}
+                          style={{ fontSize: 11, padding: "3px 9px", borderRadius: 8, border: `1px solid ${LINE}`, background: !titolariF[rp.id] ? RED : "#fff", color: !titolariF[rp.id] ? "#fff" : MUTED, cursor: "pointer" }}>Panchina</button>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {titolariIdsF.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>3. Sostituzioni</div>
+                {sostituzioniF.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
+                    {sostituzioniF.map((s) => {
+                      const outP = roster.find((r) => r.id === s.out);
+                      const inP = roster.find((r) => r.id === s.in);
+                      return (
+                        <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: `1px solid ${LINE}`, borderRadius: 4, padding: "6px 10px", fontSize: 12 }}>
+                          <span>{s.minuto ? `${s.minuto}' — ` : ""}esce <strong>{outP ? outP.nome : "?"}</strong>, entra <strong style={{ color: SUB_COLOR }}>{inP ? inP.nome : "?"}</strong></span>
+                          <button onClick={() => removeSostituzioneF(f.id, s.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 15 }}>×</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {panchinaIdsF.filter((id) => !gia_subentratiF.includes(id)).length > 0 && (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                    <select value={(subDraftF[f.id] && subDraftF[f.id].out) || ""} onChange={(e) => setSubDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], out: e.target.value } }))}
+                      style={{ fontSize: 12, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }}>
+                      <option value="">Esce...</option>
+                      {roster.filter((r) => titolariF[r.id]).map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
+                    </select>
+                    <select value={(subDraftF[f.id] && subDraftF[f.id].in) || ""} onChange={(e) => setSubDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], in: e.target.value } }))}
+                      style={{ fontSize: 12, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }}>
+                      <option value="">Entra...</option>
+                      {roster.filter((r) => panchinaIdsF.includes(r.id) && !gia_subentratiF.includes(r.id)).map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
+                    </select>
+                    <input placeholder="Min'" type="number" min="0" max="120" value={(subDraftF[f.id] && subDraftF[f.id].minuto) || ""} onChange={(e) => setSubDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], minuto: e.target.value } }))}
+                      style={{ width: 50, fontSize: 12, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                    <button onClick={() => { const d = subDraftF[f.id] || {}; addSostituzioneF(f.id, d.out, d.in, d.minuto); setSubDraftF((p) => ({ ...p, [f.id]: { out: "", in: "", minuto: "" } })); }}
+                      style={{ background: RED, color: "#fff", border: "none", padding: "5px 12px", borderRadius: 3, fontWeight: 600, cursor: "pointer", fontSize: 12 }}>+</button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {titolariIdsF.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>4. Formazione</div>
+                {renderPitch(
+                  friendlyFormazione[f.id] || {},
+                  (slotId, playerId) => setFormazioneF(f.id, slotId, playerId),
+                  friendlyModulo[f.id] || DEFAULT_MODULO,
+                  (modulo) => setModuloF(f.id, modulo),
+                  titolariIdsF,
+                  sostituzioniF
+                )}
+              </div>
+            )}
 
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Marcatori</div>
@@ -1740,42 +1917,6 @@ function GironeATracker() {
               <button onClick={() => addRatingFriendly(f.id)} disabled={!voterName} style={{ background: voterName ? RED : "#ccc", color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
             </div>
             {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
-
-            {roster.length > 0 && (
-              <div style={{ marginTop: 14 }}>
-                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Presenze</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {roster.map((rp) => {
-                    const stato = presenzeF[rp.id];
-                    return (
-                      <div key={rp.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                        <span>{rp.nome}</span>
-                        <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                          {PLAYER_STATUSES.map((s) => (
-                            <button key={s} onClick={() => setPresenzaF(f.id, rp.id, s)}
-                              style={{ fontSize: 10, padding: "3px 7px", borderRadius: 8, border: `1px solid ${LINE}`, background: stato === s ? RED : "#fff", color: stato === s ? "#fff" : MUTED, cursor: "pointer" }}>
-                              {s}
-                            </button>
-                          ))}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {roster.length > 0 && (
-              <div style={{ marginTop: 14 }}>
-                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Formazione</div>
-                {renderPitch(
-                  friendlyFormazione[f.id] || {},
-                  (slotId, role, playerId) => setFormazioneF(f.id, slotId, role, playerId),
-                  friendlyModulo[f.id] || DEFAULT_MODULO,
-                  (modulo) => setModuloF(f.id, modulo)
-                )}
-              </div>
-            )}
           </div>
         )}
       </div>
