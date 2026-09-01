@@ -205,8 +205,8 @@ const FORMATIONS = {
   },
 };
 const DEFAULT_MODULO = "352";
-const TRACKER_VERSION = "9";
-const TRACKER_VERSION_DATE = "01/09/2026 ore 12.34";
+const TRACKER_VERSION = "1.0";
+const TRACKER_VERSION_DATE = "01/09/2026@15.26";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -326,8 +326,7 @@ function GironeATracker() {
   const [friendlyVoti, setFriendlyVoti] = useState({}); // { friendlyId: [voti] } — CONDIVISO, ogni voto etichettato con l'autore
   const [friendlyMarcatori, setFriendlyMarcatori] = useState({}); // { friendlyId: [marcatori] } — CONDIVISO
   const [friendlyConvocati, setFriendlyConvocati] = useState({}); // { friendlyId: {playerId: true} } — CONDIVISO
-  const [friendlyTitolari, setFriendlyTitolari] = useState({}); // { friendlyId: {playerId: true} } — CONDIVISO
-  const [friendlyFormazione, setFriendlyFormazione] = useState({}); // { friendlyId: {slotId: playerId} } — CONDIVISO
+  const [friendlyFormazione, setFriendlyFormazione] = useState({}); // { friendlyId: {slotId: playerId} } — titolari = giocatori piazzati qui — CONDIVISO
   const [friendlyModulo, setFriendlyModuloState] = useState({}); // { friendlyId: "352"|"442"|... } — CONDIVISO
   const [friendlyFormazione2, setFriendlyFormazione2] = useState({}); // { friendlyId: {slotId: playerId} } — CONDIVISO (mappa "cambi/fine partita")
   const [friendlyModulo2, setFriendlyModulo2State] = useState({}); // { friendlyId: "352"|"442"|... } — CONDIVISO
@@ -371,209 +370,166 @@ function GironeATracker() {
   const PLAYER_COLORS = [RED, "#2b6cb0", "#2f855a", "#b7791f", "#6b46c1", "#c05621"];
 
   useEffect(() => {
-    (async () => {
-      // --- IDENTITÀ DI CHI VOTA (locale, non condivisa) ---
+    async function safeGet(key, shared) {
       try {
-        const vn = await window.storage.get("girone-a-voter-name", false);
-        if (vn) setVoterNameState(JSON.parse(vn.value));
+        const r = await window.storage.get(key, shared);
+        return r ? JSON.parse(r.value) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    (async () => {
+      // --- IDENTITÀ DI CHI VOTA (locale al dispositivo/browser: localStorage, MAI il Google Sheet condiviso) ---
+      try {
+        const vn = window.localStorage.getItem("girone-a-voter-name");
+        if (vn) setVoterNameState(JSON.parse(vn));
       } catch (e) {}
 
-      // --- RISULTATI CAMPIONATO ---
-      let resultsData = null;
-      try {
-        const r = await window.storage.get("girone-a-results", true);
-        if (r) resultsData = JSON.parse(r.value);
-      } catch (e) {}
+      // --- Tutte le letture condivise partono IN PARALLELO invece che in sequenza ---
+      const [
+        resultsData,
+        detailsSharedData,
+        oldPrivateData,
+        friendliesData0,
+        friendlyVotiData0,
+        oldFriendlyVotiData,
+        teamVotoData0,
+        oldTeamVotoData,
+        friendlyMarcatoriData0,
+        oldFriendlyMarcatoriData,
+        friendlyConvocatiData,
+        friendlyFormazioneData0,
+        oldFriendlyFormazioneData,
+        friendlyModuloData0,
+        oldFriendlyModuloData,
+        friendlyFormazione2Data,
+        friendlyModulo2Data,
+        rosterData0,
+      ] = await Promise.all([
+        safeGet("girone-a-results", true),
+        safeGet("girone-a-details-shared", true),
+        safeGet("girone-a-details", false),
+        safeGet("girone-a-friendlies", true),
+        safeGet("girone-a-friendly-voti", true),
+        safeGet("girone-a-friendly-voti", false),
+        safeGet("girone-a-friendly-team-voto", true),
+        safeGet("girone-a-friendly-team-voto", false),
+        safeGet("girone-a-friendly-marcatori", true),
+        safeGet("girone-a-friendly-marcatori", false),
+        safeGet("girone-a-friendly-convocati", true),
+        safeGet("girone-a-friendly-formazione", true),
+        safeGet("girone-a-friendly-formazione", false),
+        safeGet("girone-a-friendly-modulo", true),
+        safeGet("girone-a-friendly-modulo", false),
+        safeGet("girone-a-friendly-formazione2", true),
+        safeGet("girone-a-friendly-modulo2", true),
+        safeGet("girone-a-roster", true),
+      ]);
+
+      // --- Da qui in poi: solo elaborazione locale dei dati già arrivati, nessuna nuova attesa di rete ---
+
       if (resultsData) setResults(resultsData);
 
-      // --- DETTAGLI CONDIVISI (marcatori, voti, voto squadra, presenze, formazione) ---
-      let detailsSharedData = null;
-      try {
-        const ds = await window.storage.get("girone-a-details-shared", true);
-        if (ds) detailsSharedData = JSON.parse(ds.value);
-      } catch (e) {}
-
-      if (!detailsSharedData) {
-        // Migrazione: tutto ciò che prima era privato (marcatori, presenze, formazione, e i vecchi voti) diventa condiviso
-        let oldPrivate = null;
-        try {
-          const d = await window.storage.get("girone-a-details", false);
-          if (d) oldPrivate = JSON.parse(d.value);
-        } catch (e) {}
-        if (oldPrivate) {
-          const migrated = {};
-          Object.keys(oldPrivate).forEach((fixtureId) => {
-            const o = oldPrivate[fixtureId];
-            const entry = { ...o };
-            if (entry.voti && entry.voti.length) entry.voti = entry.voti.map((v) => ({ ...v, autore: v.autore || "Io" }));
-            if (entry.votoSquadra) {
-              entry.votoSquadra = Array.isArray(entry.votoSquadra)
-                ? entry.votoSquadra.map((v) => ({ ...v, autore: v.autore || "Io" }))
-                : [{ id: "migrated-" + fixtureId, autore: "Io", voto: entry.votoSquadra.voto, nota: entry.votoSquadra.nota || "" }];
-            }
-            migrated[fixtureId] = entry;
-          });
-          detailsSharedData = migrated;
-          await window.storage.set("girone-a-details-shared", JSON.stringify(detailsSharedData), true).catch(() => {});
-        }
+      // --- DETTAGLI CONDIVISI (marcatori, voti, voto squadra, formazione) ---
+      let detailsSharedFinal = detailsSharedData;
+      if (!detailsSharedFinal && oldPrivateData) {
+        // Migrazione: tutto ciò che prima era privato (marcatori, formazione, e i vecchi voti) diventa condiviso
+        const migrated = {};
+        Object.keys(oldPrivateData).forEach((fixtureId) => {
+          const o = oldPrivateData[fixtureId];
+          const entry = { ...o };
+          if (entry.voti && entry.voti.length) entry.voti = entry.voti.map((v) => ({ ...v, autore: v.autore || "Io" }));
+          if (entry.votoSquadra) {
+            entry.votoSquadra = Array.isArray(entry.votoSquadra)
+              ? entry.votoSquadra.map((v) => ({ ...v, autore: v.autore || "Io" }))
+              : [{ id: "migrated-" + fixtureId, autore: "Io", voto: entry.votoSquadra.voto, nota: entry.votoSquadra.nota || "" }];
+          }
+          migrated[fixtureId] = entry;
+        });
+        detailsSharedFinal = migrated;
+        window.storage.set("girone-a-details-shared", JSON.stringify(detailsSharedFinal), true).catch(() => {});
       }
-      if (detailsSharedData) setDetailsShared(detailsSharedData);
+      if (detailsSharedFinal) setDetailsShared(detailsSharedFinal);
 
       // --- AMICHEVOLI ---
-      let friendliesData = null;
-      try {
-        const f = await window.storage.get("girone-a-friendlies", true);
-        if (f) friendliesData = JSON.parse(f.value);
-      } catch (e) {}
-      if (!friendliesData) {
-        friendliesData = [{ id: "seed-1", avversario: "Vis Nova Giussano", golCimiano: 1, golAvv: 3, data: "2026-08-30", note: "Prima amichevole stagionale" }];
-        await window.storage.set("girone-a-friendlies", JSON.stringify(friendliesData), true).catch(() => {});
+      let friendliesFinal = friendliesData0;
+      if (!friendliesFinal) {
+        friendliesFinal = [{ id: "seed-1", avversario: "Vis Nova Giussano", golCimiano: 1, golAvv: 3, data: "2026-08-30", note: "Prima amichevole stagionale" }];
+        window.storage.set("girone-a-friendlies", JSON.stringify(friendliesFinal), true).catch(() => {});
       }
-      setFriendlies(friendliesData);
+      setFriendlies(friendliesFinal);
 
       // --- VOTI AMICHEVOLI (condivisi, con autore) ---
-      let friendlyVotiData = null;
-      try {
-        const fv = await window.storage.get("girone-a-friendly-voti", true);
-        if (fv) friendlyVotiData = JSON.parse(fv.value);
-      } catch (e) {}
-      if (!friendlyVotiData) {
-        try {
-          const oldFv = await window.storage.get("girone-a-friendly-voti", false);
-          if (oldFv) {
-            const oldParsed = JSON.parse(oldFv.value);
-            friendlyVotiData = {};
-            Object.keys(oldParsed).forEach((fid) => {
-              friendlyVotiData[fid] = (oldParsed[fid] || []).map((v) => ({ ...v, autore: v.autore || "Io" }));
-            });
-            await window.storage.set("girone-a-friendly-voti", JSON.stringify(friendlyVotiData), true).catch(() => {});
-          }
-        } catch (e) {}
+      let friendlyVotiFinal = friendlyVotiData0;
+      if (!friendlyVotiFinal && oldFriendlyVotiData) {
+        friendlyVotiFinal = {};
+        Object.keys(oldFriendlyVotiData).forEach((fid) => {
+          friendlyVotiFinal[fid] = (oldFriendlyVotiData[fid] || []).map((v) => ({ ...v, autore: v.autore || "Io" }));
+        });
+        window.storage.set("girone-a-friendly-voti", JSON.stringify(friendlyVotiFinal), true).catch(() => {});
       }
-      if (friendlyVotiData) setFriendlyVoti(friendlyVotiData);
+      if (friendlyVotiFinal) setFriendlyVoti(friendlyVotiFinal);
 
       // --- VOTO SQUADRA AMICHEVOLI (condiviso, array multi-autore) ---
-      let teamVotoData = null;
-      try {
-        const ftv = await window.storage.get("girone-a-friendly-team-voto", true);
-        if (ftv) teamVotoData = JSON.parse(ftv.value);
-      } catch (e) {}
-      if (!teamVotoData) {
-        teamVotoData = {};
-        try {
-          const oldFtv = await window.storage.get("girone-a-friendly-team-voto", false);
-          if (oldFtv) {
-            const oldParsed = JSON.parse(oldFtv.value);
-            Object.keys(oldParsed).forEach((fid) => {
-              const o = oldParsed[fid];
-              teamVotoData[fid] = Array.isArray(o) ? o.map((v) => ({ ...v, autore: v.autore || "Io" })) : [{ id: "migrated-" + fid, autore: "Io", voto: o.voto, nota: o.nota || "" }];
-            });
-          }
-        } catch (e) {}
+      let teamVotoFinal = teamVotoData0;
+      if (!teamVotoFinal) {
+        teamVotoFinal = {};
+        if (oldTeamVotoData) {
+          Object.keys(oldTeamVotoData).forEach((fid) => {
+            const o = oldTeamVotoData[fid];
+            teamVotoFinal[fid] = Array.isArray(o) ? o.map((v) => ({ ...v, autore: v.autore || "Io" })) : [{ id: "migrated-" + fid, autore: "Io", voto: o.voto, nota: o.nota || "" }];
+          });
+        }
         // Migrazione aggiuntiva: recupera la vecchia "Nota" della partita (campo rimosso) dentro la nota del Voto Squadra
-        friendliesData.forEach((f) => {
-          if (f.note && (!teamVotoData[f.id] || teamVotoData[f.id].length === 0)) {
-            teamVotoData[f.id] = [{ id: "migrated-note-" + f.id, autore: "Io", voto: "", nota: f.note }];
+        friendliesFinal.forEach((f) => {
+          if (f.note && (!teamVotoFinal[f.id] || teamVotoFinal[f.id].length === 0)) {
+            teamVotoFinal[f.id] = [{ id: "migrated-note-" + f.id, autore: "Io", voto: "", nota: f.note }];
           }
         });
-        await window.storage.set("girone-a-friendly-team-voto", JSON.stringify(teamVotoData), true).catch(() => {});
+        window.storage.set("girone-a-friendly-team-voto", JSON.stringify(teamVotoFinal), true).catch(() => {});
       }
-      setFriendlyTeamVoto(teamVotoData);
+      setFriendlyTeamVoto(teamVotoFinal);
 
-      // --- MARCATORI, PRESENZE, FORMAZIONE, MODULO AMICHEVOLI (condivisi) ---
-      let friendlyMarcatoriData = null;
-      try {
-        const fm = await window.storage.get("girone-a-friendly-marcatori", true);
-        if (fm) friendlyMarcatoriData = JSON.parse(fm.value);
-      } catch (e) {}
-      if (!friendlyMarcatoriData) {
-        try {
-          const old = await window.storage.get("girone-a-friendly-marcatori", false);
-          if (old) {
-            friendlyMarcatoriData = JSON.parse(old.value);
-            await window.storage.set("girone-a-friendly-marcatori", JSON.stringify(friendlyMarcatoriData), true).catch(() => {});
-          }
-        } catch (e) {}
+      // --- MARCATORI AMICHEVOLI (condivisi) ---
+      let friendlyMarcatoriFinal = friendlyMarcatoriData0;
+      if (!friendlyMarcatoriFinal && oldFriendlyMarcatoriData) {
+        friendlyMarcatoriFinal = oldFriendlyMarcatoriData;
+        window.storage.set("girone-a-friendly-marcatori", JSON.stringify(friendlyMarcatoriFinal), true).catch(() => {});
       }
-      if (friendlyMarcatoriData) setFriendlyMarcatori(friendlyMarcatoriData);
+      if (friendlyMarcatoriFinal) setFriendlyMarcatori(friendlyMarcatoriFinal);
 
-
-
-      let friendlyConvocatiData = null;
-      try {
-        const fc = await window.storage.get("girone-a-friendly-convocati", true);
-        if (fc) friendlyConvocatiData = JSON.parse(fc.value);
-      } catch (e) {}
       if (friendlyConvocatiData) setFriendlyConvocati(friendlyConvocatiData);
 
-      let friendlyTitolariData = null;
-      try {
-        const ft = await window.storage.get("girone-a-friendly-titolari", true);
-        if (ft) friendlyTitolariData = JSON.parse(ft.value);
-      } catch (e) {}
-      if (friendlyTitolariData) setFriendlyTitolari(friendlyTitolariData);
-
-      let friendlyFormazioneData = null;
-      try {
-        const ff = await window.storage.get("girone-a-friendly-formazione", true);
-        if (ff) friendlyFormazioneData = JSON.parse(ff.value);
-      } catch (e) {}
-      if (!friendlyFormazioneData) {
-        try {
-          const old = await window.storage.get("girone-a-friendly-formazione", false);
-          if (old) {
-            friendlyFormazioneData = JSON.parse(old.value);
-            await window.storage.set("girone-a-friendly-formazione", JSON.stringify(friendlyFormazioneData), true).catch(() => {});
-          }
-        } catch (e) {}
+      // --- FORMAZIONE / MODULO AMICHEVOLI (condivisi) ---
+      let friendlyFormazioneFinal = friendlyFormazioneData0;
+      if (!friendlyFormazioneFinal && oldFriendlyFormazioneData) {
+        friendlyFormazioneFinal = oldFriendlyFormazioneData;
+        window.storage.set("girone-a-friendly-formazione", JSON.stringify(friendlyFormazioneFinal), true).catch(() => {});
       }
-      if (friendlyFormazioneData) setFriendlyFormazione(friendlyFormazioneData);
+      if (friendlyFormazioneFinal) setFriendlyFormazione(friendlyFormazioneFinal);
 
-      let friendlyModuloData = null;
-      try {
-        const fmo = await window.storage.get("girone-a-friendly-modulo", true);
-        if (fmo) friendlyModuloData = JSON.parse(fmo.value);
-      } catch (e) {}
-      if (!friendlyModuloData) {
-        try {
-          const old = await window.storage.get("girone-a-friendly-modulo", false);
-          if (old) {
-            friendlyModuloData = JSON.parse(old.value);
-            await window.storage.set("girone-a-friendly-modulo", JSON.stringify(friendlyModuloData), true).catch(() => {});
-          }
-        } catch (e) {}
+      let friendlyModuloFinal = friendlyModuloData0;
+      if (!friendlyModuloFinal && oldFriendlyModuloData) {
+        friendlyModuloFinal = oldFriendlyModuloData;
+        window.storage.set("girone-a-friendly-modulo", JSON.stringify(friendlyModuloFinal), true).catch(() => {});
       }
-      if (friendlyModuloData) setFriendlyModuloState(friendlyModuloData);
+      if (friendlyModuloFinal) setFriendlyModuloState(friendlyModuloFinal);
 
-      let friendlyFormazione2Data = null;
-      try {
-        const ff2 = await window.storage.get("girone-a-friendly-formazione2", true);
-        if (ff2) friendlyFormazione2Data = JSON.parse(ff2.value);
-      } catch (e) {}
       if (friendlyFormazione2Data) setFriendlyFormazione2(friendlyFormazione2Data);
-
-      let friendlyModulo2Data = null;
-      try {
-        const fmo2 = await window.storage.get("girone-a-friendly-modulo2", true);
-        if (fmo2) friendlyModulo2Data = JSON.parse(fmo2.value);
-      } catch (e) {}
       if (friendlyModulo2Data) setFriendlyModulo2State(friendlyModulo2Data);
 
       // --- ROSA SQUADRA ---
-      let rosterData = null;
-      try {
-        const ro = await window.storage.get("girone-a-roster", true);
-        if (ro) rosterData = JSON.parse(ro.value);
-      } catch (e) {}
-      if (!rosterData) {
-        rosterData = [
+      let rosterFinal = rosterData0;
+      if (!rosterFinal) {
+        rosterFinal = [
           { id: "p1", nome: "Nicolò Lodi" },
           { id: "p2", nome: "Favour Maira" },
           { id: "p3", nome: "Lorenzo Crocetti" },
         ];
-        await window.storage.set("girone-a-roster", JSON.stringify(rosterData), true).catch(() => {});
+        window.storage.set("girone-a-roster", JSON.stringify(rosterFinal), true).catch(() => {});
       }
-      setRoster(rosterData);
+      setRoster(rosterFinal);
 
       setLoaded(true);
     })();
@@ -600,8 +556,12 @@ function GironeATracker() {
   }, [friendlyTeamVoto, loaded]);
 
   useEffect(() => {
-    if (loaded) window.storage.set("girone-a-voter-name", JSON.stringify(voterName), false).catch(() => {});
-  }, [voterName, loaded]);
+    // Locale al dispositivo/browser: localStorage reale, non il Google Sheet condiviso.
+    try {
+      if (voterName) window.localStorage.setItem("girone-a-voter-name", JSON.stringify(voterName));
+      else window.localStorage.removeItem("girone-a-voter-name");
+    } catch (e) {}
+  }, [voterName]);
 
   useEffect(() => {
     if (loaded) window.storage.set("girone-a-friendly-marcatori", JSON.stringify(friendlyMarcatori), true).catch(() => {});
@@ -610,10 +570,6 @@ function GironeATracker() {
   useEffect(() => {
     if (loaded) window.storage.set("girone-a-friendly-convocati", JSON.stringify(friendlyConvocati), true).catch(() => {});
   }, [friendlyConvocati, loaded]);
-
-  useEffect(() => {
-    if (loaded) window.storage.set("girone-a-friendly-titolari", JSON.stringify(friendlyTitolari), true).catch(() => {});
-  }, [friendlyTitolari, loaded]);
 
   useEffect(() => {
     if (loaded) window.storage.set("girone-a-friendly-formazione", JSON.stringify(friendlyFormazione), true).catch(() => {});
@@ -1111,52 +1067,45 @@ function GironeATracker() {
 
   // --- SEDE PARTITA (campionato/coppa) ---
   // --- PRESENZE ---
-  // --- CONVOCATI / TITOLARI / SOSTITUZIONI (campionato & coppa) ---
+  // --- CONVOCATI (campionato & coppa) ---
+  // I "titolari" non sono più un'etichetta separata: chi viene piazzato sul campo (formazione) è titolare,
+  // chi resta convocato ma non piazzato è automaticamente panchina.
   function toggleConvocato(fixtureId, playerId) {
     setDetailsShared((prev) => {
       const cur = prev[fixtureId] || {};
       const convocati = { ...(cur.convocati || {}) };
-      const titolari = { ...(cur.titolari || {}) };
+      const formazione = { ...(cur.formazione || {}) };
+      const formazione2 = { ...(cur.formazione2 || {}) };
       if (convocati[playerId]) {
         delete convocati[playerId];
-        delete titolari[playerId];
+        // Se non è più convocato, va tolto anche da eventuali posizioni in campo
+        Object.keys(formazione).forEach((slotId) => { if (formazione[slotId] === playerId) delete formazione[slotId]; });
+        Object.keys(formazione2).forEach((slotId) => { if (formazione2[slotId] === playerId) delete formazione2[slotId]; });
       } else {
         convocati[playerId] = true;
       }
-      return { ...prev, [fixtureId]: { ...cur, convocati, titolari } };
+      return { ...prev, [fixtureId]: { ...cur, convocati, formazione, formazione2 } };
     });
   }
 
-  function setRuolo(fixtureId, playerId, ruolo) {
-    setDetailsShared((prev) => {
-      const cur = prev[fixtureId] || {};
-      const titolari = { ...(cur.titolari || {}) };
-      if (ruolo === "titolare") titolari[playerId] = true;
-      else delete titolari[playerId];
-      return { ...prev, [fixtureId]: { ...cur, titolari } };
-    });
-  }
-
-  // --- CONVOCATI / TITOLARI (amichevoli) ---
+  // --- CONVOCATI (amichevoli) ---
   function toggleConvocatoF(friendlyId, playerId) {
     setFriendlyConvocati((prev) => {
       const cur = { ...(prev[friendlyId] || {}) };
       if (cur[playerId]) delete cur[playerId]; else cur[playerId] = true;
       return { ...prev, [friendlyId]: cur };
     });
-    setFriendlyTitolari((prev) => {
+    setFriendlyFormazione((prev) => {
       const cur = { ...(prev[friendlyId] || {}) };
-      delete cur[playerId];
-      return { ...prev, [friendlyId]: cur };
+      let changed = false;
+      Object.keys(cur).forEach((slotId) => { if (cur[slotId] === playerId) { delete cur[slotId]; changed = true; } });
+      return changed ? { ...prev, [friendlyId]: cur } : prev;
     });
-  }
-
-  function setRuoloF(friendlyId, playerId, ruolo) {
-    setFriendlyTitolari((prev) => {
+    setFriendlyFormazione2((prev) => {
       const cur = { ...(prev[friendlyId] || {}) };
-      if (ruolo === "titolare") cur[playerId] = true;
-      else delete cur[playerId];
-      return { ...prev, [friendlyId]: cur };
+      let changed = false;
+      Object.keys(cur).forEach((slotId) => { if (cur[slotId] === playerId) { delete cur[slotId]; changed = true; } });
+      return changed ? { ...prev, [friendlyId]: cur } : prev;
     });
   }
 
@@ -1287,7 +1236,7 @@ function GironeATracker() {
     );
   }
 
-  function renderDualPitch(formazione1, onChangeSlot1, modulo1, onChangeModulo1, titolariIds, formazione2, onChangeSlot2, modulo2, onChangeModulo2, convocatiIds) {
+  function renderDualPitch(formazione1, onChangeSlot1, modulo1, onChangeModulo1, poolIniziale, formazione2, onChangeSlot2, modulo2, onChangeModulo2, convocatiIds) {
     const modulo1Key = modulo1 || DEFAULT_MODULO;
     const modulo2Key = modulo2 || DEFAULT_MODULO;
     const mirrorActive = modulo1Key === modulo2Key;
@@ -1303,13 +1252,13 @@ function GironeATracker() {
         </div>
         {!mirrorActive && (
           <div style={{ fontSize: 11, color: MUTED, marginBottom: 8, fontStyle: "italic" }}>
-            I moduli delle due mappe sono diversi: la mappa di destra non eredita più i titolari, va compilata a parte.
+            I moduli delle due mappe sono diversi: la mappa di destra non eredita più chi hai piazzato in "INIZIO", va compilata a parte.
           </div>
         )}
         <div style={{ display: "flex", gap: 10 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 10, color: MUTED, marginBottom: 4, fontWeight: 700, textAlign: "center" }}>INIZIO</div>
-            {renderPitch(formazione1, onChangeSlot1, modulo1Key, onChangeModulo1, titolariIds, { compact: true })}
+            {renderPitch(formazione1, onChangeSlot1, modulo1Key, onChangeModulo1, poolIniziale, { compact: true })}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 10, color: MUTED, marginBottom: 4, fontWeight: 700, textAlign: "center" }}>CAMBI / FINE</div>
@@ -1419,9 +1368,10 @@ function GironeATracker() {
     const voti = (detailsShared[fx.id] && detailsShared[fx.id].voti) || [];
     const votoSquadraList = (detailsShared[fx.id] && detailsShared[fx.id].votoSquadra) || [];
     const convocati = (detailsShared[fx.id] && detailsShared[fx.id].convocati) || {};
-    const titolari = (detailsShared[fx.id] && detailsShared[fx.id].titolari) || {};
     const convocatiIds = Object.keys(convocati);
-    const titolariIds = Object.keys(titolari).filter((id) => convocatiIds.includes(id));
+    // Titolari = giocatori effettivamente piazzati sul campo nella mappa "INIZIO"; il resto dei convocati è panchina.
+    const formazioneIniziale = (detailsShared[fx.id] && detailsShared[fx.id].formazione) || {};
+    const titolariIds = Array.from(new Set(Object.values(formazioneIniziale).filter(Boolean))).filter((id) => convocatiIds.includes(id));
     const tvd = teamVotoDraft[fx.id] || {};
     const isNextMatch = fx.id === nextCimianoMatchId;
     const canOpenDetails = isCimianoMatch && (played || isNextMatch);
@@ -1485,32 +1435,16 @@ function GironeATracker() {
               <>
             {convocatiIds.length > 0 && (
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>2. Titolari / Panchina</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {roster.filter((rp) => convocati[rp.id]).map((rp) => (
-                    <div key={rp.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                      <span>{rp.nome}</span>
-                      <span style={{ display: "flex", gap: 4 }}>
-                        <button onClick={() => setRuolo(fx.id, rp.id, "titolare")}
-                          style={{ fontSize: 11, padding: "3px 9px", borderRadius: 8, border: `1px solid ${LINE}`, background: titolari[rp.id] ? RED : "#fff", color: titolari[rp.id] ? "#fff" : MUTED, cursor: "pointer" }}>Titolare</button>
-                        <button onClick={() => setRuolo(fx.id, rp.id, "panchina")}
-                          style={{ fontSize: 11, padding: "3px 9px", borderRadius: 8, border: `1px solid ${LINE}`, background: !titolari[rp.id] ? RED : "#fff", color: !titolari[rp.id] ? "#fff" : MUTED, cursor: "pointer" }}>Panchina</button>
-                      </span>
-                    </div>
-                  ))}
+                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>2. Modulo</div>
+                <div style={{ fontSize: 11, color: MUTED, marginBottom: 8, fontStyle: "italic" }}>
+                  Piazza i convocati sul campo: chi metti in campo è titolare, chi resta fuori è automaticamente in panchina.
                 </div>
-              </div>
-            )}
-
-            {titolariIds.length > 0 && (
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>3. Modulo</div>
                 {renderDualPitch(
                   (detailsShared[fx.id] && detailsShared[fx.id].formazione) || {},
                   (slotId, playerId) => setFormazione(fx.id, slotId, playerId),
                   (detailsShared[fx.id] && detailsShared[fx.id].modulo) || DEFAULT_MODULO,
                   (modulo) => setModulo(fx.id, modulo),
-                  titolariIds,
+                  convocatiIds,
                   (detailsShared[fx.id] && detailsShared[fx.id].formazione2) || {},
                   (slotId, playerId) => setFormazione2(fx.id, slotId, playerId),
                   (detailsShared[fx.id] && detailsShared[fx.id].modulo2) || DEFAULT_MODULO,
@@ -1715,9 +1649,10 @@ function GironeATracker() {
     const marcatoriF = friendlyMarcatori[f.id] || [];
     const sdF = scorerDraftF[f.id] || {};
     const convocatiF = friendlyConvocati[f.id] || {};
-    const titolariF = friendlyTitolari[f.id] || {};
     const convocatiIdsF = Object.keys(convocatiF);
-    const titolariIdsF = Object.keys(titolariF).filter((id) => convocatiIdsF.includes(id));
+    // Titolari = giocatori piazzati sul campo nella mappa "INIZIO"; il resto dei convocati è panchina.
+    const formazioneInizialeF = friendlyFormazione[f.id] || {};
+    const titolariIdsF = Array.from(new Set(Object.values(formazioneInizialeF).filter(Boolean))).filter((id) => convocatiIdsF.includes(id));
     const hasScore = f.golCimiano !== "" && f.golCimiano !== undefined && f.golAvv !== "" && f.golAvv !== undefined;
     const isEditingF = editingFriendly === f.id;
     const votoSquadraListF = friendlyTeamVoto[f.id] || [];
@@ -1793,32 +1728,16 @@ function GironeATracker() {
               <>
             {convocatiIdsF.length > 0 && (
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>2. Titolari / Panchina</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {roster.filter((rp) => convocatiF[rp.id]).map((rp) => (
-                    <div key={rp.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                      <span>{rp.nome}</span>
-                      <span style={{ display: "flex", gap: 4 }}>
-                        <button onClick={() => setRuoloF(f.id, rp.id, "titolare")}
-                          style={{ fontSize: 11, padding: "3px 9px", borderRadius: 8, border: `1px solid ${LINE}`, background: titolariF[rp.id] ? RED : "#fff", color: titolariF[rp.id] ? "#fff" : MUTED, cursor: "pointer" }}>Titolare</button>
-                        <button onClick={() => setRuoloF(f.id, rp.id, "panchina")}
-                          style={{ fontSize: 11, padding: "3px 9px", borderRadius: 8, border: `1px solid ${LINE}`, background: !titolariF[rp.id] ? RED : "#fff", color: !titolariF[rp.id] ? "#fff" : MUTED, cursor: "pointer" }}>Panchina</button>
-                      </span>
-                    </div>
-                  ))}
+                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>2. Modulo</div>
+                <div style={{ fontSize: 11, color: MUTED, marginBottom: 8, fontStyle: "italic" }}>
+                  Piazza i convocati sul campo: chi metti in campo è titolare, chi resta fuori è automaticamente in panchina.
                 </div>
-              </div>
-            )}
-
-            {titolariIdsF.length > 0 && (
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>3. Modulo</div>
                 {renderDualPitch(
                   friendlyFormazione[f.id] || {},
                   (slotId, playerId) => setFormazioneF(f.id, slotId, playerId),
                   friendlyModulo[f.id] || DEFAULT_MODULO,
                   (modulo) => setModuloF(f.id, modulo),
-                  titolariIdsF,
+                  convocatiIdsF,
                   friendlyFormazione2[f.id] || {},
                   (slotId, playerId) => setFormazioneF2(f.id, slotId, playerId),
                   friendlyModulo2[f.id] || DEFAULT_MODULO,
@@ -2010,6 +1929,15 @@ function GironeATracker() {
             )}
           </div>
         )}
+      </div>
+    );
+  }
+
+  if (!loaded) {
+    return (
+      <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',sans-serif", background: CREAM, minHeight: "100vh", color: MUTED, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 14 }}>
+        <img src={CIMIANO_LOGO} alt="Cimiano Calcio" style={{ width: 64, height: 64, objectFit: "contain" }} />
+        <div style={{ fontSize: 15 }}>Caricamento in corso…</div>
       </div>
     );
   }
