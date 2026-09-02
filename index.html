@@ -53,6 +53,20 @@
     document.getElementById("save-error-dismiss").onclick = function () { banner.remove(); };
   }
 
+  // Fase 3: banner dedicato per un fallimento nel CARICAMENTO iniziale di Rosa/Amichevoli/Risultati
+  // (diverso dal fallimento di un salvataggio): qui l'unica azione sensata è ricaricare la pagina,
+  // MAI inventare dati di default al posto di quelli veri che non siamo riusciti a leggere.
+  function showLoadError() {
+    let banner = document.getElementById("load-error-banner");
+    if (banner) return;
+    banner = document.createElement("div");
+    banner.id = "load-error-banner";
+    banner.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;background:#7a1e1e;color:#fff;padding:10px 16px;font-size:13px;text-align:center;";
+    banner.innerHTML = "⚠️ Non sono riuscito a caricare Rosa/Amichevoli/Risultati (problema di connessione). Per sicurezza non ho mostrato dati inventati. <button id=\"load-error-retry\" style=\"margin-left:8px;padding:4px 12px;border-radius:4px;border:none;background:#fff;color:#7a1e1e;font-weight:700;cursor:pointer;\">Ricarica</button>";
+    document.body.appendChild(banner);
+    document.getElementById("load-error-retry").onclick = function () { window.location.reload(); };
+  }
+
   window.storage = {
     get: async function (key) {
       const res = await fetchWithRetry(apiUrl + "?key=" + encodeURIComponent(key), {}, 2);
@@ -106,12 +120,15 @@
   window.rows = {
     list: async function (sheet) {
       const res = await fetchWithRetry(apiUrl + "?action=list&sheet=" + encodeURIComponent(sheet), {}, 2);
-      if (!res) return [];
+      // null = richiesta fallita (non sappiamo se il foglio è vuoto o no: NON dedurre nulla).
+      // [] = richiesta riuscita e il foglio è davvero vuoto.
+      if (!res) return null;
       try {
         const data = await res.json();
-        return (data && data.ok && data.rows) ? data.rows : [];
+        if (data && data.ok && Array.isArray(data.rows)) return data.rows;
+        return null;
       } catch (e) {
-        return [];
+        return null;
       }
     },
     insert: async function (sheet, valori) {
@@ -329,8 +346,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "1.4";
-const TRACKER_VERSION_DATE = "02/09/2026@10.55";
+const TRACKER_VERSION = "1.5";
+const TRACKER_VERSION_DATE = "02/09/2026@14.35";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -480,6 +497,12 @@ function GironeATracker() {
     return [...roster].sort((a, b) => lastName(a.nome).localeCompare(lastName(b.nome), "it", { sensitivity: "base" }));
   }, [roster]); // stessa lista, ordinata per COGNOME — usata ovunque al posto di "roster" nei render
   const [loaded, setLoaded] = useState(false);
+  // Fase 3: true solo se il caricamento di Rosa/Amichevoli/RisultatiUfficiali è fallito per davvero
+  // (non se erano semplicemente vuoti). In questo caso NON si inventano dati di default: si avvisa e basta.
+  const [loadCriticalError, setLoadCriticalError] = useState(false);
+  useEffect(() => {
+    if (loadCriticalError) showLoadError();
+  }, [loadCriticalError]);
   const [roundIdx, setRoundIdx] = useState(() => {
     const today = "2026-08-31";
     const i = ROUNDS.findIndex((r) => r.data >= today);
@@ -610,7 +633,10 @@ function GironeATracker() {
 
 
       // --- RISULTATI CAMPIONATO/COPPA (Fase 3: dal foglio "RisultatiUfficiali", non più dal blob) ---
-      if (risultatiRows && risultatiRows.length) {
+      // risultatiRows === null significa "richiesta fallita": non tocco lo stato, segnalo l'errore.
+      if (risultatiRows === null) {
+        setLoadCriticalError(true);
+      } else {
         const resultsFromRows = {};
         risultatiRows.forEach((r) => {
           if (r.fixtureId) resultsFromRows[r.fixtureId] = { golHome: r.golHome, golAway: r.golAway };
@@ -640,13 +666,20 @@ function GironeATracker() {
       if (detailsSharedFinal) setDetailsShared(detailsSharedFinal);
 
       // --- AMICHEVOLI (Fase 3: dal foglio "Amichevoli", non più dal blob) ---
-      let friendliesFinal = (amichevoliRows && amichevoliRows.length) ? amichevoliRows : null;
-      if (!friendliesFinal) {
+      // amichevoliRows === null significa "richiesta fallita": NON tocco friendlies, NON reinserisco nulla.
+      let friendliesFinal = friendlies; // fallback: quello già in stato (vuoto al primo giro), usato solo per la migrazione note qui sotto
+      if (amichevoliRows === null) {
+        setLoadCriticalError(true);
+      } else if (amichevoliRows.length) {
+        friendliesFinal = amichevoliRows;
+        setFriendlies(friendliesFinal);
+      } else {
+        // Foglio letto correttamente e VERAMENTE vuoto: qui, solo qui, ha senso seminare la prima amichevole.
         const seed = { id: "seed-1", avversario: "Vis Nova Giussano", golCimiano: 1, golAvv: 3, data: "2026-08-30", ora: "" };
         friendliesFinal = [seed];
+        setFriendlies(friendliesFinal);
         window.rows.insert("Amichevoli", seed).catch(() => {});
       }
-      setFriendlies(friendliesFinal);
 
       // --- VOTI AMICHEVOLI (condivisi, con autore) ---
       if (friendlyVotiData0) setFriendlyVoti(friendlyVotiData0);
@@ -677,16 +710,24 @@ function GironeATracker() {
       if (friendlyFormazione2TouchedData) setFriendlyFormazione2Touched(friendlyFormazione2TouchedData);
 
       // --- ROSA SQUADRA (Fase 3: dal foglio "Rosa", non più dal blob) ---
-      let rosterFinal = (rosaRows && rosaRows.length) ? rosaRows : null;
-      if (!rosterFinal) {
-        rosterFinal = [
+      // rosaRows === null significa "richiesta fallita": NON tocco roster, NON reinserisco nulla.
+      // Questo è il fix del bug che ha causato i dati sballati del 2/09: prima, un fallimento di rete
+      // veniva scambiato per "Rosa vuota" e faceva ricomparire Lodi/Maira/Crocetti come unica rosa
+      // per quella sessione, disallineando convocati e formazione dal resto dei dati reali.
+      if (rosaRows === null) {
+        setLoadCriticalError(true);
+      } else if (rosaRows.length) {
+        setRoster(rosaRows);
+      } else {
+        // Foglio letto correttamente e VERAMENTE vuoto: unico caso in cui ha senso seminare i 3 di partenza.
+        const rosterSeed = [
           { id: "p1", nome: "Nicolò Lodi" },
           { id: "p2", nome: "Favour Maira" },
           { id: "p3", nome: "Lorenzo Crocetti" },
         ];
-        rosterFinal.forEach((p) => window.rows.insert("Rosa", p).catch(() => {}));
+        setRoster(rosterSeed);
+        rosterSeed.forEach((p) => window.rows.insert("Rosa", p).catch(() => {}));
       }
-      setRoster(rosterFinal);
 
       if (Array.isArray(voterOptionsExtraData)) setVoterOptionsExtra(voterOptionsExtraData);
 
