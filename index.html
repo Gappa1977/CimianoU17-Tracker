@@ -347,8 +347,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "1.8";
-const TRACKER_VERSION_DATE = "02/09/2026@17.30";
+const TRACKER_VERSION = "1.9";
+const TRACKER_VERSION_DATE = "02/09/2026@17.45";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -1204,14 +1204,16 @@ function GironeATracker() {
     setFriendlyModuloState((prev) => { const next = { ...prev }; delete next[id]; return next; });
     setFriendlyModulo2State((prev) => { const next = { ...prev }; delete next[id]; return next; });
     setFriendlyFormazione2Touched((prev) => { const next = { ...prev }; delete next[id]; return next; });
-    window.rows.remove("Amichevoli", { id }).catch(() => {});
-    window.rows.remove("Voti", { fixtureId: id }).catch(() => {});
-    window.rows.remove("Marcatori", { fixtureId: id }).catch(() => {});
-    window.rows.remove("VotoSquadra", { fixtureId: id }).catch(() => {});
-    window.rows.remove("Convocati", { fixtureId: id }).catch(() => {});
-    window.rows.remove("Formazioni", { fixtureId: id }).catch(() => {});
-    window.rows.remove("Moduli", { fixtureId: id }).catch(() => {});
-    window.rows.remove("Impostazioni", { chiave: "formazione2Touched:" + id }).catch(() => {});
+    (async () => {
+      await window.rows.remove("Amichevoli", { id }).catch(() => {});
+      await window.rows.remove("Voti", { fixtureId: id }).catch(() => {});
+      await window.rows.remove("Marcatori", { fixtureId: id }).catch(() => {});
+      await window.rows.remove("VotoSquadra", { fixtureId: id }).catch(() => {});
+      await window.rows.remove("Convocati", { fixtureId: id }).catch(() => {});
+      await window.rows.remove("Formazioni", { fixtureId: id }).catch(() => {});
+      await window.rows.remove("Moduli", { fixtureId: id }).catch(() => {});
+      await window.rows.remove("Impostazioni", { chiave: "formazione2Touched:" + id }).catch(() => {});
+    })();
   }
 
   function startEditFriendly(f) {
@@ -1347,13 +1349,15 @@ function GironeATracker() {
       return { ...prev, [fixtureId]: { ...c, convocati, formazione, formazione2 } };
     });
     if (eraConvocato) {
-      Object.keys(cur.formazione || {}).forEach((slotId) => {
-        if (String(cur.formazione[slotId]) === playerId) window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "1", slotId }).catch(() => {});
-      });
-      Object.keys(cur.formazione2 || {}).forEach((slotId) => {
-        if (String(cur.formazione2[slotId]) === playerId) window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "2", slotId }).catch(() => {});
-      });
-      window.rows.remove("Convocati", { fixtureId, tipo, playerId }).catch(() => {});
+      (async () => {
+        for (const slotId of Object.keys(cur.formazione || {})) {
+          if (String(cur.formazione[slotId]) === playerId) await window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "1", slotId }).catch(() => {});
+        }
+        for (const slotId of Object.keys(cur.formazione2 || {})) {
+          if (String(cur.formazione2[slotId]) === playerId) await window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "2", slotId }).catch(() => {});
+        }
+        await window.rows.remove("Convocati", { fixtureId, tipo, playerId }).catch(() => {});
+      })();
     } else {
       window.rows.insert("Convocati", { fixtureId, tipo, playerId }).catch(() => {});
     }
@@ -1383,13 +1387,15 @@ function GironeATracker() {
       return changed ? { ...prev, [friendlyId]: cur } : prev;
     });
     if (eraConvocato) {
-      Object.keys(formazioneCorrente).forEach((slotId) => {
-        if (String(formazioneCorrente[slotId]) === playerId) window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "1", slotId }).catch(() => {});
-      });
-      Object.keys(formazione2Corrente).forEach((slotId) => {
-        if (String(formazione2Corrente[slotId]) === playerId) window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId }).catch(() => {});
-      });
-      window.rows.remove("Convocati", { fixtureId: friendlyId, tipo: "amichevole", playerId }).catch(() => {});
+      (async () => {
+        for (const slotId of Object.keys(formazioneCorrente)) {
+          if (String(formazioneCorrente[slotId]) === playerId) await window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "1", slotId }).catch(() => {});
+        }
+        for (const slotId of Object.keys(formazione2Corrente)) {
+          if (String(formazione2Corrente[slotId]) === playerId) await window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId }).catch(() => {});
+        }
+        await window.rows.remove("Convocati", { fixtureId: friendlyId, tipo: "amichevole", playerId }).catch(() => {});
+      })();
     } else {
       window.rows.insert("Convocati", { fixtureId: friendlyId, tipo: "amichevole", playerId }).catch(() => {});
     }
@@ -1418,13 +1424,15 @@ function GironeATracker() {
       }
       return { ...prev, [fixtureId]: next };
     });
-    if (playerId) window.rows.upsert("Formazioni", { fixtureId, tipo, mappa: "1", slotId }, { playerId }).catch(() => {});
-    else window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "1", slotId }).catch(() => {});
-    if (mirrorActive) {
-      if (playerId) window.rows.upsert("Formazioni", { fixtureId, tipo, mappa: "2", slotId }, { playerId }).catch(() => {});
-      else window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "2", slotId }).catch(() => {});
-      window.rows.upsert("Moduli", { fixtureId, tipo, mappa: "2" }, { modulo: cur.modulo || DEFAULT_MODULO }).catch(() => {});
-    }
+    (async () => {
+      if (playerId) await window.rows.upsert("Formazioni", { fixtureId, tipo, mappa: "1", slotId }, { playerId }).catch(() => {});
+      else await window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "1", slotId }).catch(() => {});
+      if (mirrorActive) {
+        if (playerId) await window.rows.upsert("Formazioni", { fixtureId, tipo, mappa: "2", slotId }, { playerId }).catch(() => {});
+        else await window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "2", slotId }).catch(() => {});
+        await window.rows.upsert("Moduli", { fixtureId, tipo, mappa: "2" }, { modulo: cur.modulo || DEFAULT_MODULO }).catch(() => {});
+      }
+    })();
   }
 
   function setModulo(fixtureId, modulo) {
@@ -1440,14 +1448,16 @@ function GironeATracker() {
       }
       return { ...prev, [fixtureId]: next };
     });
-    window.rows.upsert("Moduli", { fixtureId, tipo, mappa: "1" }, { modulo }).catch(() => {});
-    if (mirrorActive) {
-      window.rows.upsert("Moduli", { fixtureId, tipo, mappa: "2" }, { modulo }).catch(() => {});
-      window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "2" }).catch(() => {});
-      Object.keys(cur.formazione || {}).forEach((slotId) => {
-        window.rows.insert("Formazioni", { fixtureId, tipo, mappa: "2", slotId, playerId: cur.formazione[slotId] }).catch(() => {});
-      });
-    }
+    (async () => {
+      await window.rows.upsert("Moduli", { fixtureId, tipo, mappa: "1" }, { modulo }).catch(() => {});
+      if (mirrorActive) {
+        await window.rows.upsert("Moduli", { fixtureId, tipo, mappa: "2" }, { modulo }).catch(() => {});
+        await window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "2" }).catch(() => {});
+        for (const slotId of Object.keys(cur.formazione || {})) {
+          await window.rows.insert("Formazioni", { fixtureId, tipo, mappa: "2", slotId, playerId: cur.formazione[slotId] }).catch(() => {});
+        }
+      }
+    })();
   }
 
   function setFormazione2(fixtureId, slotId, playerId) {
@@ -1458,9 +1468,11 @@ function GironeATracker() {
       if (playerId) formazione2[slotId] = playerId; else delete formazione2[slotId];
       return { ...prev, [fixtureId]: { ...cur, formazione2, formazione2Touched: true } };
     });
-    if (playerId) window.rows.upsert("Formazioni", { fixtureId, tipo, mappa: "2", slotId }, { playerId }).catch(() => {});
-    else window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "2", slotId }).catch(() => {});
-    window.rows.upsert("Impostazioni", { chiave: "formazione2Touched:" + fixtureId }, { valore: "1" }).catch(() => {});
+    (async () => {
+      if (playerId) await window.rows.upsert("Formazioni", { fixtureId, tipo, mappa: "2", slotId }, { playerId }).catch(() => {});
+      else await window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "2", slotId }).catch(() => {});
+      await window.rows.upsert("Impostazioni", { chiave: "formazione2Touched:" + fixtureId }, { valore: "1" }).catch(() => {});
+    })();
   }
 
   function setModulo2(fixtureId, modulo) {
@@ -1479,17 +1491,19 @@ function GironeATracker() {
       }
       return { ...prev, [fixtureId]: next };
     });
-    window.rows.upsert("Moduli", { fixtureId, tipo, mappa: "2" }, { modulo }).catch(() => {});
-    window.rows.upsert("Impostazioni", { chiave: "formazione2Touched:" + fixtureId }, { valore: "1" }).catch(() => {});
-    if (!wasTouched) {
-      const copied = copyMatchingSlots(cur.formazione, modulo);
-      if (Object.keys(copied).length > 0) {
-        window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "2" }).catch(() => {});
-        Object.keys(copied).forEach((slotId) => {
-          window.rows.insert("Formazioni", { fixtureId, tipo, mappa: "2", slotId, playerId: copied[slotId] }).catch(() => {});
-        });
+    (async () => {
+      await window.rows.upsert("Moduli", { fixtureId, tipo, mappa: "2" }, { modulo }).catch(() => {});
+      await window.rows.upsert("Impostazioni", { chiave: "formazione2Touched:" + fixtureId }, { valore: "1" }).catch(() => {});
+      if (!wasTouched) {
+        const copied = copyMatchingSlots(cur.formazione, modulo);
+        if (Object.keys(copied).length > 0) {
+          await window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "2" }).catch(() => {});
+          for (const slotId of Object.keys(copied)) {
+            await window.rows.insert("Formazioni", { fixtureId, tipo, mappa: "2", slotId, playerId: copied[slotId] }).catch(() => {});
+          }
+        }
       }
-    }
+    })();
   }
 
   function setFormazioneF(friendlyId, slotId, playerId) {
@@ -1508,13 +1522,15 @@ function GironeATracker() {
       });
       setFriendlyModulo2State((prev) => ({ ...prev, [friendlyId]: moduloCorrente }));
     }
-    if (playerId) window.rows.upsert("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "1", slotId }, { playerId }).catch(() => {});
-    else window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "1", slotId }).catch(() => {});
-    if (mirrorActive) {
-      if (playerId) window.rows.upsert("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId }, { playerId }).catch(() => {});
-      else window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId }).catch(() => {});
-      window.rows.upsert("Moduli", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2" }, { modulo: moduloCorrente }).catch(() => {});
-    }
+    (async () => {
+      if (playerId) await window.rows.upsert("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "1", slotId }, { playerId }).catch(() => {});
+      else await window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "1", slotId }).catch(() => {});
+      if (mirrorActive) {
+        if (playerId) await window.rows.upsert("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId }, { playerId }).catch(() => {});
+        else await window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId }).catch(() => {});
+        await window.rows.upsert("Moduli", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2" }, { modulo: moduloCorrente }).catch(() => {});
+      }
+    })();
   }
 
   function setModuloF(friendlyId, modulo) {
@@ -1525,14 +1541,16 @@ function GironeATracker() {
       setFriendlyModulo2State((prev) => ({ ...prev, [friendlyId]: modulo }));
       setFriendlyFormazione2((prev) => ({ ...prev, [friendlyId]: { ...formazione1 } }));
     }
-    window.rows.upsert("Moduli", { fixtureId: friendlyId, tipo: "amichevole", mappa: "1" }, { modulo }).catch(() => {});
-    if (mirrorActive) {
-      window.rows.upsert("Moduli", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2" }, { modulo }).catch(() => {});
-      window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2" }).catch(() => {});
-      Object.keys(formazione1).forEach((slotId) => {
-        window.rows.insert("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId, playerId: formazione1[slotId] }).catch(() => {});
-      });
-    }
+    (async () => {
+      await window.rows.upsert("Moduli", { fixtureId: friendlyId, tipo: "amichevole", mappa: "1" }, { modulo }).catch(() => {});
+      if (mirrorActive) {
+        await window.rows.upsert("Moduli", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2" }, { modulo }).catch(() => {});
+        await window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2" }).catch(() => {});
+        for (const slotId of Object.keys(formazione1)) {
+          await window.rows.insert("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId, playerId: formazione1[slotId] }).catch(() => {});
+        }
+      }
+    })();
   }
 
   function setFormazioneF2(friendlyId, slotId, playerId) {
@@ -1542,9 +1560,11 @@ function GironeATracker() {
       return { ...prev, [friendlyId]: cur };
     });
     setFriendlyFormazione2Touched((prev) => ({ ...prev, [friendlyId]: true }));
-    if (playerId) window.rows.upsert("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId }, { playerId }).catch(() => {});
-    else window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId }).catch(() => {});
-    window.rows.upsert("Impostazioni", { chiave: "formazione2Touched:" + friendlyId }, { valore: "1" }).catch(() => {});
+    (async () => {
+      if (playerId) await window.rows.upsert("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId }, { playerId }).catch(() => {});
+      else await window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId }).catch(() => {});
+      await window.rows.upsert("Impostazioni", { chiave: "formazione2Touched:" + friendlyId }, { valore: "1" }).catch(() => {});
+    })();
   }
 
   function setModuloF2(friendlyId, modulo) {
@@ -1557,14 +1577,16 @@ function GironeATracker() {
       copied = copyMatchingSlots(formazione1, modulo);
       setFriendlyFormazione2((prev) => ({ ...prev, [friendlyId]: copied }));
     }
-    window.rows.upsert("Moduli", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2" }, { modulo }).catch(() => {});
-    window.rows.upsert("Impostazioni", { chiave: "formazione2Touched:" + friendlyId }, { valore: "1" }).catch(() => {});
-    if (!wasTouched && copied && Object.keys(copied).length > 0) {
-      window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2" }).catch(() => {});
-      Object.keys(copied).forEach((slotId) => {
-        window.rows.insert("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId, playerId: copied[slotId] }).catch(() => {});
-      });
-    }
+    (async () => {
+      await window.rows.upsert("Moduli", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2" }, { modulo }).catch(() => {});
+      await window.rows.upsert("Impostazioni", { chiave: "formazione2Touched:" + friendlyId }, { valore: "1" }).catch(() => {});
+      if (!wasTouched && copied && Object.keys(copied).length > 0) {
+        await window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2" }).catch(() => {});
+        for (const slotId of Object.keys(copied)) {
+          await window.rows.insert("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId, playerId: copied[slotId] }).catch(() => {});
+        }
+      }
+    })();
   }
 
 
