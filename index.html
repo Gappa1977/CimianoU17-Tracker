@@ -332,13 +332,13 @@ function copyMatchingSlots(sourceFormazione, targetModuloKey) {
 // conteggio va usato come avviso indicativo, mai come blocco.
 function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   const mirrorActive = (modulo1Key || DEFAULT_MODULO) === (modulo2Key || DEFAULT_MODULO);
-  const starters = new Set(Object.values(formazione1 || {}).filter((v) => typeof v === "string" && v));
+  const starters = new Set(Object.values(formazione1 || {}).filter(Boolean).map(String));
   const slots2 = (FORMATIONS[modulo2Key || DEFAULT_MODULO] || FORMATIONS[DEFAULT_MODULO]).slots;
   const seen = new Set();
   let count = 0;
   slots2.forEach((slot) => {
-    const explicit = typeof (formazione2 || {})[slot.id] === "string" ? formazione2[slot.id] : "";
-    const mirrored = mirrorActive && typeof (formazione1 || {})[slot.id] === "string" ? formazione1[slot.id] : "";
+    const explicit = (formazione2 || {})[slot.id] ? String(formazione2[slot.id]) : "";
+    const mirrored = mirrorActive && (formazione1 || {})[slot.id] ? String(formazione1[slot.id]) : "";
     const playerId = explicit || mirrored;
     if (playerId && !seen.has(playerId)) {
       seen.add(playerId);
@@ -858,8 +858,8 @@ function GironeATracker() {
     }
     function playerIdsInMatch(formazione1, formazione2) {
       return new Set([
-        ...Object.values(formazione1 || {}).filter((v) => typeof v === "string" && v),
-        ...Object.values(formazione2 || {}).filter((v) => typeof v === "string" && v),
+        ...Object.values(formazione1 || {}).filter(Boolean).map(String),
+        ...Object.values(formazione2 || {}).filter(Boolean).map(String),
       ]);
     }
     ROUNDS.forEach((r) => {
@@ -1327,6 +1327,7 @@ function GironeATracker() {
   // I "titolari" non sono più un'etichetta separata: chi viene piazzato sul campo (formazione) è titolare,
   // chi resta convocato ma non piazzato è automaticamente panchina.
   function toggleConvocato(fixtureId, playerId) {
+    playerId = String(playerId);
     const tipo = tipoDaFixtureId(fixtureId);
     const cur = detailsShared[fixtureId] || {};
     const eraConvocato = !!(cur.convocati || {})[playerId];
@@ -1338,8 +1339,8 @@ function GironeATracker() {
       if (convocati[playerId]) {
         delete convocati[playerId];
         // Se non è più convocato, va tolto anche da eventuali posizioni in campo
-        Object.keys(formazione).forEach((slotId) => { if (formazione[slotId] === playerId) delete formazione[slotId]; });
-        Object.keys(formazione2).forEach((slotId) => { if (formazione2[slotId] === playerId) delete formazione2[slotId]; });
+        Object.keys(formazione).forEach((slotId) => { if (String(formazione[slotId]) === playerId) delete formazione[slotId]; });
+        Object.keys(formazione2).forEach((slotId) => { if (String(formazione2[slotId]) === playerId) delete formazione2[slotId]; });
       } else {
         convocati[playerId] = true;
       }
@@ -1347,10 +1348,10 @@ function GironeATracker() {
     });
     if (eraConvocato) {
       Object.keys(cur.formazione || {}).forEach((slotId) => {
-        if (cur.formazione[slotId] === playerId) window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "1", slotId }).catch(() => {});
+        if (String(cur.formazione[slotId]) === playerId) window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "1", slotId }).catch(() => {});
       });
       Object.keys(cur.formazione2 || {}).forEach((slotId) => {
-        if (cur.formazione2[slotId] === playerId) window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "2", slotId }).catch(() => {});
+        if (String(cur.formazione2[slotId]) === playerId) window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "2", slotId }).catch(() => {});
       });
       window.rows.remove("Convocati", { fixtureId, tipo, playerId }).catch(() => {});
     } else {
@@ -1360,6 +1361,7 @@ function GironeATracker() {
 
   // --- CONVOCATI (amichevoli) ---
   function toggleConvocatoF(friendlyId, playerId) {
+    playerId = String(playerId);
     const formazioneCorrente = friendlyFormazione[friendlyId] || {};
     const formazione2Corrente = friendlyFormazione2[friendlyId] || {};
     const eraConvocato = !!(friendlyConvocati[friendlyId] || {})[playerId];
@@ -1371,21 +1373,21 @@ function GironeATracker() {
     setFriendlyFormazione((prev) => {
       const cur = { ...(prev[friendlyId] || {}) };
       let changed = false;
-      Object.keys(cur).forEach((slotId) => { if (cur[slotId] === playerId) { delete cur[slotId]; changed = true; } });
+      Object.keys(cur).forEach((slotId) => { if (String(cur[slotId]) === playerId) { delete cur[slotId]; changed = true; } });
       return changed ? { ...prev, [friendlyId]: cur } : prev;
     });
     setFriendlyFormazione2((prev) => {
       const cur = { ...(prev[friendlyId] || {}) };
       let changed = false;
-      Object.keys(cur).forEach((slotId) => { if (cur[slotId] === playerId) { delete cur[slotId]; changed = true; } });
+      Object.keys(cur).forEach((slotId) => { if (String(cur[slotId]) === playerId) { delete cur[slotId]; changed = true; } });
       return changed ? { ...prev, [friendlyId]: cur } : prev;
     });
     if (eraConvocato) {
       Object.keys(formazioneCorrente).forEach((slotId) => {
-        if (formazioneCorrente[slotId] === playerId) window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "1", slotId }).catch(() => {});
+        if (String(formazioneCorrente[slotId]) === playerId) window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "1", slotId }).catch(() => {});
       });
       Object.keys(formazione2Corrente).forEach((slotId) => {
-        if (formazione2Corrente[slotId] === playerId) window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId }).catch(() => {});
+        if (String(formazione2Corrente[slotId]) === playerId) window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId }).catch(() => {});
       });
       window.rows.remove("Convocati", { fixtureId: friendlyId, tipo: "amichevole", playerId }).catch(() => {});
     } else {
@@ -1572,7 +1574,7 @@ function GironeATracker() {
     const moduloKey = modulo || DEFAULT_MODULO;
     const slots = FORMATIONS[moduloKey].slots;
     // Punto 16: opzioni della tendina ordinate per cognome, ereditando l'ordine da rosterSorted.
-    const poolRoster = rosterSorted.filter((r) => playerPool.includes(r.id));
+    const poolRoster = rosterSorted.filter((r) => playerPool.includes(String(r.id)));
     // Punto 14: pallini ingranditi del 50% in modalità compact (34px -> 51px); invariati altrove.
     const circleSize = compact ? 51 : 44;
     const labelFont = compact ? 9 : 9;
@@ -1582,7 +1584,7 @@ function GironeATracker() {
     // colore titolare/subentrato ed evitare che lo stesso giocatore compaia in più di uno slot di questa mappa.
     const effectiveBySlot = {};
     slots.forEach((slot) => {
-      effectiveBySlot[slot.id] = typeof formazione[slot.id] === "string" ? formazione[slot.id] : "";
+      effectiveBySlot[slot.id] = formazione[slot.id] ? String(formazione[slot.id]) : "";
     });
     const startersIds = opts.startersIds || null;
     // Punto 12: valori dell'ALTRA mappa (stesso concetto di effectiveBySlot ma calcolato altrove in
@@ -1625,7 +1627,7 @@ function GironeATracker() {
           <div style={{ position: "absolute", left: "25%", right: "25%", top: 0, height: "14%", border: "1px solid rgba(255,255,255,0.5)", borderBottom: "none" }} />
           {slots.map((slot) => {
             const playerId = effectiveBySlot[slot.id];
-            const player = roster.find((r) => r.id === playerId);
+            const player = roster.find((r) => String(r.id) === playerId);
             const isSub = startersIds ? (!!playerId && !startersIds.has(playerId)) : false;
             const circleColor = isSub ? SUB_COLOR : RED;
             // Punto 12: un giocatore già piazzato in UN ALTRO slot — di QUESTA mappa o dell'ALTRA — non
@@ -1639,7 +1641,7 @@ function GironeATracker() {
               Object.entries(otherEff).filter(([sId, pId]) => sId !== slot.id && pId).map(([, pId]) => pId)
             );
             const usedElsewhere = new Set([...usedElsewhereSameMap, ...usedElsewhereOtherMap]);
-            const optionsForThisSlot = poolRoster.filter((rp) => rp.id === playerId || !usedElsewhere.has(rp.id));
+            const optionsForThisSlot = poolRoster.filter((rp) => String(rp.id) === playerId || !usedElsewhere.has(String(rp.id)));
             return (
               <div key={slot.id} style={{ position: "absolute", left: `${slot.x}%`, top: `${slot.y}%`, transform: "translate(-50%,-50%)", textAlign: "center" }}>
                 <select value={playerId} onChange={(e) => onChangeSlot(slot.id, e.target.value)}
@@ -1671,13 +1673,13 @@ function GironeATracker() {
     const modulo2Key = modulo2 || DEFAULT_MODULO;
     // Titolari = tutti i playerId presenti in QUALSIASI slot di formazione1, indipendentemente da slot/modulo:
     // così il colore titolare/subentrato sulla mappa 2 è corretto anche quando i due moduli differiscono.
-    const startersIds = new Set(Object.values(formazione1 || {}).filter((v) => typeof v === "string" && v));
+    const startersIds = new Set(Object.values(formazione1 || {}).filter(Boolean).map(String));
     // Punto 12: valore reale di ogni slot per CIASCUNA mappa, usato per l'esclusione incrociata dentro
     // renderPitch (ogni mappa riceve l'effectiveBySlot dell'ALTRA come opts.otherMapEffective).
     const eff1 = {};
-    FORMATIONS[modulo1Key].slots.forEach((s) => { eff1[s.id] = typeof formazione1[s.id] === "string" ? formazione1[s.id] : ""; });
+    FORMATIONS[modulo1Key].slots.forEach((s) => { eff1[s.id] = formazione1[s.id] ? String(formazione1[s.id]) : ""; });
     const eff2 = {};
-    FORMATIONS[modulo2Key].slots.forEach((s) => { eff2[s.id] = typeof formazione2[s.id] === "string" ? formazione2[s.id] : ""; });
+    FORMATIONS[modulo2Key].slots.forEach((s) => { eff2[s.id] = formazione2[s.id] ? String(formazione2[s.id]) : ""; });
     return (
       <div>
         <div style={{ display: "flex", gap: 14, marginBottom: 8, fontSize: 11, color: MUTED }}>
@@ -1831,7 +1833,7 @@ function GironeATracker() {
     const convocatiIds = Object.keys(convocati);
     // Titolari = giocatori effettivamente piazzati sul campo nella mappa "INIZIO"; il resto dei convocati è panchina.
     const formazioneIniziale = (detailsShared[fx.id] && detailsShared[fx.id].formazione) || {};
-    const titolariIds = Array.from(new Set(Object.values(formazioneIniziale).filter(Boolean))).filter((id) => convocatiIds.includes(id));
+    const titolariIds = Array.from(new Set(Object.values(formazioneIniziale).filter(Boolean).map(String))).filter((id) => convocatiIds.includes(id));
     const formazioneFinale = (detailsShared[fx.id] && detailsShared[fx.id].formazione2) || {};
     const moduloIniziale = (detailsShared[fx.id] && detailsShared[fx.id].modulo) || DEFAULT_MODULO;
     const moduloFinale = (detailsShared[fx.id] && detailsShared[fx.id].modulo2) || DEFAULT_MODULO;
@@ -2131,7 +2133,7 @@ function GironeATracker() {
     const convocatiIdsF = Object.keys(convocatiF);
     // Titolari = giocatori piazzati sul campo nella mappa "INIZIO"; il resto dei convocati è panchina.
     const formazioneInizialeF = friendlyFormazione[f.id] || {};
-    const titolariIdsF = Array.from(new Set(Object.values(formazioneInizialeF).filter(Boolean))).filter((id) => convocatiIdsF.includes(id));
+    const titolariIdsF = Array.from(new Set(Object.values(formazioneInizialeF).filter(Boolean).map(String))).filter((id) => convocatiIdsF.includes(id));
     const formazioneFinaleF = friendlyFormazione2[f.id] || {};
     const moduloInizialeF = friendlyModulo[f.id] || DEFAULT_MODULO;
     const moduloFinaleF = friendlyModulo2[f.id] || DEFAULT_MODULO;
