@@ -100,6 +100,68 @@
       }
     },
   };
+
+  // --- Fase 3: comunicazione con i nuovi fogli "a righe" (Rosa, Amichevoli, RisultatiUfficiali per ora;
+  // Voti/Marcatori/Formazioni/Moduli/Convocati arriveranno nei prossimi giri). ---
+  window.rows = {
+    list: async function (sheet) {
+      const res = await fetchWithRetry(apiUrl + "?action=list&sheet=" + encodeURIComponent(sheet), {}, 2);
+      if (!res) return [];
+      try {
+        const data = await res.json();
+        return (data && data.ok && data.rows) ? data.rows : [];
+      } catch (e) {
+        return [];
+      }
+    },
+    insert: async function (sheet, valori) {
+      const res = await fetchWithRetry(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "insert", sheet: sheet, valori: valori }),
+      }, 3);
+      if (!res) { showSaveError(sheet); return null; }
+      try {
+        const data = await res.json();
+        if (data && data.ok) return data.row;
+        showSaveError(sheet);
+        return null;
+      } catch (e) {
+        return null;
+      }
+    },
+    upsert: async function (sheet, match, valori) {
+      const res = await fetchWithRetry(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "upsert", sheet: sheet, match: match, valori: valori }),
+      }, 3);
+      if (!res) { showSaveError(sheet); return null; }
+      try {
+        const data = await res.json();
+        if (data && data.ok) return data.row;
+        showSaveError(sheet);
+        return null;
+      } catch (e) {
+        return null;
+      }
+    },
+    remove: async function (sheet, match) {
+      const res = await fetchWithRetry(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "delete", sheet: sheet, match: match }),
+      }, 3);
+      if (!res) { showSaveError(sheet); return false; }
+      try {
+        const data = await res.json();
+        if (!data || !data.ok) showSaveError(sheet);
+        return !!(data && data.ok);
+      } catch (e) {
+        return false;
+      }
+    },
+  };
 </script>
 
 <script type="text/babel" data-presets="react">
@@ -267,8 +329,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "1.3";
-const TRACKER_VERSION_DATE = "01/09/2026@22.36";
+const TRACKER_VERSION = "1.4";
+const TRACKER_VERSION_DATE = "02/09/2026@10.55";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -483,7 +545,13 @@ function GironeATracker() {
         if (vn) setVoterNameState(JSON.parse(vn));
       } catch (e) {}
 
-      const bulkRaw = await fetchBulk();
+      // --- Fase 3: Rosa, Amichevoli, RisultatiUfficiali arrivano già dai nuovi fogli "a righe" ---
+      const [bulkRaw, rosaRows, amichevoliRows, risultatiRows] = await Promise.all([
+        fetchBulk(),
+        window.rows.list("Rosa"),
+        window.rows.list("Amichevoli"),
+        window.rows.list("RisultatiUfficiali"),
+      ]);
 
       let resultsData, detailsSharedData, oldPrivateData, friendliesData0,
         friendlyVotiData0, teamVotoData0, friendlyMarcatoriData0, friendlyConvocatiData,
@@ -541,7 +609,14 @@ function GironeATracker() {
       // --- Da qui in poi: solo elaborazione locale dei dati già arrivati, nessuna nuova attesa di rete ---
 
 
-      if (resultsData) setResults(resultsData);
+      // --- RISULTATI CAMPIONATO/COPPA (Fase 3: dal foglio "RisultatiUfficiali", non più dal blob) ---
+      if (risultatiRows && risultatiRows.length) {
+        const resultsFromRows = {};
+        risultatiRows.forEach((r) => {
+          if (r.fixtureId) resultsFromRows[r.fixtureId] = { golHome: r.golHome, golAway: r.golAway };
+        });
+        setResults(resultsFromRows);
+      }
 
       // --- DETTAGLI CONDIVISI (marcatori, voti, voto squadra, formazione) ---
       let detailsSharedFinal = detailsSharedData;
@@ -564,11 +639,12 @@ function GironeATracker() {
       }
       if (detailsSharedFinal) setDetailsShared(detailsSharedFinal);
 
-      // --- AMICHEVOLI ---
-      let friendliesFinal = friendliesData0;
+      // --- AMICHEVOLI (Fase 3: dal foglio "Amichevoli", non più dal blob) ---
+      let friendliesFinal = (amichevoliRows && amichevoliRows.length) ? amichevoliRows : null;
       if (!friendliesFinal) {
-        friendliesFinal = [{ id: "seed-1", avversario: "Vis Nova Giussano", golCimiano: 1, golAvv: 3, data: "2026-08-30", note: "Prima amichevole stagionale" }];
-        window.storage.set("girone-a-friendlies", JSON.stringify(friendliesFinal), true).catch(() => {});
+        const seed = { id: "seed-1", avversario: "Vis Nova Giussano", golCimiano: 1, golAvv: 3, data: "2026-08-30", ora: "" };
+        friendliesFinal = [seed];
+        window.rows.insert("Amichevoli", seed).catch(() => {});
       }
       setFriendlies(friendliesFinal);
 
@@ -600,15 +676,15 @@ function GironeATracker() {
       if (friendlyModulo2Data) setFriendlyModulo2State(friendlyModulo2Data);
       if (friendlyFormazione2TouchedData) setFriendlyFormazione2Touched(friendlyFormazione2TouchedData);
 
-      // --- ROSA SQUADRA ---
-      let rosterFinal = rosterData0;
+      // --- ROSA SQUADRA (Fase 3: dal foglio "Rosa", non più dal blob) ---
+      let rosterFinal = (rosaRows && rosaRows.length) ? rosaRows : null;
       if (!rosterFinal) {
         rosterFinal = [
           { id: "p1", nome: "Nicolò Lodi" },
           { id: "p2", nome: "Favour Maira" },
           { id: "p3", nome: "Lorenzo Crocetti" },
         ];
-        window.storage.set("girone-a-roster", JSON.stringify(rosterFinal), true).catch(() => {});
+        rosterFinal.forEach((p) => window.rows.insert("Rosa", p).catch(() => {}));
       }
       setRoster(rosterFinal);
 
@@ -618,9 +694,9 @@ function GironeATracker() {
     })();
   }, []);
 
-  useEffect(() => {
-    debouncedSave("girone-a-results", "results", results);
-  }, [results, loaded]);
+  // Nota Fase 3: "results" e "friendlies" non hanno più un debouncedSave sul blob intero:
+  // ogni modifica (saveResult/clearResult, addFriendly/removeFriendly/saveEditFriendly) scrive
+  // già direttamente la riga interessata sui fogli "RisultatiUfficiali" e "Amichevoli".
 
   useEffect(() => {
     debouncedSave("girone-a-voter-options", "voterOptionsExtra", voterOptionsExtra);
@@ -629,10 +705,6 @@ function GironeATracker() {
   useEffect(() => {
     debouncedSave("girone-a-details-shared", "detailsShared", detailsShared);
   }, [detailsShared, loaded]);
-
-  useEffect(() => {
-    debouncedSave("girone-a-friendlies", "friendlies", friendlies);
-  }, [friendlies, loaded]);
 
   useEffect(() => {
     debouncedSave("girone-a-friendly-voti", "friendlyVoti", friendlyVoti);
@@ -678,9 +750,8 @@ function GironeATracker() {
     debouncedSave("girone-a-friendly-formazione2-touched", "friendlyFormazione2Touched", friendlyFormazione2Touched);
   }, [friendlyFormazione2Touched, loaded]);
 
-  useEffect(() => {
-    debouncedSave("girone-a-roster", "roster", roster);
-  }, [roster, loaded]);
+  // Nota Fase 3: "roster" non ha più un debouncedSave sul blob intero: ogni modifica
+  // (addRosterPlayer/removeRosterPlayer/saveEditRoster) scrive già la riga interessata sul foglio "Rosa".
 
   // Effetto "sblocco": deve stare DOPO tutti i useEffect di salvataggio qui sopra (l'ordine con cui sono
   // dichiarati negli hook è anche l'ordine con cui React li esegue). Al primo giro in cui "loaded" diventa
@@ -980,10 +1051,17 @@ function GironeATracker() {
 
   const round = ROUNDS[roundIdx];
 
+  // Stesso criterio usato in Code.gs per distinguere campionato/coppa dal fixtureId.
+  function tipoDaFixtureId(fixtureId) {
+    return String(fixtureId).indexOf("coppa") === 0 ? "coppa" : "campionato";
+  }
+
   function saveResult(fixtureId) {
     const d = draft[fixtureId];
     if (!d || d.golHome === "" || d.golAway === "" || d.golHome == null || d.golAway == null) return;
+    // Aggiornamento ottimistico locale, poi scrittura sul foglio "RisultatiUfficiali" (Fase 3).
     setResults((prev) => ({ ...prev, [fixtureId]: { golHome: d.golHome, golAway: d.golAway } }));
+    window.rows.upsert("RisultatiUfficiali", { fixtureId }, { tipo: tipoDaFixtureId(fixtureId), golHome: d.golHome, golAway: d.golAway }).catch(() => {});
   }
 
   function clearResult(fixtureId) {
@@ -993,6 +1071,7 @@ function GironeATracker() {
       return next;
     });
     setDraft((prev) => ({ ...prev, [fixtureId]: undefined }));
+    window.rows.remove("RisultatiUfficiali", { fixtureId }).catch(() => {});
   }
 
   // --- IMPORT RISULTATI IN BLOCCO (Campionato) ---
@@ -1122,7 +1201,11 @@ function GironeATracker() {
 
   function addFriendly() {
     if (!fForm.avversario) return;
-    setFriendlies((prev) => [...prev, { id: Date.now().toString(), ...fForm }]);
+    const id = Date.now().toString();
+    const nuova = { id, avversario: fForm.avversario, golCimiano: fForm.golCimiano, golAvv: fForm.golAvv, data: fForm.data, ora: fForm.ora };
+    setFriendlies((prev) => [...prev, nuova]);
+    // Nota: il foglio "Amichevoli" (Fase 3) non ha più il campo "note" (spostato da tempo nel Voto Squadra).
+    window.rows.insert("Amichevoli", nuova).catch(() => {});
     setFForm({ avversario: "", golCimiano: "", golAvv: "", data: "", ora: "", note: "" });
   }
 
@@ -1139,6 +1222,7 @@ function GironeATracker() {
     setFriendlyModuloState((prev) => { const next = { ...prev }; delete next[id]; return next; });
     setFriendlyModulo2State((prev) => { const next = { ...prev }; delete next[id]; return next; });
     setFriendlyFormazione2Touched((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    window.rows.remove("Amichevoli", { id }).catch(() => {});
   }
 
   function startEditFriendly(f) {
@@ -1150,6 +1234,8 @@ function GironeATracker() {
     if (!friendlyEditDraft.avversario) return;
     setFriendlies((prev) => prev.map((f) => (f.id === id ? { ...f, ...friendlyEditDraft } : f)));
     setEditingFriendly(null);
+    const { avversario, golCimiano, golAvv, data, ora } = friendlyEditDraft;
+    window.rows.upsert("Amichevoli", { id }, { avversario, golCimiano, golAvv, data, ora }).catch(() => {});
   }
 
   function addRatingFriendly(friendlyId) {
@@ -1523,12 +1609,15 @@ function GironeATracker() {
   // --- ROSA SQUADRA ---
   function addRosterPlayer() {
     if (!rosterDraft.nome) return;
-    setRoster((prev) => [...prev, { id: Date.now().toString(), nome: rosterDraft.nome }]);
+    const id = Date.now().toString();
+    setRoster((prev) => [...prev, { id, nome: rosterDraft.nome }]);
+    window.rows.insert("Rosa", { id, nome: rosterDraft.nome }).catch(() => {});
     setRosterDraft({ nome: "" });
   }
 
   function removeRosterPlayer(id) {
     setRoster((prev) => prev.filter((p) => p.id !== id));
+    window.rows.remove("Rosa", { id }).catch(() => {});
   }
 
   function startEditRoster(p) {
@@ -1540,6 +1629,7 @@ function GironeATracker() {
     if (!rosterDraft.nome) return;
     setRoster((prev) => prev.map((p) => (p.id === id ? { ...p, nome: rosterDraft.nome } : p)));
     setEditingRosterId(null);
+    window.rows.upsert("Rosa", { id }, { nome: rosterDraft.nome }).catch(() => {});
     setRosterDraft({ nome: "" });
   }
 
