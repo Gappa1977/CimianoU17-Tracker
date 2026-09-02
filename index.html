@@ -115,8 +115,9 @@
     },
   };
 
-  // --- Fase 3: comunicazione con i nuovi fogli "a righe" (Rosa, Amichevoli, RisultatiUfficiali per ora;
-  // Voti/Marcatori/Formazioni/Moduli/Convocati arriveranno nei prossimi giri). ---
+  // --- Fase 3 completa: comunicazione con tutti i fogli "a righe" (Rosa, Amichevoli, RisultatiUfficiali,
+  // Voti, Marcatori, VotoSquadra, Convocati, Formazioni, Moduli, Impostazioni). window.storage (sopra)
+  // resta definito ma non è più chiamato da nessuna parte del Tracker: nessun blob condiviso residuo. ---
   window.rows = {
     list: async function (sheet) {
       const res = await fetchWithRetry(apiUrl + "?action=list&sheet=" + encodeURIComponent(sheet), {}, 2);
@@ -468,21 +469,6 @@ function GironeATracker() {
   const [newVoterDraft, setNewVoterDraft] = useState("");
   const logoClickCountRef = useRef(0);
   const logoClickTimerRef = useRef(null);
-  // Finché è true, i "salva automatico" restano disattivati: evita che al primo caricamento pagina
-  // scattino 13 salvataggi simultanei (uno per ogni pezzo di dato) per dati appena letti e non modificati,
-  // che possono sovraccaricare lo script Google e far comparire falsi "salvataggio non riuscito".
-  const suppressSaveRef = useRef(true);
-  // Un timer di debounce per ciascuna chiave salvata (punto 9): una raffica di modifiche ravvicinate
-  // (click multipli, digitazione) produce UN SOLO salvataggio con lo stato finale invece di N salvataggi
-  // in corsa tra loro, che altrimenti possono sovraccaricare lo script Google e causare falsi errori.
-  const saveTimersRef = useRef({});
-  function debouncedSave(key, name, value) {
-    if (suppressSaveRef.current) return;
-    clearTimeout(saveTimersRef.current[name]);
-    saveTimersRef.current[name] = setTimeout(() => {
-      window.storage.set(key, JSON.stringify(value), true).catch(() => {});
-    }, 500);
-  }
   const [friendlies, setFriendlies] = useState([]); // CONDIVISO (senza voti)
   const [friendlyVoti, setFriendlyVoti] = useState({}); // { friendlyId: [voti] } — CONDIVISO, ogni voto etichettato con l'autore
   const [friendlyMarcatori, setFriendlyMarcatori] = useState({}); // { friendlyId: [marcatori] } — CONDIVISO
@@ -541,26 +527,6 @@ function GironeATracker() {
   const PLAYER_COLORS = [RED, "#2b6cb0", "#2f855a", "#b7791f", "#6b46c1", "#c05621"];
 
   useEffect(() => {
-    async function safeGet(key, shared) {
-      try {
-        const r = await window.storage.get(key, shared);
-        return r ? JSON.parse(r.value) : null;
-      } catch (e) {
-        return null;
-      }
-    }
-
-    // Prova a caricare TUTTO in un'unica chiamata di rete (?bulk=1, richiede lo script aggiornato).
-    // Se non disponibile (script non ancora ripubblicato, errore di rete, ecc.) torna null
-    // e più sotto si ricade sul vecchio metodo a chiamate parallele.
-    async function fetchBulk() {
-      try {
-        return await window.storage.getBulk();
-      } catch (e) {
-        return null;
-      }
-    }
-
     (async () => {
       // --- IDENTITÀ DI CHI VOTA (locale al dispositivo/browser: localStorage, MAI il Google Sheet condiviso) ---
       try {
@@ -568,82 +534,32 @@ function GironeATracker() {
         if (vn) setVoterNameState(JSON.parse(vn));
       } catch (e) {}
 
-      // --- Fase 3: Rosa, Amichevoli, RisultatiUfficiali arrivano già dai nuovi fogli "a righe" ---
-      const [bulkRaw, rosaRows, amichevoliRows, risultatiRows] = await Promise.all([
-        fetchBulk(),
+      // --- Fase 3 completa: tutto arriva dai fogli "a righe", nessun blob key-value più in gioco ---
+      const [
+        rosaRows, amichevoliRows, risultatiRows,
+        votiRows, marcatoriRows, votoSquadraRows, convocatiRows, formazioniRows, moduliRows, impostazioniRows,
+      ] = await Promise.all([
         window.rows.list("Rosa"),
         window.rows.list("Amichevoli"),
         window.rows.list("RisultatiUfficiali"),
+        window.rows.list("Voti"),
+        window.rows.list("Marcatori"),
+        window.rows.list("VotoSquadra"),
+        window.rows.list("Convocati"),
+        window.rows.list("Formazioni"),
+        window.rows.list("Moduli"),
+        window.rows.list("Impostazioni"),
       ]);
 
-      // bulkRaw porta Convocati/Formazione/Voti/Marcatori/Moduli (ancora sul vecchio sistema a blob,
-      // non ancora migrati alla Fase 3). Se questa richiesta fallisce, NON dobbiamo mai arrivare a
-      // salvare: lo stato React resterebbe ai valori di default (vuoti) e un salvataggio successivo,
-      // anche minimo, li scriverebbe sopra ai dati veri sul foglio. Vedi loadCriticalError più sotto:
-      // blocca lo sblocco dei salvataggi per l'intera sessione finché non si ricarica la pagina.
-      if (bulkRaw === null) setLoadCriticalError(true);
+      // Se una qualsiasi di queste richieste è fallita (null, non "vuota"), non si deve mai arrivare
+      // a salvare: lo stato React resterebbe ai valori di default e un salvataggio successivo, anche
+      // minimo, scriverebbe sopra ai dati veri sul foglio. Vedi loadCriticalError più sotto: blocca
+      // ogni scrittura per l'intera sessione finché non si ricarica la pagina.
+      const listeCritiche = [rosaRows, amichevoliRows, risultatiRows, votiRows, marcatoriRows, votoSquadraRows, convocatiRows, formazioniRows, moduliRows, impostazioniRows];
+      if (listeCritiche.some((l) => l === null)) setLoadCriticalError(true);
 
-      let resultsData, detailsSharedData, oldPrivateData, friendliesData0,
-        friendlyVotiData0, teamVotoData0, friendlyMarcatoriData0, friendlyConvocatiData,
-        friendlyFormazioneData0, friendlyModuloData0, friendlyFormazione2Data,
-        friendlyModulo2Data, rosterData0, voterOptionsExtraData, friendlyFormazione2TouchedData;
-
-      if (bulkRaw) {
-        // --- Percorso veloce: un'unica richiesta di rete già completata, il resto è solo lettura in memoria ---
-        const get = (key) => {
-          const v = bulkRaw[key];
-          if (v === undefined || v === null) return null;
-          try { return JSON.parse(v); } catch (e) { return null; }
-        };
-        resultsData = get("girone-a-results");
-        detailsSharedData = get("girone-a-details-shared");
-        oldPrivateData = get("girone-a-details"); // chiave pre-migrazione, diversa da quella attuale
-        friendliesData0 = get("girone-a-friendlies");
-        friendlyVotiData0 = get("girone-a-friendly-voti");
-        teamVotoData0 = get("girone-a-friendly-team-voto");
-        friendlyMarcatoriData0 = get("girone-a-friendly-marcatori");
-        friendlyConvocatiData = get("girone-a-friendly-convocati");
-        friendlyFormazioneData0 = get("girone-a-friendly-formazione");
-        friendlyModuloData0 = get("girone-a-friendly-modulo");
-        friendlyFormazione2Data = get("girone-a-friendly-formazione2");
-        friendlyModulo2Data = get("girone-a-friendly-modulo2");
-        rosterData0 = get("girone-a-roster");
-        voterOptionsExtraData = get("girone-a-voter-options");
-        friendlyFormazione2TouchedData = get("girone-a-friendly-formazione2-touched");
-      } else {
-        // --- Fallback: bulk non disponibile, si torna alle letture individuali in parallelo ---
-        [
-          resultsData, detailsSharedData, oldPrivateData, friendliesData0,
-          friendlyVotiData0, teamVotoData0, friendlyMarcatoriData0, friendlyConvocatiData,
-          friendlyFormazioneData0, friendlyModuloData0, friendlyFormazione2Data,
-          friendlyModulo2Data, rosterData0, voterOptionsExtraData, friendlyFormazione2TouchedData,
-        ] = await Promise.all([
-          safeGet("girone-a-results", true),
-          safeGet("girone-a-details-shared", true),
-          safeGet("girone-a-details", false),
-          safeGet("girone-a-friendlies", true),
-          safeGet("girone-a-friendly-voti", true),
-          safeGet("girone-a-friendly-team-voto", true),
-          safeGet("girone-a-friendly-marcatori", true),
-          safeGet("girone-a-friendly-convocati", true),
-          safeGet("girone-a-friendly-formazione", true),
-          safeGet("girone-a-friendly-modulo", true),
-          safeGet("girone-a-friendly-formazione2", true),
-          safeGet("girone-a-friendly-modulo2", true),
-          safeGet("girone-a-roster", true),
-          safeGet("girone-a-voter-options", true),
-          safeGet("girone-a-friendly-formazione2-touched", true),
-        ]);
-      }
-
-      // --- Da qui in poi: solo elaborazione locale dei dati già arrivati, nessuna nuova attesa di rete ---
-
-
-      // --- RISULTATI CAMPIONATO/COPPA (Fase 3: dal foglio "RisultatiUfficiali", non più dal blob) ---
-      // risultatiRows === null significa "richiesta fallita": non tocco lo stato, segnalo l'errore.
-      if (risultatiRows === null) {
-        setLoadCriticalError(true);
-      } else {
+      // --- RISULTATI CAMPIONATO/COPPA ---
+      if (risultatiRows) {
         const resultsFromRows = {};
         risultatiRows.forEach((r) => {
           if (r.fixtureId) resultsFromRows[r.fixtureId] = { golHome: r.golHome, golAway: r.golAway };
@@ -651,36 +567,12 @@ function GironeATracker() {
         setResults(resultsFromRows);
       }
 
-      // --- DETTAGLI CONDIVISI (marcatori, voti, voto squadra, formazione) ---
-      let detailsSharedFinal = detailsSharedData;
-      if (!detailsSharedFinal && oldPrivateData) {
-        // Migrazione: tutto ciò che prima era privato (marcatori, formazione, e i vecchi voti) diventa condiviso
-        const migrated = {};
-        Object.keys(oldPrivateData).forEach((fixtureId) => {
-          const o = oldPrivateData[fixtureId];
-          const entry = { ...o };
-          if (entry.voti && entry.voti.length) entry.voti = entry.voti.map((v) => ({ ...v, autore: v.autore || "Io" }));
-          if (entry.votoSquadra) {
-            entry.votoSquadra = Array.isArray(entry.votoSquadra)
-              ? entry.votoSquadra.map((v) => ({ ...v, autore: v.autore || "Io" }))
-              : [{ id: "migrated-" + fixtureId, autore: "Io", voto: entry.votoSquadra.voto, nota: entry.votoSquadra.nota || "" }];
-          }
-          migrated[fixtureId] = entry;
-        });
-        detailsSharedFinal = migrated;
-        window.storage.set("girone-a-details-shared", JSON.stringify(detailsSharedFinal), true).catch(() => {});
-      }
-      if (detailsSharedFinal) setDetailsShared(detailsSharedFinal);
-
-      // --- AMICHEVOLI (Fase 3: dal foglio "Amichevoli", non più dal blob) ---
-      // amichevoliRows === null significa "richiesta fallita": NON tocco friendlies, NON reinserisco nulla.
-      let friendliesFinal = friendlies; // fallback: quello già in stato (vuoto al primo giro), usato solo per la migrazione note qui sotto
-      if (amichevoliRows === null) {
-        setLoadCriticalError(true);
-      } else if (amichevoliRows.length) {
+      // --- AMICHEVOLI ---
+      let friendliesFinal = friendlies; // fallback: quello già in stato (vuoto al primo giro)
+      if (amichevoliRows && amichevoliRows.length) {
         friendliesFinal = amichevoliRows;
         setFriendlies(friendliesFinal);
-      } else {
+      } else if (amichevoliRows) {
         // Foglio letto correttamente e VERAMENTE vuoto: qui, solo qui, ha senso seminare la prima amichevole.
         const seed = { id: "seed-1", avversario: "Vis Nova Giussano", golCimiano: 1, golAvv: 3, data: "2026-08-30", ora: "" };
         friendliesFinal = [seed];
@@ -688,45 +580,14 @@ function GironeATracker() {
         window.rows.insert("Amichevoli", seed).catch(() => {});
       }
 
-      // --- VOTI AMICHEVOLI (condivisi, con autore) ---
-      if (friendlyVotiData0) setFriendlyVoti(friendlyVotiData0);
-
-      // --- VOTO SQUADRA AMICHEVOLI (condiviso, array multi-autore) ---
-      let teamVotoFinal = teamVotoData0 || {};
-      let teamVotoChanged = false;
-      // Migrazione: recupera la vecchia "Nota" della partita (campo rimosso) dentro la nota del Voto Squadra
-      friendliesFinal.forEach((f) => {
-        if (f.note && (!teamVotoFinal[f.id] || teamVotoFinal[f.id].length === 0)) {
-          teamVotoFinal = { ...teamVotoFinal, [f.id]: [{ id: "migrated-note-" + f.id, autore: "Io", voto: "", nota: f.note }] };
-          teamVotoChanged = true;
-        }
-      });
-      if (teamVotoChanged) window.storage.set("girone-a-friendly-team-voto", JSON.stringify(teamVotoFinal), true).catch(() => {});
-      setFriendlyTeamVoto(teamVotoFinal);
-
-      // --- MARCATORI AMICHEVOLI (condivisi) ---
-      if (friendlyMarcatoriData0) setFriendlyMarcatori(friendlyMarcatoriData0);
-
-      if (friendlyConvocatiData) setFriendlyConvocati(friendlyConvocatiData);
-
-      // --- FORMAZIONE / MODULO AMICHEVOLI (condivisi) ---
-      if (friendlyFormazioneData0) setFriendlyFormazione(friendlyFormazioneData0);
-      if (friendlyModuloData0) setFriendlyModuloState(friendlyModuloData0);
-      if (friendlyFormazione2Data) setFriendlyFormazione2(friendlyFormazione2Data);
-      if (friendlyModulo2Data) setFriendlyModulo2State(friendlyModulo2Data);
-      if (friendlyFormazione2TouchedData) setFriendlyFormazione2Touched(friendlyFormazione2TouchedData);
-
-      // --- ROSA SQUADRA (Fase 3: dal foglio "Rosa", non più dal blob) ---
-      // rosaRows === null significa "richiesta fallita": NON tocco roster, NON reinserisco nulla.
+      // --- ROSA SQUADRA ---
       // Questo è il fix del bug che ha causato i dati sballati del 2/09: prima, un fallimento di rete
-      // veniva scambiato per "Rosa vuota" e faceva ricomparire Lodi/Maira/Crocetti come unica rosa
-      // per quella sessione, disallineando convocati e formazione dal resto dei dati reali.
-      if (rosaRows === null) {
-        setLoadCriticalError(true);
-      } else if (rosaRows.length) {
+      // veniva scambiato per "Rosa vuota" e faceva ricomparire Lodi/Maira/Crocetti come unica rosa per
+      // quella sessione, disallineando convocati e formazione dal resto dei dati reali. Ora rosaRows
+      // === null (richiesta fallita) non tocca mai il roster, solo rosaRows === [] (davvero vuoto) semina.
+      if (rosaRows && rosaRows.length) {
         setRoster(rosaRows);
-      } else {
-        // Foglio letto correttamente e VERAMENTE vuoto: unico caso in cui ha senso seminare i 3 di partenza.
+      } else if (rosaRows) {
         const rosterSeed = [
           { id: "p1", nome: "Nicolò Lodi" },
           { id: "p2", nome: "Favour Maira" },
@@ -736,31 +597,128 @@ function GironeATracker() {
         rosterSeed.forEach((p) => window.rows.insert("Rosa", p).catch(() => {}));
       }
 
-      if (Array.isArray(voterOptionsExtraData)) setVoterOptionsExtra(voterOptionsExtraData);
+      // --- RICOSTRUZIONE DEGLI OGGETTI IN MEMORIA A PARTIRE DALLE RIGHE ---
+      // Stessa identica forma usata da sempre dal resto del Tracker (detailsShared[fixtureId].voti, ecc.):
+      // così i render (renderCampionatoRow, renderFriendlyRow, renderPitch...) non richiedono modifiche.
+      const detailsSharedFinal = {};
+      function detailEntry(fixtureId) {
+        return (detailsSharedFinal[fixtureId] = detailsSharedFinal[fixtureId] || {});
+      }
+      const friendlyVotiFinal = {};
+      const friendlyMarcatoriFinal = {};
+      const friendlyTeamVotoFinal = {};
+      const friendlyConvocatiFinal = {};
+      const friendlyFormazioneFinal = {};
+      const friendlyModuloFinal = {};
+      const friendlyFormazione2Final = {};
+      const friendlyModulo2Final = {};
+
+      if (votiRows) {
+        votiRows.forEach((v) => {
+          const voto = { id: v.id, giocatore: v.giocatore, voto: v.voto, minutaggio: v.minutaggio || "", nota: v.nota || "", autore: v.autore || "" };
+          if (v.tipo === "amichevole") (friendlyVotiFinal[v.fixtureId] = friendlyVotiFinal[v.fixtureId] || []).push(voto);
+          else (detailEntry(v.fixtureId).voti = detailEntry(v.fixtureId).voti || []).push(voto);
+        });
+      }
+      if (marcatoriRows) {
+        marcatoriRows.forEach((m) => {
+          const gol = { id: m.id, giocatore: m.giocatore, minuto: m.minuto || "" };
+          if (m.tipo === "amichevole") (friendlyMarcatoriFinal[m.fixtureId] = friendlyMarcatoriFinal[m.fixtureId] || []).push(gol);
+          else (detailEntry(m.fixtureId).marcatori = detailEntry(m.fixtureId).marcatori || []).push(gol);
+        });
+      }
+      if (votoSquadraRows) {
+        votoSquadraRows.forEach((v) => {
+          const voto = { id: v.id, voto: v.voto, nota: v.nota || "", autore: v.autore || "" };
+          if (v.tipo === "amichevole") (friendlyTeamVotoFinal[v.fixtureId] = friendlyTeamVotoFinal[v.fixtureId] || []).push(voto);
+          else (detailEntry(v.fixtureId).votoSquadra = detailEntry(v.fixtureId).votoSquadra || []).push(voto);
+        });
+      }
+      if (convocatiRows) {
+        convocatiRows.forEach((c) => {
+          if (c.tipo === "amichevole") {
+            friendlyConvocatiFinal[c.fixtureId] = friendlyConvocatiFinal[c.fixtureId] || {};
+            friendlyConvocatiFinal[c.fixtureId][c.playerId] = true;
+          } else {
+            const cur = detailEntry(c.fixtureId);
+            cur.convocati = cur.convocati || {};
+            cur.convocati[c.playerId] = true;
+          }
+        });
+      }
+      if (formazioniRows) {
+        formazioniRows.forEach((f) => {
+          const mappa2 = String(f.mappa) === "2";
+          if (f.tipo === "amichevole") {
+            const target = mappa2 ? friendlyFormazione2Final : friendlyFormazioneFinal;
+            target[f.fixtureId] = target[f.fixtureId] || {};
+            target[f.fixtureId][f.slotId] = f.playerId;
+          } else {
+            const cur = detailEntry(f.fixtureId);
+            const campo = mappa2 ? "formazione2" : "formazione";
+            cur[campo] = cur[campo] || {};
+            cur[campo][f.slotId] = f.playerId;
+          }
+        });
+      }
+      if (moduliRows) {
+        moduliRows.forEach((m) => {
+          const mappa2 = String(m.mappa) === "2";
+          if (m.tipo === "amichevole") {
+            (mappa2 ? friendlyModulo2Final : friendlyModuloFinal)[m.fixtureId] = m.modulo;
+          } else {
+            detailEntry(m.fixtureId)[mappa2 ? "modulo2" : "modulo"] = m.modulo;
+          }
+        });
+      }
+
+      // --- IMPOSTAZIONI: votanti extra + flag "mappa 2 sganciata" (formazione2Touched) ---
+      const voterOptionsExtraFinal = [];
+      const friendlyFormazione2TouchedFinal = {};
+      if (impostazioniRows) {
+        impostazioniRows.forEach((r) => {
+          const chiave = String(r.chiave || "");
+          if (chiave.indexOf("voterOption:") === 0) {
+            voterOptionsExtraFinal.push(r.valore);
+          } else if (chiave.indexOf("formazione2Touched:") === 0) {
+            const fixtureId = chiave.slice("formazione2Touched:".length);
+            // Non sappiamo qui se l'id appartiene a una partita ufficiale o a un'amichevole: lo segniamo
+            // in entrambi i posti possibili, è innocuo perché ciascuno viene letto solo dal proprio contesto.
+            friendlyFormazione2TouchedFinal[fixtureId] = true;
+            detailEntry(fixtureId).formazione2Touched = true;
+          }
+        });
+      }
+
+      if (votiRows || marcatoriRows || votoSquadraRows || convocatiRows || formazioniRows || moduliRows || impostazioniRows) {
+        setDetailsShared(detailsSharedFinal);
+      }
+      if (votiRows) setFriendlyVoti(friendlyVotiFinal);
+      if (marcatoriRows) setFriendlyMarcatori(friendlyMarcatoriFinal);
+      if (votoSquadraRows) setFriendlyTeamVoto(friendlyTeamVotoFinal);
+      if (convocatiRows) setFriendlyConvocati(friendlyConvocatiFinal);
+      if (formazioniRows) {
+        setFriendlyFormazione(friendlyFormazioneFinal);
+        setFriendlyFormazione2(friendlyFormazione2Final);
+      }
+      if (moduliRows) {
+        setFriendlyModuloState(friendlyModuloFinal);
+        setFriendlyModulo2State(friendlyModulo2Final);
+      }
+      if (impostazioniRows) {
+        setVoterOptionsExtra(voterOptionsExtraFinal);
+        setFriendlyFormazione2Touched(friendlyFormazione2TouchedFinal);
+      }
 
       setLoaded(true);
     })();
   }, []);
 
-  // Nota Fase 3: "results" e "friendlies" non hanno più un debouncedSave sul blob intero:
-  // ogni modifica (saveResult/clearResult, addFriendly/removeFriendly/saveEditFriendly) scrive
-  // già direttamente la riga interessata sui fogli "RisultatiUfficiali" e "Amichevoli".
-
-  useEffect(() => {
-    debouncedSave("girone-a-voter-options", "voterOptionsExtra", voterOptionsExtra);
-  }, [voterOptionsExtra, loaded]);
-
-  useEffect(() => {
-    debouncedSave("girone-a-details-shared", "detailsShared", detailsShared);
-  }, [detailsShared, loaded]);
-
-  useEffect(() => {
-    debouncedSave("girone-a-friendly-voti", "friendlyVoti", friendlyVoti);
-  }, [friendlyVoti, loaded]);
-
-  useEffect(() => {
-    debouncedSave("girone-a-friendly-team-voto", "friendlyTeamVoto", friendlyTeamVoto);
-  }, [friendlyTeamVoto, loaded]);
+  // Task 1 chiuso: non esiste più nessun blob condiviso da salvare con debounce. Ogni azione (voto,
+  // marcatore, convocazione, posizionamento in formazione, modulo, voto squadra, risultato, amichevole,
+  // rosa, votante extra) scrive già, nel momento stesso in cui avviene, SOLO la riga interessata sul
+  // foglio giusto (window.rows.insert/upsert/remove). Il caricamento iniziale qui sopra fa solo letture
+  // (window.rows.list), quindi non c'è più alcun rischio di raffiche di scritture al primo avvio.
 
   useEffect(() => {
     // Locale al dispositivo/browser: localStorage reale, non il Google Sheet condiviso.
@@ -770,48 +728,6 @@ function GironeATracker() {
     } catch (e) {}
   }, [voterName]);
 
-  useEffect(() => {
-    debouncedSave("girone-a-friendly-marcatori", "friendlyMarcatori", friendlyMarcatori);
-  }, [friendlyMarcatori, loaded]);
-
-  useEffect(() => {
-    debouncedSave("girone-a-friendly-convocati", "friendlyConvocati", friendlyConvocati);
-  }, [friendlyConvocati, loaded]);
-
-  useEffect(() => {
-    debouncedSave("girone-a-friendly-formazione", "friendlyFormazione", friendlyFormazione);
-  }, [friendlyFormazione, loaded]);
-
-  useEffect(() => {
-    debouncedSave("girone-a-friendly-modulo", "friendlyModulo", friendlyModulo);
-  }, [friendlyModulo, loaded]);
-
-  useEffect(() => {
-    debouncedSave("girone-a-friendly-formazione2", "friendlyFormazione2", friendlyFormazione2);
-  }, [friendlyFormazione2, loaded]);
-
-  useEffect(() => {
-    debouncedSave("girone-a-friendly-modulo2", "friendlyModulo2", friendlyModulo2);
-  }, [friendlyModulo2, loaded]);
-
-  useEffect(() => {
-    debouncedSave("girone-a-friendly-formazione2-touched", "friendlyFormazione2Touched", friendlyFormazione2Touched);
-  }, [friendlyFormazione2Touched, loaded]);
-
-  // Nota Fase 3: "roster" non ha più un debouncedSave sul blob intero: ogni modifica
-  // (addRosterPlayer/removeRosterPlayer/saveEditRoster) scrive già la riga interessata sul foglio "Rosa".
-
-  // Effetto "sblocco": deve stare DOPO tutti i useEffect di salvataggio qui sopra (l'ordine con cui sono
-  // dichiarati negli hook è anche l'ordine con cui React li esegue). Al primo giro in cui "loaded" diventa
-  // vero, tutti i salvataggi qui sopra vedono ancora suppressSaveRef.current = true e quindi non scrivono
-  // nulla; solo a questo punto lo sblocchiamo, così le vere modifiche successive dell'utente vengono salvate.
-  useEffect(() => {
-    // Sblocco i salvataggi SOLO se il caricamento è arrivato in fondo E nessuna delle richieste
-    // critiche (bulk legacy, Rosa, Amichevoli, RisultatiUfficiali) è fallita. Se qualcosa è fallito,
-    // meglio restare "in sola lettura" fino al prossimo ricaricamento (vedi banner rosso) piuttosto
-    // che rischiare di salvare uno stato incompleto sopra dati validi già sul foglio.
-    if (loaded && !loadCriticalError) suppressSaveRef.current = false;
-  }, [loaded, loadCriticalError]);
 
   const standings = useMemo(() => {
     const table = {};
@@ -1186,12 +1102,15 @@ function GironeATracker() {
   function addScorer(fixtureId) {
     const d = scorerDraft[fixtureId];
     if (!d || !d.giocatore) return;
+    const id = Date.now().toString();
+    // Aggiornamento ottimistico locale, poi scrittura sul foglio "Marcatori" (Fase 3).
     setDetailsShared((prev) => {
       const cur = prev[fixtureId] || {};
       const list = cur.marcatori || [];
-      return { ...prev, [fixtureId]: { ...cur, marcatori: [...list, { id: Date.now().toString(), giocatore: d.giocatore, minuto: d.minuto || "" }] } };
+      return { ...prev, [fixtureId]: { ...cur, marcatori: [...list, { id, giocatore: d.giocatore, minuto: d.minuto || "" }] } };
     });
     setScorerDraft((prev) => ({ ...prev, [fixtureId]: { giocatore: "", minuto: "" } }));
+    window.rows.insert("Marcatori", { id, fixtureId, tipo: tipoDaFixtureId(fixtureId), giocatore: d.giocatore, minuto: d.minuto || "" }).catch(() => {});
   }
 
   function removeScorer(fixtureId, id) {
@@ -1199,6 +1118,7 @@ function GironeATracker() {
       const cur = prev[fixtureId] || {};
       return { ...prev, [fixtureId]: { ...cur, marcatori: (cur.marcatori || []).filter((s) => s.id !== id) } };
     });
+    window.rows.remove("Marcatori", { id }).catch(() => {});
   }
 
   function startEditScorer(fixtureId, s) {
@@ -1215,17 +1135,20 @@ function GironeATracker() {
       return { ...prev, [fixtureId]: { ...cur, marcatori: list } };
     });
     setEditingScorer(null);
+    window.rows.upsert("Marcatori", { id }, { fixtureId, tipo: tipoDaFixtureId(fixtureId), giocatore: d.giocatore, minuto: d.minuto || "" }).catch(() => {});
   }
 
   function addRating(fixtureId) {
     const d = ratingDraft[fixtureId];
     if (!voterName || !d || !d.giocatore || !d.voto) return;
+    const id = Date.now().toString();
     setDetailsShared((prev) => {
       const cur = prev[fixtureId] || {};
       const list = cur.voti || [];
-      return { ...prev, [fixtureId]: { ...cur, voti: [...list, { id: Date.now().toString(), autore: voterName, giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "" }] } };
+      return { ...prev, [fixtureId]: { ...cur, voti: [...list, { id, autore: voterName, giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "" }] } };
     });
     setRatingDraft((prev) => ({ ...prev, [fixtureId]: { giocatore: "", voto: "", minutaggio: "", nota: "" } }));
+    window.rows.insert("Voti", { id, fixtureId, tipo: tipoDaFixtureId(fixtureId), giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "", autore: voterName }).catch(() => {});
   }
 
   function removeRating(fixtureId, id) {
@@ -1233,6 +1156,7 @@ function GironeATracker() {
       const cur = prev[fixtureId] || {};
       return { ...prev, [fixtureId]: { ...cur, voti: (cur.voti || []).filter((v) => v.id !== id) } };
     });
+    window.rows.remove("Voti", { id }).catch(() => {});
   }
 
   function startEditRating(fixtureId, v) {
@@ -1243,12 +1167,18 @@ function GironeATracker() {
   function saveEditRating(fixtureId, id) {
     const d = ratingDraft[`edit-${fixtureId}`];
     if (!d || !d.giocatore || !d.voto) return;
+    let autoreRiga = voterName;
     setDetailsShared((prev) => {
       const cur = prev[fixtureId] || {};
-      const list = (cur.voti || []).map((v) => (v.id === id ? { ...v, giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "" } : v));
+      const list = (cur.voti || []).map((v) => {
+        if (v.id !== id) return v;
+        autoreRiga = v.autore;
+        return { ...v, giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "" };
+      });
       return { ...prev, [fixtureId]: { ...cur, voti: list } };
     });
     setEditingRating(null);
+    window.rows.upsert("Voti", { id }, { fixtureId, tipo: tipoDaFixtureId(fixtureId), giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "", autore: autoreRiga }).catch(() => {});
   }
 
   function addFriendly() {
@@ -1275,6 +1205,13 @@ function GironeATracker() {
     setFriendlyModulo2State((prev) => { const next = { ...prev }; delete next[id]; return next; });
     setFriendlyFormazione2Touched((prev) => { const next = { ...prev }; delete next[id]; return next; });
     window.rows.remove("Amichevoli", { id }).catch(() => {});
+    window.rows.remove("Voti", { fixtureId: id }).catch(() => {});
+    window.rows.remove("Marcatori", { fixtureId: id }).catch(() => {});
+    window.rows.remove("VotoSquadra", { fixtureId: id }).catch(() => {});
+    window.rows.remove("Convocati", { fixtureId: id }).catch(() => {});
+    window.rows.remove("Formazioni", { fixtureId: id }).catch(() => {});
+    window.rows.remove("Moduli", { fixtureId: id }).catch(() => {});
+    window.rows.remove("Impostazioni", { chiave: "formazione2Touched:" + id }).catch(() => {});
   }
 
   function startEditFriendly(f) {
@@ -1293,15 +1230,18 @@ function GironeATracker() {
   function addRatingFriendly(friendlyId) {
     const d = ratingDraftF[friendlyId];
     if (!voterName || !d || !d.giocatore || !d.voto) return;
+    const id = Date.now().toString();
     setFriendlyVoti((prev) => {
       const list = prev[friendlyId] || [];
-      return { ...prev, [friendlyId]: [...list, { id: Date.now().toString(), autore: voterName, giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "" }] };
+      return { ...prev, [friendlyId]: [...list, { id, autore: voterName, giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "" }] };
     });
     setRatingDraftF((prev) => ({ ...prev, [friendlyId]: { giocatore: "", voto: "", minutaggio: "", nota: "" } }));
+    window.rows.insert("Voti", { id, fixtureId: friendlyId, tipo: "amichevole", giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "", autore: voterName }).catch(() => {});
   }
 
   function removeRatingFriendly(friendlyId, id) {
     setFriendlyVoti((prev) => ({ ...prev, [friendlyId]: (prev[friendlyId] || []).filter((v) => v.id !== id) }));
+    window.rows.remove("Voti", { id }).catch(() => {});
   }
 
   function startEditRatingF(friendlyId, v) {
@@ -1312,26 +1252,35 @@ function GironeATracker() {
   function saveEditRatingF(friendlyId, id) {
     const d = ratingDraftF[`edit-${friendlyId}`];
     if (!d || !d.giocatore || !d.voto) return;
+    let autoreRiga = voterName;
     setFriendlyVoti((prev) => ({
       ...prev,
-      [friendlyId]: (prev[friendlyId] || []).map((v) => (v.id === id ? { ...v, giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "" } : v)),
+      [friendlyId]: (prev[friendlyId] || []).map((v) => {
+        if (v.id !== id) return v;
+        autoreRiga = v.autore;
+        return { ...v, giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "" };
+      }),
     }));
     setEditingRatingF(null);
+    window.rows.upsert("Voti", { id }, { fixtureId: friendlyId, tipo: "amichevole", giocatore: d.giocatore, voto: d.voto, minutaggio: d.minutaggio || "", nota: d.nota || "", autore: autoreRiga }).catch(() => {});
   }
 
   // --- MARCATORI AMICHEVOLI ---
   function addScorerF(friendlyId) {
     const d = scorerDraftF[friendlyId];
     if (!d || !d.giocatore) return;
+    const id = Date.now().toString();
     setFriendlyMarcatori((prev) => {
       const list = prev[friendlyId] || [];
-      return { ...prev, [friendlyId]: [...list, { id: Date.now().toString(), giocatore: d.giocatore, minuto: d.minuto || "" }] };
+      return { ...prev, [friendlyId]: [...list, { id, giocatore: d.giocatore, minuto: d.minuto || "" }] };
     });
     setScorerDraftF((prev) => ({ ...prev, [friendlyId]: { giocatore: "", minuto: "" } }));
+    window.rows.insert("Marcatori", { id, fixtureId: friendlyId, tipo: "amichevole", giocatore: d.giocatore, minuto: d.minuto || "" }).catch(() => {});
   }
 
   function removeScorerF(friendlyId, id) {
     setFriendlyMarcatori((prev) => ({ ...prev, [friendlyId]: (prev[friendlyId] || []).filter((s) => s.id !== id) }));
+    window.rows.remove("Marcatori", { id }).catch(() => {});
   }
 
   function startEditScorerF(friendlyId, s) {
@@ -1347,6 +1296,7 @@ function GironeATracker() {
       [friendlyId]: (prev[friendlyId] || []).map((s) => (s.id === id ? { ...s, giocatore: d.giocatore, minuto: d.minuto || "" } : s)),
     }));
     setEditingScorerF(null);
+    window.rows.upsert("Marcatori", { id }, { fixtureId: friendlyId, tipo: "amichevole", giocatore: d.giocatore, minuto: d.minuto || "" }).catch(() => {});
   }
 
   // --- VOTANTI: aggiunta manuale nascosta (5 click sul logo), salvataggio condiviso ---
@@ -1368,6 +1318,7 @@ function GironeATracker() {
     if (already) { setNewVoterDraft(""); return; }
     setVoterOptionsExtra((prev) => [...prev, name]);
     setNewVoterDraft("");
+    window.rows.upsert("Impostazioni", { chiave: "voterOption:" + name }, { valore: name }).catch(() => {});
   }
 
   // --- SEDE PARTITA (campionato/coppa) ---
@@ -1376,11 +1327,14 @@ function GironeATracker() {
   // I "titolari" non sono più un'etichetta separata: chi viene piazzato sul campo (formazione) è titolare,
   // chi resta convocato ma non piazzato è automaticamente panchina.
   function toggleConvocato(fixtureId, playerId) {
+    const tipo = tipoDaFixtureId(fixtureId);
+    const cur = detailsShared[fixtureId] || {};
+    const eraConvocato = !!(cur.convocati || {})[playerId];
     setDetailsShared((prev) => {
-      const cur = prev[fixtureId] || {};
-      const convocati = { ...(cur.convocati || {}) };
-      const formazione = { ...(cur.formazione || {}) };
-      const formazione2 = { ...(cur.formazione2 || {}) };
+      const c = prev[fixtureId] || {};
+      const convocati = { ...(c.convocati || {}) };
+      const formazione = { ...(c.formazione || {}) };
+      const formazione2 = { ...(c.formazione2 || {}) };
       if (convocati[playerId]) {
         delete convocati[playerId];
         // Se non è più convocato, va tolto anche da eventuali posizioni in campo
@@ -1389,12 +1343,26 @@ function GironeATracker() {
       } else {
         convocati[playerId] = true;
       }
-      return { ...prev, [fixtureId]: { ...cur, convocati, formazione, formazione2 } };
+      return { ...prev, [fixtureId]: { ...c, convocati, formazione, formazione2 } };
     });
+    if (eraConvocato) {
+      Object.keys(cur.formazione || {}).forEach((slotId) => {
+        if (cur.formazione[slotId] === playerId) window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "1", slotId }).catch(() => {});
+      });
+      Object.keys(cur.formazione2 || {}).forEach((slotId) => {
+        if (cur.formazione2[slotId] === playerId) window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "2", slotId }).catch(() => {});
+      });
+      window.rows.remove("Convocati", { fixtureId, tipo, playerId }).catch(() => {});
+    } else {
+      window.rows.insert("Convocati", { fixtureId, tipo, playerId }).catch(() => {});
+    }
   }
 
   // --- CONVOCATI (amichevoli) ---
   function toggleConvocatoF(friendlyId, playerId) {
+    const formazioneCorrente = friendlyFormazione[friendlyId] || {};
+    const formazione2Corrente = friendlyFormazione2[friendlyId] || {};
+    const eraConvocato = !!(friendlyConvocati[friendlyId] || {})[playerId];
     setFriendlyConvocati((prev) => {
       const cur = { ...(prev[friendlyId] || {}) };
       if (cur[playerId]) delete cur[playerId]; else cur[playerId] = true;
@@ -1412,6 +1380,17 @@ function GironeATracker() {
       Object.keys(cur).forEach((slotId) => { if (cur[slotId] === playerId) { delete cur[slotId]; changed = true; } });
       return changed ? { ...prev, [friendlyId]: cur } : prev;
     });
+    if (eraConvocato) {
+      Object.keys(formazioneCorrente).forEach((slotId) => {
+        if (formazioneCorrente[slotId] === playerId) window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "1", slotId }).catch(() => {});
+      });
+      Object.keys(formazione2Corrente).forEach((slotId) => {
+        if (formazione2Corrente[slotId] === playerId) window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId }).catch(() => {});
+      });
+      window.rows.remove("Convocati", { fixtureId: friendlyId, tipo: "amichevole", playerId }).catch(() => {});
+    } else {
+      window.rows.insert("Convocati", { fixtureId: friendlyId, tipo: "amichevole", playerId }).catch(() => {});
+    }
   }
 
   // --- FORMAZIONE (modulo 3-5-2) ---
@@ -1421,78 +1400,136 @@ function GironeATracker() {
   // formazione1/modulo1. Il flag "formazione2Touched" segna il momento dello sgancio: da lì in poi la
   // mappa 2 passa sotto controllo manuale e formazione1 smette di sovrascriverla.
   function setFormazione(fixtureId, slotId, playerId) {
+    const tipo = tipoDaFixtureId(fixtureId);
+    const cur = detailsShared[fixtureId] || {};
+    const mirrorActive = !cur.formazione2Touched;
     setDetailsShared((prev) => {
-      const cur = prev[fixtureId] || {};
-      const formazione = { ...(cur.formazione || {}) };
+      const c = prev[fixtureId] || {};
+      const formazione = { ...(c.formazione || {}) };
       if (playerId) formazione[slotId] = playerId; else delete formazione[slotId];
-      const next = { ...cur, formazione };
-      if (!cur.formazione2Touched) {
-        const formazione2 = { ...(cur.formazione2 || {}) };
+      const next = { ...c, formazione };
+      if (!c.formazione2Touched) {
+        const formazione2 = { ...(c.formazione2 || {}) };
         if (playerId) formazione2[slotId] = playerId; else delete formazione2[slotId];
         next.formazione2 = formazione2;
-        next.modulo2 = cur.modulo || DEFAULT_MODULO;
+        next.modulo2 = c.modulo || DEFAULT_MODULO;
       }
       return { ...prev, [fixtureId]: next };
     });
+    if (playerId) window.rows.upsert("Formazioni", { fixtureId, tipo, mappa: "1", slotId }, { playerId }).catch(() => {});
+    else window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "1", slotId }).catch(() => {});
+    if (mirrorActive) {
+      if (playerId) window.rows.upsert("Formazioni", { fixtureId, tipo, mappa: "2", slotId }, { playerId }).catch(() => {});
+      else window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "2", slotId }).catch(() => {});
+      window.rows.upsert("Moduli", { fixtureId, tipo, mappa: "2" }, { modulo: cur.modulo || DEFAULT_MODULO }).catch(() => {});
+    }
   }
 
   function setModulo(fixtureId, modulo) {
+    const tipo = tipoDaFixtureId(fixtureId);
+    const cur = detailsShared[fixtureId] || {};
+    const mirrorActive = !cur.formazione2Touched;
     setDetailsShared((prev) => {
-      const cur = prev[fixtureId] || {};
-      const next = { ...cur, modulo };
-      if (!cur.formazione2Touched) {
+      const c = prev[fixtureId] || {};
+      const next = { ...c, modulo };
+      if (!c.formazione2Touched) {
         next.modulo2 = modulo;
-        next.formazione2 = { ...(cur.formazione || {}) }; // stesso modulo => corrispondenza diretta 1:1
+        next.formazione2 = { ...(c.formazione || {}) }; // stesso modulo => corrispondenza diretta 1:1
       }
       return { ...prev, [fixtureId]: next };
     });
+    window.rows.upsert("Moduli", { fixtureId, tipo, mappa: "1" }, { modulo }).catch(() => {});
+    if (mirrorActive) {
+      window.rows.upsert("Moduli", { fixtureId, tipo, mappa: "2" }, { modulo }).catch(() => {});
+      window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "2" }).catch(() => {});
+      Object.keys(cur.formazione || {}).forEach((slotId) => {
+        window.rows.insert("Formazioni", { fixtureId, tipo, mappa: "2", slotId, playerId: cur.formazione[slotId] }).catch(() => {});
+      });
+    }
   }
 
   function setFormazione2(fixtureId, slotId, playerId) {
+    const tipo = tipoDaFixtureId(fixtureId);
     setDetailsShared((prev) => {
       const cur = prev[fixtureId] || {};
       const formazione2 = { ...(cur.formazione2 || {}) };
       if (playerId) formazione2[slotId] = playerId; else delete formazione2[slotId];
       return { ...prev, [fixtureId]: { ...cur, formazione2, formazione2Touched: true } };
     });
+    if (playerId) window.rows.upsert("Formazioni", { fixtureId, tipo, mappa: "2", slotId }, { playerId }).catch(() => {});
+    else window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "2", slotId }).catch(() => {});
+    window.rows.upsert("Impostazioni", { chiave: "formazione2Touched:" + fixtureId }, { valore: "1" }).catch(() => {});
   }
 
   function setModulo2(fixtureId, modulo) {
+    const tipo = tipoDaFixtureId(fixtureId);
+    const cur = detailsShared[fixtureId] || {};
+    const wasTouched = !!cur.formazione2Touched;
     setDetailsShared((prev) => {
-      const cur = prev[fixtureId] || {};
-      const wasTouched = !!cur.formazione2Touched;
-      const next = { ...cur, modulo2: modulo, formazione2Touched: true };
-      if (!wasTouched) {
+      const c = prev[fixtureId] || {};
+      const wt = !!c.formazione2Touched;
+      const next = { ...c, modulo2: modulo, formazione2Touched: true };
+      if (!wt) {
         // Primo sgancio: prova a ripopolare per davvero con l'undici di INIZIO negli slot compatibili
         // col nuovo modulo, poi da qui in poi la mappa 2 resta sotto controllo manuale dell'utente.
-        const copied = copyMatchingSlots(cur.formazione, modulo);
+        const copied = copyMatchingSlots(c.formazione, modulo);
         if (Object.keys(copied).length > 0) next.formazione2 = copied;
       }
       return { ...prev, [fixtureId]: next };
     });
+    window.rows.upsert("Moduli", { fixtureId, tipo, mappa: "2" }, { modulo }).catch(() => {});
+    window.rows.upsert("Impostazioni", { chiave: "formazione2Touched:" + fixtureId }, { valore: "1" }).catch(() => {});
+    if (!wasTouched) {
+      const copied = copyMatchingSlots(cur.formazione, modulo);
+      if (Object.keys(copied).length > 0) {
+        window.rows.remove("Formazioni", { fixtureId, tipo, mappa: "2" }).catch(() => {});
+        Object.keys(copied).forEach((slotId) => {
+          window.rows.insert("Formazioni", { fixtureId, tipo, mappa: "2", slotId, playerId: copied[slotId] }).catch(() => {});
+        });
+      }
+    }
   }
 
   function setFormazioneF(friendlyId, slotId, playerId) {
+    const mirrorActive = !friendlyFormazione2Touched[friendlyId];
+    const moduloCorrente = friendlyModulo[friendlyId] || DEFAULT_MODULO;
     setFriendlyFormazione((prev) => {
       const cur = { ...(prev[friendlyId] || {}) };
       if (playerId) cur[slotId] = playerId; else delete cur[slotId];
       return { ...prev, [friendlyId]: cur };
     });
-    if (!friendlyFormazione2Touched[friendlyId]) {
+    if (mirrorActive) {
       setFriendlyFormazione2((prev) => {
         const cur2 = { ...(prev[friendlyId] || {}) };
         if (playerId) cur2[slotId] = playerId; else delete cur2[slotId];
         return { ...prev, [friendlyId]: cur2 };
       });
-      setFriendlyModulo2State((prev) => ({ ...prev, [friendlyId]: friendlyModulo[friendlyId] || DEFAULT_MODULO }));
+      setFriendlyModulo2State((prev) => ({ ...prev, [friendlyId]: moduloCorrente }));
+    }
+    if (playerId) window.rows.upsert("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "1", slotId }, { playerId }).catch(() => {});
+    else window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "1", slotId }).catch(() => {});
+    if (mirrorActive) {
+      if (playerId) window.rows.upsert("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId }, { playerId }).catch(() => {});
+      else window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId }).catch(() => {});
+      window.rows.upsert("Moduli", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2" }, { modulo: moduloCorrente }).catch(() => {});
     }
   }
 
   function setModuloF(friendlyId, modulo) {
+    const mirrorActive = !friendlyFormazione2Touched[friendlyId];
+    const formazione1 = friendlyFormazione[friendlyId] || {};
     setFriendlyModuloState((prev) => ({ ...prev, [friendlyId]: modulo }));
-    if (!friendlyFormazione2Touched[friendlyId]) {
+    if (mirrorActive) {
       setFriendlyModulo2State((prev) => ({ ...prev, [friendlyId]: modulo }));
-      setFriendlyFormazione2((prev) => ({ ...prev, [friendlyId]: { ...(friendlyFormazione[friendlyId] || {}) } }));
+      setFriendlyFormazione2((prev) => ({ ...prev, [friendlyId]: { ...formazione1 } }));
+    }
+    window.rows.upsert("Moduli", { fixtureId: friendlyId, tipo: "amichevole", mappa: "1" }, { modulo }).catch(() => {});
+    if (mirrorActive) {
+      window.rows.upsert("Moduli", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2" }, { modulo }).catch(() => {});
+      window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2" }).catch(() => {});
+      Object.keys(formazione1).forEach((slotId) => {
+        window.rows.insert("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId, playerId: formazione1[slotId] }).catch(() => {});
+      });
     }
   }
 
@@ -1503,16 +1540,28 @@ function GironeATracker() {
       return { ...prev, [friendlyId]: cur };
     });
     setFriendlyFormazione2Touched((prev) => ({ ...prev, [friendlyId]: true }));
+    if (playerId) window.rows.upsert("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId }, { playerId }).catch(() => {});
+    else window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId }).catch(() => {});
+    window.rows.upsert("Impostazioni", { chiave: "formazione2Touched:" + friendlyId }, { valore: "1" }).catch(() => {});
   }
 
   function setModuloF2(friendlyId, modulo) {
     const wasTouched = !!friendlyFormazione2Touched[friendlyId];
+    const formazione1 = friendlyFormazione[friendlyId] || {};
     setFriendlyModulo2State((prev) => ({ ...prev, [friendlyId]: modulo }));
     setFriendlyFormazione2Touched((prev) => ({ ...prev, [friendlyId]: true }));
+    let copied = null;
     if (!wasTouched) {
-      const formazione1 = friendlyFormazione[friendlyId] || {};
-      const copied = copyMatchingSlots(formazione1, modulo);
+      copied = copyMatchingSlots(formazione1, modulo);
       setFriendlyFormazione2((prev) => ({ ...prev, [friendlyId]: copied }));
+    }
+    window.rows.upsert("Moduli", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2" }, { modulo }).catch(() => {});
+    window.rows.upsert("Impostazioni", { chiave: "formazione2Touched:" + friendlyId }, { valore: "1" }).catch(() => {});
+    if (!wasTouched && copied && Object.keys(copied).length > 0) {
+      window.rows.remove("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2" }).catch(() => {});
+      Object.keys(copied).forEach((slotId) => {
+        window.rows.insert("Formazioni", { fixtureId: friendlyId, tipo: "amichevole", mappa: "2", slotId, playerId: copied[slotId] }).catch(() => {});
+      });
     }
   }
 
@@ -1690,12 +1739,14 @@ function GironeATracker() {
   function addTeamVoto(fixtureId) {
     const d = teamVotoDraft[fixtureId];
     if (!voterName || !d || !d.voto) return;
+    const id = Date.now().toString();
     setDetailsShared((prev) => {
       const cur = prev[fixtureId] || {};
       const list = cur.votoSquadra || [];
-      return { ...prev, [fixtureId]: { ...cur, votoSquadra: [...list, { id: Date.now().toString(), autore: voterName, voto: d.voto, nota: d.nota || "" }] } };
+      return { ...prev, [fixtureId]: { ...cur, votoSquadra: [...list, { id, autore: voterName, voto: d.voto, nota: d.nota || "" }] } };
     });
     setTeamVotoDraft((prev) => ({ ...prev, [fixtureId]: { voto: "", nota: "" } }));
+    window.rows.insert("VotoSquadra", { id, fixtureId, tipo: tipoDaFixtureId(fixtureId), voto: d.voto, nota: d.nota || "", autore: voterName }).catch(() => {});
   }
 
   function removeTeamVoto(fixtureId, id) {
@@ -1703,6 +1754,7 @@ function GironeATracker() {
       const cur = prev[fixtureId] || {};
       return { ...prev, [fixtureId]: { ...cur, votoSquadra: (cur.votoSquadra || []).filter((v) => v.id !== id) } };
     });
+    window.rows.remove("VotoSquadra", { id }).catch(() => {});
   }
 
   function startEditTeamVoto(fixtureId, v) {
@@ -1713,26 +1765,35 @@ function GironeATracker() {
   function saveEditTeamVoto(fixtureId, id) {
     const d = teamVotoDraft[`edit-${fixtureId}`];
     if (!d || !d.voto) return;
+    let autoreRiga = voterName;
     setDetailsShared((prev) => {
       const cur = prev[fixtureId] || {};
-      const list = (cur.votoSquadra || []).map((v) => (v.id === id ? { ...v, voto: d.voto, nota: d.nota || "" } : v));
+      const list = (cur.votoSquadra || []).map((v) => {
+        if (v.id !== id) return v;
+        autoreRiga = v.autore;
+        return { ...v, voto: d.voto, nota: d.nota || "" };
+      });
       return { ...prev, [fixtureId]: { ...cur, votoSquadra: list } };
     });
     setEditingTeamVoto(null);
+    window.rows.upsert("VotoSquadra", { id }, { fixtureId, tipo: tipoDaFixtureId(fixtureId), voto: d.voto, nota: d.nota || "", autore: autoreRiga }).catch(() => {});
   }
 
   function addTeamVotoF(friendlyId) {
     const d = teamVotoDraftF[friendlyId];
     if (!voterName || !d || !d.voto) return;
+    const id = Date.now().toString();
     setFriendlyTeamVoto((prev) => {
       const list = prev[friendlyId] || [];
-      return { ...prev, [friendlyId]: [...list, { id: Date.now().toString(), autore: voterName, voto: d.voto, nota: d.nota || "" }] };
+      return { ...prev, [friendlyId]: [...list, { id, autore: voterName, voto: d.voto, nota: d.nota || "" }] };
     });
     setTeamVotoDraftF((prev) => ({ ...prev, [friendlyId]: { voto: "", nota: "" } }));
+    window.rows.insert("VotoSquadra", { id, fixtureId: friendlyId, tipo: "amichevole", voto: d.voto, nota: d.nota || "", autore: voterName }).catch(() => {});
   }
 
   function removeTeamVotoF(friendlyId, id) {
     setFriendlyTeamVoto((prev) => ({ ...prev, [friendlyId]: (prev[friendlyId] || []).filter((v) => v.id !== id) }));
+    window.rows.remove("VotoSquadra", { id }).catch(() => {});
   }
 
   function startEditTeamVotoF(friendlyId, v) {
@@ -1743,11 +1804,17 @@ function GironeATracker() {
   function saveEditTeamVotoF(friendlyId, id) {
     const d = teamVotoDraftF[`edit-${friendlyId}`];
     if (!d || !d.voto) return;
+    let autoreRiga = voterName;
     setFriendlyTeamVoto((prev) => ({
       ...prev,
-      [friendlyId]: (prev[friendlyId] || []).map((v) => (v.id === id ? { ...v, voto: d.voto, nota: d.nota || "" } : v)),
+      [friendlyId]: (prev[friendlyId] || []).map((v) => {
+        if (v.id !== id) return v;
+        autoreRiga = v.autore;
+        return { ...v, voto: d.voto, nota: d.nota || "" };
+      }),
     }));
     setEditingTeamVotoF(null);
+    window.rows.upsert("VotoSquadra", { id }, { fixtureId: friendlyId, tipo: "amichevole", voto: d.voto, nota: d.nota || "", autore: autoreRiga }).catch(() => {});
   }
 
   function renderCampionatoRow(fx, metaLabel, statusColor) {
