@@ -120,7 +120,7 @@
   // resta definito ma non è più chiamato da nessuna parte del Tracker: nessun blob condiviso residuo. ---
   window.rows = {
     list: async function (sheet) {
-      const res = await fetchWithRetry(apiUrl + "?action=list&sheet=" + encodeURIComponent(sheet), {}, 2);
+      const res = await fetchWithRetry(apiUrl + "?action=list&sheet=" + encodeURIComponent(sheet), {}, 3);
       // null = richiesta fallita (non sappiamo se il foglio è vuoto o no: NON dedurre nulla).
       // [] = richiesta riuscita e il foglio è davvero vuoto.
       if (!res) return null;
@@ -347,8 +347,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "1.6";
-const TRACKER_VERSION_DATE = "02/09/2026@15.10";
+const TRACKER_VERSION = "1.8";
+const TRACKER_VERSION_DATE = "02/09/2026@17.30";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -1868,7 +1868,7 @@ function GironeATracker() {
             {canOpenDetails && (
               <button onClick={() => setExpanded((p) => ({ ...p, [fx.id]: !p[fx.id] }))}
                 style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                {isOpen ? "chiudi dettagli" : "dettagli partita"}
+                {isOpen ? "chiudi dettagli" : "Dettagli"}
               </button>
             )}
             {played ? (
@@ -2183,7 +2183,7 @@ function GironeATracker() {
               {canOpenDetails && (
                 <button onClick={() => setExpandedFriendly((p) => ({ ...p, [f.id]: !p[f.id] }))}
                   style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                  {isOpen ? "chiudi" : "commenti e voti"}
+                  {isOpen ? "chiudi dettagli" : "Dettagli"}
                 </button>
               )}
               <button onClick={() => removeFriendly(f.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 16 }}>×</button>
