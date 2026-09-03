@@ -13,8 +13,6 @@
   html, body { margin: 0; padding: 0; background: #f7f4ec; font-family: system-ui, sans-serif; }
   #app-root { max-width: 720px; margin: 0 auto; min-height: 100vh; }
   #loading { max-width: 720px; margin: 40px auto; padding: 20px; color: #6b6b63; text-align: center; }
-  #save-error-banner { position: fixed; top: 0; left: 0; right: 0; background: #c8102e; color: #fff; padding: 10px 14px; text-align: center; font-family: system-ui, sans-serif; font-size: 13px; z-index: 9999; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-  #save-error-banner button { margin-left: 10px; background: #fff; color: #c8102e; border: none; padding: 4px 12px; border-radius: 3px; cursor: pointer; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -43,14 +41,62 @@
     return null;
   }
 
-  function showSaveError(key) {
-    let banner = document.getElementById("save-error-banner");
-    if (banner) return;
-    banner = document.createElement("div");
-    banner.id = "save-error-banner";
-    banner.innerHTML = "⚠️ Salvataggio non riuscito" + (key ? " (" + key + ")" : "") + ". Controlla la connessione e riprova l'operazione. <button id=\"save-error-dismiss\">OK</button>";
-    document.body.appendChild(banner);
-    document.getElementById("save-error-dismiss").onclick = function () { banner.remove(); };
+  // Punto 5 (Vers. 2.2): niente più banner a piena larghezza per ogni singolo salvataggio fallito
+  // (fetchWithRetry ha già ritentato 3 volte in automatico prima di arrivare qui). Un piccolo
+  // indicatore in basso a destra, cliccabile, con un pulsante "Riprova tutto" che rilancia
+  // esattamente le stesse operazioni fallite.
+  window.__failedSaves = [];
+  function registerFailedSave(sheet, retryFn) {
+    window.__failedSaves.push({ id: Date.now() + Math.random(), sheet: sheet, retryFn: retryFn });
+    renderSaveErrorIndicator();
+  }
+  function renderSaveErrorIndicator() {
+    let el = document.getElementById("save-error-indicator");
+    const n = window.__failedSaves.length;
+    if (n === 0) {
+      if (el) el.remove();
+      const panel = document.getElementById("save-error-panel");
+      if (panel) panel.remove();
+      return;
+    }
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "save-error-indicator";
+      el.style.cssText = "position:fixed;bottom:16px;right:16px;z-index:9999;background:#c8102e;color:#fff;padding:8px 14px;border-radius:20px;font-family:system-ui,sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);";
+      el.onclick = toggleSaveErrorPanel;
+      document.body.appendChild(el);
+    }
+    el.textContent = "⚠️ " + n + (n === 1 ? " modifica non salvata" : " modifiche non salvate");
+  }
+  function toggleSaveErrorPanel() {
+    const esistente = document.getElementById("save-error-panel");
+    if (esistente) { esistente.remove(); return; }
+    const panel = document.createElement("div");
+    panel.id = "save-error-panel";
+    panel.style.cssText = "position:fixed;bottom:60px;right:16px;z-index:9999;background:#fff;border:2px solid #c8102e;border-radius:8px;padding:12px;max-width:280px;font-family:system-ui,sans-serif;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,0.3);";
+    const lista = window.__failedSaves.map(function (f) { return "• " + f.sheet; }).join("<br/>");
+    panel.innerHTML = "<div style=\"font-weight:700;margin-bottom:6px;color:#c8102e;\">Modifiche non salvate</div>" +
+      "<div style=\"margin-bottom:10px;color:#333;\">" + lista + "</div>" +
+      "<button id=\"retry-all-saves-btn\" style=\"background:#c8102e;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-weight:600;width:100%;\">Riprova tutto</button>";
+    document.body.appendChild(panel);
+    document.getElementById("retry-all-saves-btn").onclick = retryAllFailedSaves;
+  }
+  async function retryAllFailedSaves() {
+    const daRiprovare = window.__failedSaves.slice();
+    window.__failedSaves = [];
+    renderSaveErrorIndicator();
+    for (const f of daRiprovare) {
+      await f.retryFn();
+    }
+  }
+
+  // Punto 1 (Vers. 2.2): data di oggi VERA (fuso orario del dispositivo), non più congelata.
+  function todayISO() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + day;
   }
 
   // Fase 3: banner dedicato per un fallimento nel CARICAMENTO iniziale di Rosa/Amichevoli/Risultati
@@ -67,58 +113,24 @@
     document.getElementById("load-error-retry").onclick = function () { window.location.reload(); };
   }
 
-  window.storage = {
-    get: async function (key) {
-      const res = await fetchWithRetry(apiUrl + "?key=" + encodeURIComponent(key), {}, 2);
-      if (!res) return null;
-      try {
-        const data = await res.json();
-        if (data.value === null || data.value === undefined) return null;
-        return { key: key, value: data.value };
-      } catch (e) {
-        return null;
-      }
-    },
-    set: async function (key, value) {
-      const res = await fetchWithRetry(apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ key: key, value: value }),
-      }, 3);
-      if (!res) {
-        showSaveError(key);
-        return null;
-      }
-      try {
-        const data = await res.json();
-        if (data && data.ok) {
-          return { key: key, value: value };
-        }
-        showSaveError(key);
-        return null;
-      } catch (e) {
-        return { key: key, value: value };
-      }
-    },
-    // Legge TUTTE le chiavi in un'unica richiesta di rete (richiede lo script Apps Script aggiornato con ?bulk=1).
-    // Ritorna { chiave: valoreGrezzoStringificato, ... } oppure null se non disponibile.
-    getBulk: async function () {
-      const res = await fetchWithRetry(apiUrl + "?bulk=1", {}, 2);
-      if (!res) return null;
-      try {
-        const json = await res.json();
-        if (!json || json.ok !== true || !json.data) return null;
-        return json.data;
-      } catch (e) {
-        return null;
-      }
-    },
-  };
-
   // --- Fase 3 completa: comunicazione con tutti i fogli "a righe" (Rosa, Amichevoli, RisultatiUfficiali,
-  // Voti, Marcatori, VotoSquadra, Convocati, Formazioni, Moduli, Impostazioni). window.storage (sopra)
-  // resta definito ma non è più chiamato da nessuna parte del Tracker: nessun blob condiviso residuo. ---
+  // Voti, Marcatori, VotoSquadra, Convocati, Formazioni, Moduli, Impostazioni, CalendarioCampionato,
+  // CalendarioCoppa). window.storage (il vecchio blob chiave-valore) è stato tolto: era già morto,
+  // nessuna parte del Tracker lo chiamava più. ---
   window.rows = {
+    // Punto 3 (Vers. 2.2): UNA SOLA richiesta di rete per tutti i 12 fogli, invece di 12 separate.
+    // Vale solo per il caricamento iniziale (i singoli salvataggi restano mirati al foglio giusto).
+    listAll: async function () {
+      const res = await fetchWithRetry(apiUrl + "?action=listAll", {}, 3);
+      if (!res) return null;
+      try {
+        const data = await res.json();
+        if (data && data.ok && data.sheets) return data.sheets;
+        return null;
+      } catch (e) {
+        return null;
+      }
+    },
     list: async function (sheet) {
       const res = await fetchWithRetry(apiUrl + "?action=list&sheet=" + encodeURIComponent(sheet), {}, 3);
       // null = richiesta fallita (non sappiamo se il foglio è vuoto o no: NON dedurre nulla).
@@ -138,11 +150,11 @@
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ action: "insert", sheet: sheet, valori: valori }),
       }, 3);
-      if (!res) { showSaveError(sheet); return null; }
+      if (!res) { registerFailedSave(sheet, () => window.rows.insert(sheet, valori)); return null; }
       try {
         const data = await res.json();
         if (data && data.ok) return data.row;
-        showSaveError(sheet);
+        registerFailedSave(sheet, () => window.rows.insert(sheet, valori));
         return null;
       } catch (e) {
         return null;
@@ -154,11 +166,11 @@
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ action: "upsert", sheet: sheet, match: match, valori: valori }),
       }, 3);
-      if (!res) { showSaveError(sheet); return null; }
+      if (!res) { registerFailedSave(sheet, () => window.rows.upsert(sheet, match, valori)); return null; }
       try {
         const data = await res.json();
         if (data && data.ok) return data.row;
-        showSaveError(sheet);
+        registerFailedSave(sheet, () => window.rows.upsert(sheet, match, valori));
         return null;
       } catch (e) {
         return null;
@@ -170,10 +182,10 @@
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ action: "delete", sheet: sheet, match: match }),
       }, 3);
-      if (!res) { showSaveError(sheet); return false; }
+      if (!res) { registerFailedSave(sheet, () => window.rows.remove(sheet, match)); return false; }
       try {
         const data = await res.json();
-        if (!data || !data.ok) showSaveError(sheet);
+        if (!data || !data.ok) registerFailedSave(sheet, () => window.rows.remove(sheet, match));
         return !!(data && data.ok);
       } catch (e) {
         return false;
@@ -347,8 +359,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "1.9";
-const TRACKER_VERSION_DATE = "02/09/2026@17.45";
+const TRACKER_VERSION = "2.2";
+const TRACKER_VERSION_DATE = "03/09/2026@14.56";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -435,12 +447,19 @@ function buildRounds() {
   return rounds;
 }
 
-const ROUNDS = buildRounds();
+// Task 2 (02/09/2026): ROUNDS non è più una costante fissa qui, diventa stato dentro il
+// componente (vedi useState più sotto), inizializzata con lo stesso identico buildRounds()
+// di sempre e poi eventualmente sovrascritta dal foglio "CalendarioCampionato" al caricamento.
 
 // Coppa Lombardia Allievi U17 Elite - Girone 9 (fase a gironi)
 const COPPA_GIRONE = "9";
 const COPPA_TEAMS = ["Villa", "Enotria 1908", "Cimiano Calcio"];
-const COPPA_FIXTURES = [
+// Task 2 (02/09/2026): questi restano solo come fallback locale, usato SOLO se il foglio
+// "CalendarioCampionato"/"CalendarioCoppa" risulta ancora vuoto (es. prima del seed una tantum
+// su Code.gs, o richiesta di rete fallita). In condizioni normali ROUNDS/COPPA_FIXTURES (stato,
+// dentro il componente) arrivano dal foglio, così il calendario si aggiorna stagione per stagione
+// senza più toccare questo file.
+const COPPA_FIXTURES_DEFAULT = [
   { id: "coppa9-1", data: "2026-09-06", ora: "10:15", home: "Villa", away: "Enotria 1908" },
   { id: "coppa9-2", data: "2026-09-16", ora: "20:00", home: "Enotria 1908", away: "Cimiano Calcio" },
   { id: "coppa9-3", data: "2026-09-30", ora: "20:00", home: "Cimiano Calcio", away: "Villa" },
@@ -469,6 +488,12 @@ function GironeATracker() {
   const [newVoterDraft, setNewVoterDraft] = useState("");
   const logoClickCountRef = useRef(0);
   const logoClickTimerRef = useRef(null);
+  // Punto 2 (Vers. 2.2): specchio SINCRONO dei convocati per partita, aggiornato istantaneamente
+  // ad ogni click (non aspetta il giro di re-render di React come lo stato normale). Serve a evitare
+  // che due click ravvicinati sullo stesso giocatore leggano entrambi lo stato "vecchio" e producano
+  // due inserimenti invece di un inserimento + una rimozione (il bug dei convocati doppi).
+  const convocatiSyncRef = useRef({}); // campionato/coppa: { [fixtureId]: { [playerId]: true } }
+  const convocatiSyncRefF = useRef({}); // amichevoli
   const [friendlies, setFriendlies] = useState([]); // CONDIVISO (senza voti)
   const [friendlyVoti, setFriendlyVoti] = useState({}); // { friendlyId: [voti] } — CONDIVISO, ogni voto etichettato con l'autore
   const [friendlyMarcatori, setFriendlyMarcatori] = useState({}); // { friendlyId: [marcatori] } — CONDIVISO
@@ -489,9 +514,13 @@ function GironeATracker() {
   useEffect(() => {
     if (loadCriticalError) showLoadError();
   }, [loadCriticalError]);
+  // Task 2: ROUNDS/COPPA_FIXTURES partono uguali a sempre (calcolo locale istantaneo, zero attesa),
+  // e vengono sovrascritti dal foglio "CalendarioCampionato"/"CalendarioCoppa" DOPO il caricamento,
+  // solo se quel foglio contiene righe. Se il foglio è vuoto o la richiesta fallisce, restano questi.
+  const [ROUNDS, setROUNDS] = useState(() => buildRounds());
+  const [COPPA_FIXTURES, setCOPPA_FIXTURES] = useState(() => COPPA_FIXTURES_DEFAULT);
   const [roundIdx, setRoundIdx] = useState(() => {
-    const today = "2026-08-31";
-    const i = ROUNDS.findIndex((r) => r.data >= today);
+    const i = ROUNDS.findIndex((r) => r.data >= todayISO());
     return i === -1 ? 0 : i;
   });
   const [draft, setDraft] = useState({});
@@ -534,29 +563,44 @@ function GironeATracker() {
         if (vn) setVoterNameState(JSON.parse(vn));
       } catch (e) {}
 
-      // --- Fase 3 completa: tutto arriva dai fogli "a righe", nessun blob key-value più in gioco ---
-      const [
-        rosaRows, amichevoliRows, risultatiRows,
-        votiRows, marcatoriRows, votoSquadraRows, convocatiRows, formazioniRows, moduliRows, impostazioniRows,
-      ] = await Promise.all([
-        window.rows.list("Rosa"),
-        window.rows.list("Amichevoli"),
-        window.rows.list("RisultatiUfficiali"),
-        window.rows.list("Voti"),
-        window.rows.list("Marcatori"),
-        window.rows.list("VotoSquadra"),
-        window.rows.list("Convocati"),
-        window.rows.list("Formazioni"),
-        window.rows.list("Moduli"),
-        window.rows.list("Impostazioni"),
-      ]);
+      // --- Fase 3 completa + Punto 3 (Vers. 2.2): tutto arriva in UNA sola richiesta di rete
+      // (window.rows.listAll), non più 12 separate — stessa forma dei dati di prima per ciascun foglio.
+      const tutti = await window.rows.listAll();
+      const get = (nome) => (tutti ? tutti[nome] || [] : null);
+      const rosaRows = get("Rosa"), amichevoliRows = get("Amichevoli"), risultatiRows = get("RisultatiUfficiali");
+      const votiRows = get("Voti"), marcatoriRows = get("Marcatori"), votoSquadraRows = get("VotoSquadra");
+      const convocatiRows = get("Convocati"), formazioniRows = get("Formazioni"), moduliRows = get("Moduli");
+      const impostazioniRows = get("Impostazioni");
+      const calendarioCampionatoRows = get("CalendarioCampionato"), calendarioCoppaRows = get("CalendarioCoppa");
 
-      // Se una qualsiasi di queste richieste è fallita (null, non "vuota"), non si deve mai arrivare
-      // a salvare: lo stato React resterebbe ai valori di default e un salvataggio successivo, anche
-      // minimo, scriverebbe sopra ai dati veri sul foglio. Vedi loadCriticalError più sotto: blocca
-      // ogni scrittura per l'intera sessione finché non si ricarica la pagina.
-      const listeCritiche = [rosaRows, amichevoliRows, risultatiRows, votiRows, marcatoriRows, votoSquadraRows, convocatiRows, formazioniRows, moduliRows, impostazioniRows];
-      if (listeCritiche.some((l) => l === null)) setLoadCriticalError(true);
+      // Se la richiesta è fallita (tutti === null), non si deve mai arrivare a salvare: lo stato React
+      // resterebbe ai valori di default e un salvataggio successivo, anche minimo, scriverebbe sopra
+      // ai dati veri sul foglio. Vedi loadCriticalError più sotto: blocca ogni scrittura per l'intera
+      // sessione finché non si ricarica la pagina. Il calendario (Campionato/Coppa) ha comunque un
+      // fallback sicuro (buildRounds()/COPPA_FIXTURES_DEFAULT) indipendente da questo controllo.
+      if (tutti === null) setLoadCriticalError(true);
+
+      // --- CALENDARIO CAMPIONATO/COPPA (Task 2) ---
+      // Sovrascrive ROUNDS/COPPA_FIXTURES SOLO se il foglio ha davvero righe (già seminato).
+      // Foglio vuoto o richiesta fallita: nessuna azione, restano i valori hardcoded di partenza.
+      if (calendarioCampionatoRows && calendarioCampionatoRows.length) {
+        const byKey = {};
+        calendarioCampionatoRows.forEach((r) => {
+          const key = String(r.giornata) + (r.half === "ritorno" ? "R" : "A");
+          if (!byKey[key]) byKey[key] = { key, giornata: Number(r.giornata), half: r.half, data: r.data, matches: [] };
+          byKey[key].matches.push({ id: r.id, home: r.home, away: r.away });
+        });
+        const rebuilt = Object.values(byKey).sort((x, y) => x.data.localeCompare(y.data));
+        setROUNDS(rebuilt);
+        const i = rebuilt.findIndex((r) => r.data >= todayISO());
+        setRoundIdx(i === -1 ? 0 : i);
+      }
+      if (calendarioCoppaRows && calendarioCoppaRows.length) {
+        const rebuilt = calendarioCoppaRows
+          .map((r) => ({ id: r.id, data: r.data, ora: r.ora, home: r.home, away: r.away }))
+          .sort((a, b) => a.data.localeCompare(b.data));
+        setCOPPA_FIXTURES(rebuilt);
+      }
 
       // --- RISULTATI CAMPIONATO/COPPA ---
       if (risultatiRows) {
@@ -1331,22 +1375,23 @@ function GironeATracker() {
   function toggleConvocato(fixtureId, playerId) {
     playerId = String(playerId);
     const tipo = tipoDaFixtureId(fixtureId);
-    const cur = detailsShared[fixtureId] || {};
-    const eraConvocato = !!(cur.convocati || {})[playerId];
+    const cur = detailsShared[fixtureId] || {}; // per formazione/formazione2: qui il rischio di click-doppio è trascurabile
+    if (!convocatiSyncRef.current[fixtureId]) {
+      convocatiSyncRef.current[fixtureId] = { ...(cur.convocati || {}) };
+    }
+    const convocatiVeri = convocatiSyncRef.current[fixtureId];
+    const eraConvocato = !!convocatiVeri[playerId];
+    if (eraConvocato) delete convocatiVeri[playerId]; else convocatiVeri[playerId] = true;
+
     setDetailsShared((prev) => {
       const c = prev[fixtureId] || {};
-      const convocati = { ...(c.convocati || {}) };
       const formazione = { ...(c.formazione || {}) };
       const formazione2 = { ...(c.formazione2 || {}) };
-      if (convocati[playerId]) {
-        delete convocati[playerId];
-        // Se non è più convocato, va tolto anche da eventuali posizioni in campo
+      if (eraConvocato) {
         Object.keys(formazione).forEach((slotId) => { if (String(formazione[slotId]) === playerId) delete formazione[slotId]; });
         Object.keys(formazione2).forEach((slotId) => { if (String(formazione2[slotId]) === playerId) delete formazione2[slotId]; });
-      } else {
-        convocati[playerId] = true;
       }
-      return { ...prev, [fixtureId]: { ...c, convocati, formazione, formazione2 } };
+      return { ...prev, [fixtureId]: { ...c, convocati: { ...convocatiVeri }, formazione, formazione2 } };
     });
     if (eraConvocato) {
       (async () => {
@@ -1368,12 +1413,14 @@ function GironeATracker() {
     playerId = String(playerId);
     const formazioneCorrente = friendlyFormazione[friendlyId] || {};
     const formazione2Corrente = friendlyFormazione2[friendlyId] || {};
-    const eraConvocato = !!(friendlyConvocati[friendlyId] || {})[playerId];
-    setFriendlyConvocati((prev) => {
-      const cur = { ...(prev[friendlyId] || {}) };
-      if (cur[playerId]) delete cur[playerId]; else cur[playerId] = true;
-      return { ...prev, [friendlyId]: cur };
-    });
+    if (!convocatiSyncRefF.current[friendlyId]) {
+      convocatiSyncRefF.current[friendlyId] = { ...(friendlyConvocati[friendlyId] || {}) };
+    }
+    const convocatiVeri = convocatiSyncRefF.current[friendlyId];
+    const eraConvocato = !!convocatiVeri[playerId];
+    if (eraConvocato) delete convocatiVeri[playerId]; else convocatiVeri[playerId] = true;
+
+    setFriendlyConvocati((prev) => ({ ...prev, [friendlyId]: { ...convocatiVeri } }));
     setFriendlyFormazione((prev) => {
       const cur = { ...(prev[friendlyId] || {}) };
       let changed = false;
