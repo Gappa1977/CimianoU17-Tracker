@@ -10,14 +10,20 @@
 <script src="https://unpkg.com/recharts@2/umd/Recharts.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone@7/babel.min.js" crossorigin></script>
 <style>
-  html, body { margin: 0; padding: 0; background: #f7f4ec; font-family: system-ui, sans-serif; }
+  html, body { margin: 0; padding: 0; background: #0a0e17; font-family: system-ui, sans-serif; }
   #app-root { max-width: 720px; margin: 0 auto; min-height: 100vh; }
-  #loading { max-width: 720px; margin: 40px auto; padding: 20px; color: #6b6b63; text-align: center; }
+  #loading { max-width: 720px; margin: 40px auto; padding: 20px; color: #7c88a8; text-align: center; }
+  #loading .spinner {
+    width: 34px; height: 34px; margin: 0 auto 14px;
+    border: 3px solid #232c45; border-top-color: #ff2d4e; border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 
-<div id="app-root"><div id="loading">Caricamento in corso…</div></div>
+<div id="app-root"><div id="loading"><div class="spinner"></div>Caricamento in corso…</div></div>
 
 <script>
   // Storage collegato al Google Sheet condiviso, tramite Apps Script.
@@ -62,7 +68,7 @@
     if (!el) {
       el = document.createElement("div");
       el.id = "save-error-indicator";
-      el.style.cssText = "position:fixed;bottom:16px;right:16px;z-index:9999;background:#c8102e;color:#fff;padding:8px 14px;border-radius:20px;font-family:system-ui,sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);";
+      el.style.cssText = "position:fixed;bottom:16px;right:16px;z-index:9999;background:#ff2d4e;color:#fff;padding:8px 14px;border-radius:20px;font-family:system-ui,sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.5);";
       el.onclick = toggleSaveErrorPanel;
       document.body.appendChild(el);
     }
@@ -73,11 +79,11 @@
     if (esistente) { esistente.remove(); return; }
     const panel = document.createElement("div");
     panel.id = "save-error-panel";
-    panel.style.cssText = "position:fixed;bottom:60px;right:16px;z-index:9999;background:#fff;border:2px solid #c8102e;border-radius:8px;padding:12px;max-width:280px;font-family:system-ui,sans-serif;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,0.3);";
+    panel.style.cssText = "position:fixed;bottom:60px;right:16px;z-index:9999;background:#141b2e;border:2px solid #ff2d4e;border-radius:8px;padding:12px;max-width:280px;font-family:system-ui,sans-serif;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,0.5);color:#e7ecfa;";
     const lista = window.__failedSaves.map(function (f) { return "• " + f.sheet; }).join("<br/>");
-    panel.innerHTML = "<div style=\"font-weight:700;margin-bottom:6px;color:#c8102e;\">Modifiche non salvate</div>" +
-      "<div style=\"margin-bottom:10px;color:#333;\">" + lista + "</div>" +
-      "<button id=\"retry-all-saves-btn\" style=\"background:#c8102e;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-weight:600;width:100%;\">Riprova tutto</button>";
+    panel.innerHTML = "<div style=\"font-weight:700;margin-bottom:6px;color:#ff2d4e;\">Modifiche non salvate</div>" +
+      "<div style=\"margin-bottom:10px;color:#c9d2ea;\">" + lista + "</div>" +
+      "<button id=\"retry-all-saves-btn\" style=\"background:#ff2d4e;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-weight:600;width:100%;\">Riprova tutto</button>";
     document.body.appendChild(panel);
     document.getElementById("retry-all-saves-btn").onclick = retryAllFailedSaves;
   }
@@ -240,23 +246,26 @@ const NAME_MAP = {
 };
 
 const CIMIANO = "Cimiano Calcio";
-const RED = "#c8102e";
-const GREEN = "#0f2818";
-const CREAM = "#f7f4ec";
-const INK = "#1a1a1a";
-const MUTED = "#6b6b63";
-const LINE = "#ddd8c8";
-const TEAM_BOX_BG = "#e7f3e9";
-const TEAM_BOX_BORDER = "#bfe0c6";
-const PLAYER_BOX_BG = "#fdf6d8";
-const PLAYER_BOX_BORDER = "#eadfa0";
-const AUTHOR_BADGE_BG = "#e8e6df";
-const AUTHOR_BADGE_TEXT = "#5a5648";
-const SUB_COLOR = "#2b6cb0";
+const RED = "#ff2d4e";
+const GREEN = "#0f1526";
+const CREAM = "#0a0e17";
+const INK = "#e7ecfa";
+const MUTED = "#7c88a8";
+const LINE = "#232c45";
+const CYAN = "#29f1d1";
+const PANEL_BG = "#141b2e";
+const DISABLED_BG = "#2a3247";
+const TEAM_BOX_BG = "#122019";
+const TEAM_BOX_BORDER = "#2c4433";
+const PLAYER_BOX_BG = "#141b2e";
+const PLAYER_BOX_BORDER = "#2a3350";
+const AUTHOR_BADGE_BG = "#1b2338";
+const AUTHOR_BADGE_TEXT = "#9aa6c4";
+const SUB_COLOR = "#29f1d1";
 const STATUS_COLORS = {
-  played: { bg: "#e3f5e6", border: "#a9d8b1" },
-  next: { bg: "#fff6c4", border: "#e6d27a" },
-  upcoming: { bg: "#fbe1df", border: "#e8b3ae" },
+  played: { bg: "#0f2418", border: "#2f6b45" },
+  next: { bg: "#2a2410", border: "#8a7a2a" },
+  upcoming: { bg: "#2a1015", border: "#6b3a3a" },
 };
 
 // Moduli disponibili: ogni modulo ha 11 slot posizionati in percentuale sul campo
@@ -419,8 +428,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "2.7";
-const TRACKER_VERSION_DATE = "03/09/2026@22.21";
+const TRACKER_VERSION = "3.0";
+const TRACKER_VERSION_DATE = "03/09/2026@22.40";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -571,6 +580,12 @@ function GironeATracker() {
     return [...roster].sort((a, b) => lastName(a.nome).localeCompare(lastName(b.nome), "it", { sensitivity: "base" }));
   }, [roster]); // stessa lista, ordinata per COGNOME — usata ovunque al posto di "roster" nei render
   const [loaded, setLoaded] = useState(false);
+  const [loadingSlow, setLoadingSlow] = useState(false);
+  useEffect(() => {
+    if (loaded) return;
+    const t = setTimeout(() => setLoadingSlow(true), 15000);
+    return () => clearTimeout(t);
+  }, [loaded]);
   // Fase 3: true solo se il caricamento di Rosa/Amichevoli/RisultatiUfficiali è fallito per davvero
   // (non se erano semplicemente vuoti). In questo caso NON si inventano dati di default: si avvisa e basta.
   const [loadCriticalError, setLoadCriticalError] = useState(false);
@@ -1869,7 +1884,7 @@ function GironeATracker() {
     const otherEff = opts.otherMapEffective || {};
     // Punto 11: stile leggibile per le <option> della tendina aperta, senza toccare l'aspetto del
     // pallino chiuso (che resta piccolo e colorato, gestito dallo style del <select> stesso).
-    const optionStyle = { color: INK, background: "#fff", fontSize: 15 };
+    const optionStyle = { color: INK, background: PANEL_BG, fontSize: 15 };
     return (
       <div>
         {!compact && (
@@ -1921,17 +1936,27 @@ function GironeATracker() {
             const optionsForThisSlot = poolRoster.filter((rp) => String(rp.id) === playerId || !usedElsewhere.has(String(rp.id)));
             return (
               <div key={slot.id} style={{ position: "absolute", left: `${slot.x}%`, top: `${slot.y}%`, transform: "translate(-50%,-50%)", textAlign: "center" }}>
-                <select value={playerId} onChange={(e) => onChangeSlot(slot.id, e.target.value)}
-                  style={{
+                <div style={{ position: "relative", width: circleSize, height: circleSize, margin: "0 auto" }}>
+                  {/* Cerchio visibile: invariato, mostra solo il nome (o l'etichetta slot se vuoto) */}
+                  <div style={{
                     width: circleSize, height: circleSize, borderRadius: "50%", border: `2px solid ${player ? "#fff" : "rgba(255,255,255,0.6)"}`,
                     background: player ? circleColor : "rgba(255,255,255,0.15)", color: "#fff", fontSize: compact ? 8 : 10, fontWeight: 700,
-                    textAlign: "center", textAlignLast: "center", cursor: "pointer", appearance: "none", padding: 0,
+                    display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", pointerEvents: "none", overflow: "hidden",
                   }}>
-                  <option value="" style={optionStyle}>{slot.label}</option>
-                  {optionsForThisSlot.map((rp) => (
-                    <option key={rp.id} value={rp.id} style={optionStyle}>{firstName(rp.nome)}</option>
-                  ))}
-                </select>
+                    {player ? firstName(player.nome) : slot.label}
+                  </div>
+                  {/* Select invisibile sovrapposto: gestisce il tap/click, mostra nome+cognome su una riga nella lista */}
+                  <select value={playerId} onChange={(e) => onChangeSlot(slot.id, e.target.value)}
+                    style={{
+                      position: "absolute", inset: 0, width: circleSize, height: circleSize, borderRadius: "50%",
+                      opacity: 0, cursor: "pointer", appearance: "none", border: "none", padding: 0,
+                    }}>
+                    <option value="" style={optionStyle}>{slot.label}</option>
+                    {optionsForThisSlot.map((rp) => (
+                      <option key={rp.id} value={rp.id} style={optionStyle}>{rp.nome}</option>
+                    ))}
+                  </select>
+                </div>
                 {player && (
                   <div style={{ fontSize: labelFont, color: "#fff", marginTop: 2, maxWidth: compact ? 62 : 62, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {lastName(player.nome)}
@@ -2122,7 +2147,7 @@ function GironeATracker() {
     const isNextMatch = fx.id === nextCimianoMatchId;
     const canOpenDetails = isCimianoMatch && (played || isNextMatch);
     const sc = statusColor ? STATUS_COLORS[statusColor] : null;
-    const rowBg = sc ? sc.bg : (isCimianoMatch ? "#fdeceb" : "#fff");
+    const rowBg = sc ? sc.bg : (isCimianoMatch ? "#2a1620" : PANEL_BG);
     const rowBorder = sc ? sc.border : LINE;
     return (
       <div key={fx.id} style={{ background: rowBg, border: `1px solid ${rowBorder}`, borderRadius: 4, fontSize: 13 }}>
@@ -2159,7 +2184,7 @@ function GironeATracker() {
         </div>
 
         {isOpen && canOpenDetails && (
-          <div style={{ borderTop: `1px solid ${LINE}`, padding: "10px 12px", background: "#fff" }}>
+          <div style={{ borderTop: `1px solid ${LINE}`, padding: "10px 12px", background: PANEL_BG }}>
 
             {roster.length > 0 && (
               <div style={{ marginBottom: 14 }}>
@@ -2173,7 +2198,7 @@ function GironeATracker() {
                     return (
                       <button key={rp.id} onClick={() => { if (!blocked) toggleConvocato(fx.id, rp.id); }} disabled={blocked}
                         title={blocked ? "Limite di 20 convocati raggiunto (regolamento FIGC)" : undefined}
-                        style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: `1px solid ${LINE}`, background: isConv ? RED : "#fff", color: isConv ? "#fff" : (blocked ? "#c2beb0" : INK), cursor: blocked ? "not-allowed" : "pointer" }}>
+                        style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: `1px solid ${LINE}`, background: isConv ? RED : "#fff", color: isConv ? "#fff" : (blocked ? "#4a5570" : INK), cursor: blocked ? "not-allowed" : "pointer" }}>
                         {rp.nome}
                       </button>
                     );
@@ -2270,9 +2295,9 @@ function GironeATracker() {
                         <input value={ed.giocatore || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], giocatore: e.target.value } }))}
                           style={{ flex: 1, minWidth: 100, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
                         <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], colore: "giallo" } }))}
-                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 3, border: ed.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: "#fff", cursor: "pointer" }}>🟨</button>
+                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 3, border: ed.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟨</button>
                         <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], colore: "rosso" } }))}
-                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 3, border: ed.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: "#fff", cursor: "pointer" }}>🟥</button>
+                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 3, border: ed.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟥</button>
                         <input placeholder="Min." value={ed.minuto || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], minuto: e.target.value } }))}
                           style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
                         <button onClick={() => saveEditCard(fx.id, c.id)} style={{ background: RED, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>Salva</button>
@@ -2302,9 +2327,9 @@ function GironeATracker() {
                 <input placeholder="Giocatore" value={cd.giocatore || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], giocatore: e.target.value } }))}
                   style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
                 <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], colore: "giallo" } }))}
-                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 3, border: cd.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: "#fff", cursor: "pointer" }}>🟨</button>
+                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 3, border: cd.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟨</button>
                 <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], colore: "rosso" } }))}
-                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 3, border: cd.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: "#fff", cursor: "pointer" }}>🟥</button>
+                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 3, border: cd.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟥</button>
                 <input placeholder="Min." value={cd.minuto || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], minuto: e.target.value } }))}
                   style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
                 <button onClick={() => addCard(fx.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>+</button>
@@ -2423,7 +2448,7 @@ function GironeATracker() {
               <div style={{ display: "flex", gap: 6 }}>
                 <input placeholder="Nota (opz.)" value={rd.nota || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], nota: e.target.value } }))}
                   style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                <button onClick={() => addRating(fx.id)} disabled={!voterName} style={{ background: voterName ? RED : "#ccc", color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
+                <button onClick={() => addRating(fx.id)} disabled={!voterName} style={{ background: voterName ? RED : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
               </div>
               {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
             </div>
@@ -2476,7 +2501,7 @@ function GironeATracker() {
                   style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
                 <input placeholder="Nota (opz.)" value={tvd.nota || ""} onChange={(e) => setTeamVotoDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], nota: e.target.value } }))}
                   style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                <button onClick={() => addTeamVoto(fx.id)} disabled={!voterName} style={{ background: voterName ? RED : "#ccc", color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
+                <button onClick={() => addTeamVoto(fx.id)} disabled={!voterName} style={{ background: voterName ? RED : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
               </div>
               {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
             </div>
@@ -2511,7 +2536,7 @@ function GironeATracker() {
     const isNextMatch = f.id === nextCimianoMatchId;
     const canOpenDetails = hasScore || isNextMatch;
     const sc = statusColor ? STATUS_COLORS[statusColor] : null;
-    const rowBg = sc ? sc.bg : "#fff";
+    const rowBg = sc ? sc.bg : PANEL_BG;
     const rowBorder = sc ? sc.border : LINE;
     return (
       <div key={f.id} style={{ background: rowBg, border: `1px solid ${rowBorder}`, borderRadius: 4, fontSize: 13 }}>
@@ -2660,9 +2685,9 @@ function GironeATracker() {
                         <input value={ed.giocatore || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], giocatore: e.target.value } }))}
                           style={{ flex: 1, minWidth: 100, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
                         <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], colore: "giallo" } }))}
-                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 3, border: ed.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: "#fff", cursor: "pointer" }}>🟨</button>
+                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 3, border: ed.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟨</button>
                         <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], colore: "rosso" } }))}
-                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 3, border: ed.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: "#fff", cursor: "pointer" }}>🟥</button>
+                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 3, border: ed.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟥</button>
                         <input placeholder="Min." value={ed.minuto || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], minuto: e.target.value } }))}
                           style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
                         <button onClick={() => saveEditCardF(f.id, c.id)} style={{ background: RED, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>Salva</button>
@@ -2692,9 +2717,9 @@ function GironeATracker() {
                 <input placeholder="Giocatore" value={cdF.giocatore || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], giocatore: e.target.value } }))}
                   style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
                 <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], colore: "giallo" } }))}
-                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 3, border: cdF.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: "#fff", cursor: "pointer" }}>🟨</button>
+                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 3, border: cdF.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟨</button>
                 <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], colore: "rosso" } }))}
-                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 3, border: cdF.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: "#fff", cursor: "pointer" }}>🟥</button>
+                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 3, border: cdF.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟥</button>
                 <input placeholder="Min." value={cdF.minuto || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], minuto: e.target.value } }))}
                   style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
                 <button onClick={() => addCardF(f.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>+</button>
@@ -2812,7 +2837,7 @@ function GironeATracker() {
             <div style={{ display: "flex", gap: 6 }}>
               <input placeholder="Nota (opz.)" value={rd.nota || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], nota: e.target.value } }))}
                 style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-              <button onClick={() => addRatingFriendly(f.id)} disabled={!voterName} style={{ background: voterName ? RED : "#ccc", color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
+              <button onClick={() => addRatingFriendly(f.id)} disabled={!voterName} style={{ background: voterName ? RED : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
             </div>
             {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
             <div style={{ marginBottom: 14 }}>
@@ -2864,7 +2889,7 @@ function GironeATracker() {
                   style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
                 <input placeholder="Nota (opz.)" value={tvdF.nota || ""} onChange={(e) => setTeamVotoDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], nota: e.target.value } }))}
                   style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                <button onClick={() => addTeamVotoF(f.id)} disabled={!voterName} style={{ background: voterName ? RED : "#ccc", color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
+                <button onClick={() => addTeamVotoF(f.id)} disabled={!voterName} style={{ background: voterName ? RED : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
               </div>
               {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
             </div>
@@ -2879,7 +2904,14 @@ function GironeATracker() {
       <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',sans-serif", background: CREAM, minHeight: "100vh", color: MUTED, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
         <img src={CIMIANO_LOGO} alt="Cimiano Calcio" style={{ width: 140, height: 140, objectFit: "contain" }} />
         <div style={{ fontSize: 22, fontWeight: 800, color: INK, letterSpacing: 0.5, textAlign: "center" }}>CIMIANO U17 Tracker</div>
+        <div style={{ width: 36, height: 36, border: `3px solid ${LINE}`, borderTopColor: RED, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
         <div style={{ fontSize: 15 }}>Caricamento in corso…</div>
+        {loadingSlow && (
+          <div style={{ fontSize: 12, color: MUTED, maxWidth: 260, textAlign: "center" }}>
+            Ci sta mettendo più del solito, attendi ancora un po'…
+          </div>
+        )}
+        <style>{"@keyframes spin { to { transform: rotate(360deg); } }"}</style>
       </div>
     );
   }
@@ -2897,31 +2929,31 @@ function GironeATracker() {
         .score-input { width: 40px; padding: 5px; border: 1px solid ${LINE}; text-align: center; border-radius: 3px; box-sizing: border-box; }
       `}</style>
 
-      <div style={{ background: GREEN, color: CREAM, padding: "22px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+      <div style={{ background: GREEN, color: CREAM, padding: "22px 20px 30px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, clipPath: "polygon(0 0, 100% 0, 100% 88%, 0 100%)" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="body-font" style={{ fontSize: 12, letterSpacing: 1, color: "#9fb5a5" }}>
+          <div className="body-font" style={{ fontSize: 11, letterSpacing: 2.5, color: "#8a94b8", textTransform: "uppercase" }}>
             Girone A · Allievi U17 Élite · Lombardia 2026/27
           </div>
-          <div style={{ fontSize: 30, fontWeight: 800, marginTop: 2, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 30, fontWeight: 800, marginTop: 4, letterSpacing: 0.5, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
             Cimiano Calcio
             {cimianoRow && cimianoRow.pg > 0 && (
-              <span style={{ fontSize: 15, fontWeight: 500, color: RED, background: CREAM, padding: "2px 8px", borderRadius: 3 }}>
-                {cimianoPos}° posto · {cimianoRow.pt} pt
+              <span style={{ fontSize: 14, fontWeight: 700, color: CYAN, background: "rgba(41,241,209,0.12)", border: `1px solid ${CYAN}`, padding: "2px 9px", letterSpacing: 0.5, clipPath: "polygon(6px 0,100% 0,100% 100%,0 100%)" }}>
+                {cimianoPos}° POSTO · {cimianoRow.pt} PT
               </span>
             )}
           </div>
-          <div className="body-font" style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 4 }}>
+          <div className="body-font" style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 4, letterSpacing: 1 }}>
             Vers. {TRACKER_VERSION} del {TRACKER_VERSION_DATE}
           </div>
           {formaRecente.length > 0 && (
             <div className="body-font" style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
-              <span style={{ fontSize: 11, color: "#9fb5a5", textTransform: "uppercase", letterSpacing: 0.5 }}>Forma:</span>
+              <span style={{ fontSize: 11, color: "#8a94b8", textTransform: "uppercase", letterSpacing: 1 }}>Forma:</span>
               {formaRecente.map((m, i) => (
                 <span key={i} title={`${m.esito === "V" ? "Vittoria" : m.esito === "P" ? "Sconfitta" : "Pareggio"} vs ${m.opponent} (${m.golFatti}-${m.golSubiti})`}
                   style={{
                     width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
                     fontSize: 11, fontWeight: 700, color: "#fff",
-                    background: m.esito === "V" ? "#3aa757" : m.esito === "P" ? "#d6483f" : "#9a9a9a",
+                    background: m.esito === "V" ? "#3ecf7a" : m.esito === "P" ? "#e6455f" : "#5a6580",
                   }}>
                   {m.esito}
                 </span>
@@ -2929,11 +2961,11 @@ function GironeATracker() {
             </div>
           )}
         </div>
-        <div style={{ background: CREAM, borderRadius: 10, padding: 8, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+        <div style={{ background: CREAM, border: `1px solid ${RED}`, borderRadius: 4, padding: 8, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
           <img src={CIMIANO_LOGO} alt="Cimiano Calcio" width="80" height="80" onClick={handleLogoClick}
-            style={{ display: "block", borderRadius: 6, objectFit: "cover", cursor: "pointer", userSelect: "none" }} />
+            style={{ display: "block", borderRadius: 4, objectFit: "cover", cursor: "pointer", userSelect: "none" }} />
           <select value={voterName} onChange={(e) => setVoterNameState(e.target.value)} className="body-font"
-            style={{ width: "100%", fontSize: 11, padding: "3px 4px", borderRadius: 4, border: `1px solid ${TEAM_BOX_BORDER}`, background: "#fff", color: INK, fontWeight: 600, textAlign: "center" }}>
+            style={{ width: "100%", fontSize: 11, padding: "3px 4px", borderRadius: 4, border: `1px solid ${TEAM_BOX_BORDER}`, background: PANEL_BG, color: INK, fontWeight: 600, textAlign: "center" }}>
             <option value="">Chi vota?</option>
             {[...VOTER_OPTIONS, ...voterOptionsExtra].map((name) => (
               <option key={name} value={name}>{name}</option>
@@ -2961,10 +2993,9 @@ function GironeATracker() {
           ["coppa", "Coppa Lombardia"],
         ].map(([key, label]) => (
           <button key={key} onClick={() => setMacroTab(key)} className="body-font"
-            style={{ flex: 1, padding: "10px 8px", border: "none", cursor: "pointer",
-              borderRadius: "6px 6px 0 0",
+            style={{ flex: 1, padding: "10px 8px", border: "none", borderBottom: macroTab === key ? `2px solid ${RED}` : "2px solid transparent", cursor: "pointer",
               background: macroTab === key ? CREAM : "rgba(255,255,255,0.08)",
-              fontWeight: 700, fontSize: 14, color: macroTab === key ? INK : "#c7d4cb" }}>
+              fontWeight: 700, fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: macroTab === key ? INK : "#5a6a8a" }}>
             {label}
           </button>
         ))}
@@ -2982,7 +3013,7 @@ function GironeATracker() {
           ].map(([key, label]) => (
             <button key={key} onClick={() => setCampSub(key)} className="body-font"
               style={{ padding: "6px 12px", border: "none", borderRadius: 14, cursor: "pointer",
-                background: campSub === key ? RED : "#fff",
+                background: campSub === key ? RED : PANEL_BG,
                 fontWeight: 600, fontSize: 12, color: campSub === key ? "#fff" : MUTED }}>
               {label}
             </button>
@@ -2993,7 +3024,7 @@ function GironeATracker() {
           ].map(([key, label]) => (
             <button key={key} onClick={() => setCoppaSub(key)} className="body-font"
               style={{ padding: "6px 12px", border: "none", borderRadius: 14, cursor: "pointer",
-                background: coppaSub === key ? RED : "#fff",
+                background: coppaSub === key ? RED : PANEL_BG,
                 fontWeight: 600, fontSize: 12, color: coppaSub === key ? "#fff" : MUTED }}>
               {label}
             </button>
@@ -3006,7 +3037,7 @@ function GironeATracker() {
           ].map(([key, label]) => (
             <button key={key} onClick={() => setStagSub(key)} className="body-font"
               style={{ padding: "6px 12px", border: "none", borderRadius: 14, cursor: "pointer",
-                background: stagSub === key ? RED : "#fff",
+                background: stagSub === key ? RED : PANEL_BG,
                 fontWeight: 600, fontSize: 12, color: stagSub === key ? "#fff" : MUTED }}>
               {label}
             </button>
@@ -3029,7 +3060,7 @@ function GironeATracker() {
               </thead>
               <tbody>
                 {standings.map((s, i) => (
-                  <tr key={s.name} style={{ background: s.name === CIMIANO ? "#fdeceb" : "transparent", fontWeight: s.name === CIMIANO ? 700 : 400 }}>
+                  <tr key={s.name} style={{ background: s.name === CIMIANO ? "#2a1620" : "transparent", fontWeight: s.name === CIMIANO ? 700 : 400 }}>
                     <td>{i + 1}</td>
                     <td style={{ color: s.name === CIMIANO ? RED : INK }}>{s.name}</td>
                     <td style={{ textAlign: "center" }}>{s.pg}</td>
@@ -3046,7 +3077,7 @@ function GironeATracker() {
             </table>
 
             {positionHistory.length > 1 && (
-              <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 4, padding: "12px 8px 4px", marginTop: 20 }}>
+              <div style={{ background: PANEL_BG, border: `1px solid ${LINE}`, borderRadius: 4, padding: "12px 8px 4px", marginTop: 20 }}>
                 <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, paddingLeft: 8 }}>
                   Andamento classifica Cimiano
                 </div>
@@ -3069,7 +3100,7 @@ function GironeATracker() {
             <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
               Aggiungi amichevole
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6, background: "#fff", padding: 12, borderRadius: 4, border: `1px solid ${LINE}` }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6, background: PANEL_BG, padding: 12, borderRadius: 4, border: `1px solid ${LINE}` }}>
               <input placeholder="Avversario" value={fForm.avversario} onChange={(e) => setFForm({ ...fForm, avversario: e.target.value })}
                 style={{ flex: 1, minWidth: 140, padding: 6, border: `1px solid ${LINE}` }} />
               <input type="date" value={fForm.data} onChange={(e) => setFForm({ ...fForm, data: e.target.value })}
@@ -3149,7 +3180,7 @@ function GironeATracker() {
         {macroTab === "stagione" && stagSub === "giocatori" && (
           <div className="body-font">
             {teamVotoChartData.length > 1 && (
-              <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 4, padding: "12px 8px 4px", marginBottom: 16 }}>
+              <div style={{ background: PANEL_BG, border: `1px solid ${LINE}`, borderRadius: 4, padding: "12px 8px 4px", marginBottom: 16 }}>
                 <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, paddingLeft: 8 }}>
                   Media voto squadra per partita
                 </div>
@@ -3159,7 +3190,7 @@ function GironeATracker() {
                     <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fontSize: 11, fill: MUTED }} />
                     <YAxis domain={[1, 10]} tick={{ fontSize: 11, fill: MUTED }} />
                     <Tooltip labelFormatter={fmtDate} />
-                    <ReferenceLine y={6} stroke="#8a8577" strokeDasharray="4 4" label={{ value: "sufficienza", position: "insideTopRight", fontSize: 10, fill: "#8a8577" }} />
+                    <ReferenceLine y={6} stroke={MUTED} strokeDasharray="4 4" label={{ value: "sufficienza", position: "insideTopRight", fontSize: 10, fill: MUTED }} />
                     <Line type="monotone" dataKey="voto" name="Media squadra" stroke={RED} strokeWidth={2} connectNulls
                       dot={{ r: 3 }} activeDot={{ r: 5 }} label={{ position: "top", fontSize: 11, fill: INK }} />
                   </LineChart>
@@ -3174,7 +3205,7 @@ function GironeATracker() {
               {playerStats.map((p) => {
                 const isOpen = !!expandedPlayer[p.name];
                 return (
-                  <div key={p.name} style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 4, fontSize: 13 }}>
+                  <div key={p.name} style={{ background: PANEL_BG, border: `1px solid ${LINE}`, borderRadius: 4, fontSize: 13 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", flexWrap: "wrap", gap: 6 }}>
                       <div>
                         <strong style={{ fontSize: 15 }}>{p.name}</strong>
@@ -3217,7 +3248,7 @@ function GironeATracker() {
                                   <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fontSize: 10, fill: MUTED }} />
                                   <YAxis domain={[1, 10]} tick={{ fontSize: 10, fill: MUTED }} />
                                   <Tooltip labelFormatter={fmtDate} formatter={(v) => [v.toFixed(1), "Voto"]} />
-                                  <ReferenceLine y={6} stroke="#8a8577" strokeDasharray="4 4" />
+                                  <ReferenceLine y={6} stroke={MUTED} strokeDasharray="4 4" />
                                   <Line type="monotone" dataKey="voto" stroke={RED} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }}
                                     label={{ position: "top", fontSize: 10, fill: INK }} />
                                 </LineChart>
@@ -3233,7 +3264,7 @@ function GironeATracker() {
                                 <PolarGrid stroke={LINE} />
                                 <PolarAngleAxis dataKey="skill" tick={{ fontSize: 10, fill: INK }} />
                                 <PolarRadiusAxis domain={[0, 10]} tick={{ fontSize: 9, fill: MUTED }} />
-                                <Radar dataKey="soglia" name="Sufficienza" stroke="#8a8577" strokeDasharray="4 4" fill="none" />
+                                <Radar dataKey="soglia" name="Sufficienza" stroke={MUTED} strokeDasharray="4 4" fill="none" />
                                 <Radar dataKey="valore" name="Media" stroke={RED} fill={RED} fillOpacity={0.35}
                                   label={{ fontSize: 10, fill: INK }} />
                                 <Tooltip formatter={(v) => [v.toFixed(1), "Media"]} />
@@ -3304,7 +3335,7 @@ function GironeATracker() {
 
         {macroTab === "stagione" && stagSub === "rosa" && (
           <div className="body-font">
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, background: "#fff", padding: 12, borderRadius: 4, border: `1px solid ${LINE}` }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, background: PANEL_BG, padding: 12, borderRadius: 4, border: `1px solid ${LINE}` }}>
               <input placeholder="Nome giocatore" value={rosterDraft.nome} onChange={(e) => setRosterDraft((p) => ({ ...p, nome: e.target.value }))}
                 style={{ flex: 1, minWidth: 140, padding: 6, border: `1px solid ${LINE}` }} />
               {editingRosterId ? (
@@ -3324,7 +3355,7 @@ function GironeATracker() {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {rosterSorted.map((rp) => (
-                  <div key={rp.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", padding: "8px 12px", border: `1px solid ${LINE}`, borderRadius: 4, fontSize: 13 }}>
+                  <div key={rp.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: PANEL_BG, padding: "8px 12px", border: `1px solid ${LINE}`, borderRadius: 4, fontSize: 13 }}>
                     <span>{rp.nome}</span>
                     <span style={{ display: "flex", gap: 10 }}>
                       <button onClick={() => startEditRoster(rp)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
@@ -3341,13 +3372,13 @@ function GironeATracker() {
           <div className="body-font">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 8, flexWrap: "wrap" }}>
               <button onClick={() => setRoundIdx((i) => Math.max(0, i - 1))} disabled={roundIdx === 0}
-                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: "#fff", borderRadius: 3, cursor: "pointer" }}>‹ Prec.</button>
+                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: PANEL_BG, borderRadius: 3, cursor: "pointer" }}>‹ Prec.</button>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontWeight: 700, fontSize: 16 }}>Giornata {round.giornata} · {round.half === "andata" ? "Andata" : "Ritorno"}</div>
                 <div style={{ fontSize: 12, color: MUTED }}>{fmtDate(round.data)}</div>
               </div>
               <button onClick={() => setRoundIdx((i) => Math.min(ROUNDS.length - 1, i + 1))} disabled={roundIdx === ROUNDS.length - 1}
-                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: "#fff", borderRadius: 3, cursor: "pointer" }}>Succ. ›</button>
+                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: PANEL_BG, borderRadius: 3, cursor: "pointer" }}>Succ. ›</button>
             </div>
 
             <select value={roundIdx} onChange={(e) => setRoundIdx(Number(e.target.value))}
@@ -3369,13 +3400,13 @@ function GironeATracker() {
           <div className="body-font">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 8, flexWrap: "wrap" }}>
               <button onClick={() => setRoundIdx((i) => Math.max(0, i - 1))} disabled={roundIdx === 0}
-                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: "#fff", borderRadius: 3, cursor: "pointer" }}>‹ Prec.</button>
+                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: PANEL_BG, borderRadius: 3, cursor: "pointer" }}>‹ Prec.</button>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontWeight: 700, fontSize: 16 }}>Giornata {round.giornata} · {round.half === "andata" ? "Andata" : "Ritorno"}</div>
                 <div style={{ fontSize: 12, color: MUTED }}>{fmtDate(round.data)}</div>
               </div>
               <button onClick={() => setRoundIdx((i) => Math.min(ROUNDS.length - 1, i + 1))} disabled={roundIdx === ROUNDS.length - 1}
-                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: "#fff", borderRadius: 3, cursor: "pointer" }}>Succ. ›</button>
+                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: PANEL_BG, borderRadius: 3, cursor: "pointer" }}>Succ. ›</button>
             </div>
 
             <select value={roundIdx} onChange={(e) => setRoundIdx(Number(e.target.value))}
@@ -3401,7 +3432,7 @@ function GironeATracker() {
               <div style={{ marginTop: 16 }}>
                 {bulkImportResult.matched.length > 0 && (
                   <div style={{ marginBottom: 10 }}>
-                    <div style={{ fontWeight: 700, fontSize: 12, color: "#2f855a", marginBottom: 4 }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: "#3ecf7a", marginBottom: 4 }}>
                       ✓ {bulkImportResult.matched.length} risultat{bulkImportResult.matched.length === 1 ? "o" : "i"} importat{bulkImportResult.matched.length === 1 ? "o" : "i"}
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -3445,7 +3476,7 @@ function GironeATracker() {
               </thead>
               <tbody>
                 {coppaStandings.map((s, i) => (
-                  <tr key={s.name} style={{ background: s.name === CIMIANO ? "#fdeceb" : "transparent", fontWeight: s.name === CIMIANO ? 700 : 400 }}>
+                  <tr key={s.name} style={{ background: s.name === CIMIANO ? "#2a1620" : "transparent", fontWeight: s.name === CIMIANO ? 700 : 400 }}>
                     <td>{i + 1}</td>
                     <td style={{ color: s.name === CIMIANO ? RED : INK }}>{s.name}</td>
                     <td style={{ textAlign: "center" }}>{s.pg}</td>
