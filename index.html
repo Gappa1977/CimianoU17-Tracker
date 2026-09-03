@@ -10,12 +10,12 @@
 <script src="https://unpkg.com/recharts@2/umd/Recharts.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone@7/babel.min.js" crossorigin></script>
 <style>
-  html, body { margin: 0; padding: 0; background: #0a0e17; font-family: system-ui, sans-serif; }
+  html, body { margin: 0; padding: 0; background: #f6f1e4; font-family: system-ui, sans-serif; }
   #app-root { max-width: 720px; margin: 0 auto; min-height: 100vh; }
-  #loading { max-width: 720px; margin: 40px auto; padding: 20px; color: #7c88a8; text-align: center; }
+  #loading { max-width: 720px; margin: 40px auto; padding: 20px; color: #6b6350; text-align: center; }
   #loading .spinner {
     width: 34px; height: 34px; margin: 0 auto 14px;
-    border: 3px solid #232c45; border-top-color: #ff2d4e; border-radius: 50%;
+    border: 3px solid #ddd8c8; border-top-color: #c8102e; border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -68,7 +68,7 @@
     if (!el) {
       el = document.createElement("div");
       el.id = "save-error-indicator";
-      el.style.cssText = "position:fixed;bottom:16px;right:16px;z-index:9999;background:#ff2d4e;color:#fff;padding:8px 14px;border-radius:20px;font-family:system-ui,sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.5);";
+      el.style.cssText = "position:fixed;bottom:16px;right:16px;z-index:9999;background:#c8102e;color:#fff;padding:8px 14px;border-radius:20px;font-family:system-ui,sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);";
       el.onclick = toggleSaveErrorPanel;
       document.body.appendChild(el);
     }
@@ -79,11 +79,11 @@
     if (esistente) { esistente.remove(); return; }
     const panel = document.createElement("div");
     panel.id = "save-error-panel";
-    panel.style.cssText = "position:fixed;bottom:60px;right:16px;z-index:9999;background:#141b2e;border:2px solid #ff2d4e;border-radius:8px;padding:12px;max-width:280px;font-family:system-ui,sans-serif;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,0.5);color:#e7ecfa;";
+    panel.style.cssText = "position:fixed;bottom:60px;right:16px;z-index:9999;background:#fff;border:2px solid #c8102e;border-radius:8px;padding:12px;max-width:280px;font-family:system-ui,sans-serif;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,0.3);";
     const lista = window.__failedSaves.map(function (f) { return "• " + f.sheet; }).join("<br/>");
-    panel.innerHTML = "<div style=\"font-weight:700;margin-bottom:6px;color:#ff2d4e;\">Modifiche non salvate</div>" +
-      "<div style=\"margin-bottom:10px;color:#c9d2ea;\">" + lista + "</div>" +
-      "<button id=\"retry-all-saves-btn\" style=\"background:#ff2d4e;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-weight:600;width:100%;\">Riprova tutto</button>";
+    panel.innerHTML = "<div style=\"font-weight:700;margin-bottom:6px;color:#c8102e;\">Modifiche non salvate</div>" +
+      "<div style=\"margin-bottom:10px;color:#333;\">" + lista + "</div>" +
+      "<button id=\"retry-all-saves-btn\" style=\"background:#c8102e;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-weight:600;width:100%;\">Riprova tutto</button>";
     document.body.appendChild(panel);
     document.getElementById("retry-all-saves-btn").onclick = retryAllFailedSaves;
   }
@@ -246,26 +246,26 @@ const NAME_MAP = {
 };
 
 const CIMIANO = "Cimiano Calcio";
-const RED = "#ff2d4e";
-const GREEN = "#0f1526";
-const CREAM = "#0a0e17";
-const INK = "#e7ecfa";
-const MUTED = "#7c88a8";
-const LINE = "#232c45";
-const CYAN = "#29f1d1";
-const PANEL_BG = "#141b2e";
-const DISABLED_BG = "#2a3247";
-const TEAM_BOX_BG = "#122019";
-const TEAM_BOX_BORDER = "#2c4433";
-const PLAYER_BOX_BG = "#141b2e";
-const PLAYER_BOX_BORDER = "#2a3350";
-const AUTHOR_BADGE_BG = "#1b2338";
-const AUTHOR_BADGE_TEXT = "#9aa6c4";
-const SUB_COLOR = "#29f1d1";
+const RED = "#c8102e";
+const GREEN = "#0f2818";
+const CREAM = "#f6f1e4";
+const INK = "#211d16";
+const MUTED = "#6b6350";
+const LINE = "#c9bfa0";
+const CYAN = "#2b6cb0";
+const PANEL_BG = "#fbf8ee";
+const DISABLED_BG = "#ccc";
+const TEAM_BOX_BG = "#e7f3e9";
+const TEAM_BOX_BORDER = "#bfe0c6";
+const PLAYER_BOX_BG = "#fdf6d8";
+const PLAYER_BOX_BORDER = "#eadfa0";
+const AUTHOR_BADGE_BG = "#e8e6df";
+const AUTHOR_BADGE_TEXT = "#5a5648";
+const SUB_COLOR = "#2b6cb0";
 const STATUS_COLORS = {
-  played: { bg: "#0f2418", border: "#2f6b45" },
-  next: { bg: "#2a2410", border: "#8a7a2a" },
-  upcoming: { bg: "#2a1015", border: "#6b3a3a" },
+  played: { bg: "#e3f5e6", border: "#a9d8b1" },
+  next: { bg: "#fff6c4", border: "#e6d27a" },
+  upcoming: { bg: "#fbe1df", border: "#e8b3ae" },
 };
 
 // Moduli disponibili: ogni modulo ha 11 slot posizionati in percentuale sul campo
@@ -389,6 +389,16 @@ function lastName(fullName) {
   return parts[parts.length - 1] || "";
 }
 
+// Trasforma un testo libero (es. nome avversario) in un pezzo di id leggibile e sicuro per il foglio:
+// solo lettere/numeri/trattini, senza accenti, max 24 caratteri. Usata per costruire l'id delle amichevoli.
+function slugify(s) {
+  return (s || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 24);
+}
+
 // Nome di battesimo = prima parola del nome completo (es. "Nicolò Lodi" -> "Nicolò"). Usato dentro il
 // pallino sulla mappa formazione, in coppia col cognome mostrato sotto (lastName).
 function firstName(fullName) {
@@ -428,8 +438,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.1";
-const TRACKER_VERSION_DATE = "03/09/2026@23.02";
+const TRACKER_VERSION = "3.3";
+const TRACKER_VERSION_DATE = "03/09/2026@23.35";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -1404,7 +1414,15 @@ function GironeATracker() {
 
   function addFriendly() {
     if (!fForm.avversario) return;
-    const id = Date.now().toString();
+    // Id leggibile nel foglio Google: data (senza trattini) + ora + avversario abbreviato.
+    // Es. "20260903-2000-CalcioLecco". Se manca la data (partita non ancora programmata con
+    // precisione) usa "sd" (senza data) al suo posto, così l'id resta comunque univoco e leggibile.
+    const dataPart = fForm.data ? fForm.data.replace(/-/g, "") : "sd";
+    const oraPart = fForm.ora ? fForm.ora.replace(":", "") : "";
+    const base = `${dataPart}${oraPart ? "-" + oraPart : ""}-${slugify(fForm.avversario) || "avversario"}`;
+    const existingIds = new Set(friendlies.map((f) => f.id));
+    let id = base, suffix = 2;
+    while (existingIds.has(id)) { id = `${base}-${suffix}`; suffix++; }
     const nuova = { id, avversario: fForm.avversario, golCimiano: fForm.golCimiano, golAvv: fForm.golAvv, data: fForm.data, ora: fForm.ora };
     setFriendlies((prev) => [...prev, nuova]);
     // Nota: il foglio "Amichevoli" (Fase 3) non ha più il campo "note" (spostato da tempo nel Voto Squadra).
@@ -2014,7 +2032,12 @@ function GironeATracker() {
   // --- ROSA SQUADRA ---
   function addRosterPlayer() {
     if (!rosterDraft.nome) return;
-    const id = Date.now().toString();
+    // Id leggibile nel foglio Google: slug del nome (es. "Nicolò Lodi" -> "nicolo-lodi").
+    // Se due giocatori hanno lo stesso nome (o lo stesso slug), aggiunge un suffisso numerico.
+    const base = slugify(rosterDraft.nome).toLowerCase() || "giocatore";
+    const existingIds = new Set(roster.map((p) => p.id));
+    let id = base, suffix = 2;
+    while (existingIds.has(id)) { id = `${base}-${suffix}`; suffix++; }
     setRoster((prev) => [...prev, { id, nome: rosterDraft.nome }]);
     window.rows.insert("Rosa", { id, nome: rosterDraft.nome }).catch(() => {});
     setRosterDraft({ nome: "" });
@@ -2147,7 +2170,7 @@ function GironeATracker() {
     const isNextMatch = fx.id === nextCimianoMatchId;
     const canOpenDetails = isCimianoMatch && (played || isNextMatch);
     const sc = statusColor ? STATUS_COLORS[statusColor] : null;
-    const rowBg = sc ? sc.bg : (isCimianoMatch ? "#2a1620" : PANEL_BG);
+    const rowBg = sc ? sc.bg : (isCimianoMatch ? "#fdeceb" : PANEL_BG);
     const rowBorder = sc ? sc.border : LINE;
     return (
       <div key={fx.id} style={{ background: rowBg, border: `1px solid ${rowBorder}`, borderRadius: 4, fontSize: 13 }}>
@@ -2198,7 +2221,7 @@ function GironeATracker() {
                     return (
                       <button key={rp.id} onClick={() => { if (!blocked) toggleConvocato(fx.id, rp.id); }} disabled={blocked}
                         title={blocked ? "Limite di 20 convocati raggiunto (regolamento FIGC)" : undefined}
-                        style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: `1px solid ${LINE}`, background: isConv ? RED : "#fff", color: isConv ? "#fff" : (blocked ? "#4a5570" : INK), cursor: blocked ? "not-allowed" : "pointer" }}>
+                        style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: `1px solid ${LINE}`, background: isConv ? RED : "#fff", color: isConv ? "#fff" : (blocked ? "#c2beb0" : INK), cursor: blocked ? "not-allowed" : "pointer" }}>
                         {rp.nome}
                       </button>
                     );
@@ -2931,13 +2954,13 @@ function GironeATracker() {
 
       <div style={{ background: GREEN, color: CREAM, padding: "22px 20px 30px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, clipPath: "polygon(0 0, 100% 0, 100% 88%, 0 100%)" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="body-font" style={{ fontSize: 11, letterSpacing: 2.5, color: "#8a94b8", textTransform: "uppercase" }}>
+          <div className="body-font" style={{ fontSize: 11, letterSpacing: 2.5, color: "#9fb5a5", textTransform: "uppercase" }}>
             Girone A · Allievi U17 Élite · Lombardia 2026/27
           </div>
           <div style={{ fontSize: 30, fontWeight: 800, marginTop: 4, letterSpacing: 0.5, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
             Cimiano Calcio
             {cimianoRow && cimianoRow.pg > 0 && (
-              <span style={{ fontSize: 14, fontWeight: 700, color: CYAN, background: "rgba(41,241,209,0.12)", border: `1px solid ${CYAN}`, padding: "2px 9px", letterSpacing: 0.5, clipPath: "polygon(6px 0,100% 0,100% 100%,0 100%)" }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: RED, background: CREAM, border: `1px solid ${RED}`, padding: "2px 9px", letterSpacing: 0.5, clipPath: "polygon(6px 0,100% 0,100% 100%,0 100%)" }}>
                 {cimianoPos}° POSTO · {cimianoRow.pt} PT
               </span>
             )}
@@ -2947,13 +2970,13 @@ function GironeATracker() {
           </div>
           {formaRecente.length > 0 && (
             <div className="body-font" style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
-              <span style={{ fontSize: 11, color: "#8a94b8", textTransform: "uppercase", letterSpacing: 1 }}>Forma:</span>
+              <span style={{ fontSize: 11, color: "#9fb5a5", textTransform: "uppercase", letterSpacing: 1 }}>Forma:</span>
               {formaRecente.map((m, i) => (
                 <span key={i} title={`${m.esito === "V" ? "Vittoria" : m.esito === "P" ? "Sconfitta" : "Pareggio"} vs ${m.opponent} (${m.golFatti}-${m.golSubiti})`}
                   style={{
                     width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
                     fontSize: 11, fontWeight: 700, color: "#fff",
-                    background: m.esito === "V" ? "#3ecf7a" : m.esito === "P" ? "#e6455f" : "#5a6580",
+                    background: m.esito === "V" ? "#3aa757" : m.esito === "P" ? "#d6483f" : "#9a9a9a",
                   }}>
                   {m.esito}
                 </span>
@@ -2995,7 +3018,7 @@ function GironeATracker() {
           <button key={key} onClick={() => setMacroTab(key)} className="body-font"
             style={{ flex: 1, padding: "10px 8px", border: "none", borderBottom: macroTab === key ? `2px solid ${RED}` : "2px solid transparent", cursor: "pointer",
               background: macroTab === key ? CREAM : "rgba(255,255,255,0.08)",
-              fontWeight: 700, fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: macroTab === key ? INK : "#5a6a8a" }}>
+              fontWeight: 700, fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: macroTab === key ? INK : "#c7d4cb" }}>
             {label}
           </button>
         ))}
@@ -3060,7 +3083,7 @@ function GironeATracker() {
               </thead>
               <tbody>
                 {standings.map((s, i) => (
-                  <tr key={s.name} style={{ background: s.name === CIMIANO ? "#2a1620" : "transparent", fontWeight: s.name === CIMIANO ? 700 : 400 }}>
+                  <tr key={s.name} style={{ background: s.name === CIMIANO ? "#fdeceb" : "transparent", fontWeight: s.name === CIMIANO ? 700 : 400 }}>
                     <td>{i + 1}</td>
                     <td style={{ color: s.name === CIMIANO ? RED : INK }}>{s.name}</td>
                     <td style={{ textAlign: "center" }}>{s.pg}</td>
@@ -3432,7 +3455,7 @@ function GironeATracker() {
               <div style={{ marginTop: 16 }}>
                 {bulkImportResult.matched.length > 0 && (
                   <div style={{ marginBottom: 10 }}>
-                    <div style={{ fontWeight: 700, fontSize: 12, color: "#3ecf7a", marginBottom: 4 }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: "#3aa757", marginBottom: 4 }}>
                       ✓ {bulkImportResult.matched.length} risultat{bulkImportResult.matched.length === 1 ? "o" : "i"} importat{bulkImportResult.matched.length === 1 ? "o" : "i"}
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -3476,7 +3499,7 @@ function GironeATracker() {
               </thead>
               <tbody>
                 {coppaStandings.map((s, i) => (
-                  <tr key={s.name} style={{ background: s.name === CIMIANO ? "#2a1620" : "transparent", fontWeight: s.name === CIMIANO ? 700 : 400 }}>
+                  <tr key={s.name} style={{ background: s.name === CIMIANO ? "#fdeceb" : "transparent", fontWeight: s.name === CIMIANO ? 700 : 400 }}>
                     <td>{i + 1}</td>
                     <td style={{ color: s.name === CIMIANO ? RED : INK }}>{s.name}</td>
                     <td style={{ textAlign: "center" }}>{s.pg}</td>
