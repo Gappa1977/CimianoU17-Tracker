@@ -359,8 +359,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "2.2";
-const TRACKER_VERSION_DATE = "03/09/2026@14.56";
+const TRACKER_VERSION = "2.3";
+const TRACKER_VERSION_DATE = "03/09/2026@15.52";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -544,6 +544,11 @@ function GironeATracker() {
   const [editingTeamVotoF, setEditingTeamVotoF] = useState(null); // friendlyId
   const [scorerDraftF, setScorerDraftF] = useState({});
   const [editingScorerF, setEditingScorerF] = useState(null); // `${friendlyId}:${scorerId}`
+  const [cardDraft, setCardDraft] = useState({}); // { [fixtureId]: { giocatore, colore, minuto } }
+  const [editingCard, setEditingCard] = useState(null); // `${fixtureId}:${cardId}`
+  const [cardDraftF, setCardDraftF] = useState({});
+  const [editingCardF, setEditingCardF] = useState(null); // `${friendlyId}:${cardId}`
+  const [friendlyCartellini, setFriendlyCartellini] = useState({}); // { friendlyId: [{id, giocatore, colore, minuto}] } — CONDIVISO
   const [rosterDraft, setRosterDraft] = useState({ nome: "" });
   const [playerVoteFilter, setPlayerVoteFilter] = useState({});
   const [bulkImportText, setBulkImportText] = useState("");
@@ -568,7 +573,7 @@ function GironeATracker() {
       const tutti = await window.rows.listAll();
       const get = (nome) => (tutti ? tutti[nome] || [] : null);
       const rosaRows = get("Rosa"), amichevoliRows = get("Amichevoli"), risultatiRows = get("RisultatiUfficiali");
-      const votiRows = get("Voti"), marcatoriRows = get("Marcatori"), votoSquadraRows = get("VotoSquadra");
+      const votiRows = get("Voti"), marcatoriRows = get("Marcatori"), cartelliniRows = get("Cartellini"), votoSquadraRows = get("VotoSquadra");
       const convocatiRows = get("Convocati"), formazioniRows = get("Formazioni"), moduliRows = get("Moduli");
       const impostazioniRows = get("Impostazioni");
       const calendarioCampionatoRows = get("CalendarioCampionato"), calendarioCoppaRows = get("CalendarioCoppa");
@@ -650,6 +655,7 @@ function GironeATracker() {
       }
       const friendlyVotiFinal = {};
       const friendlyMarcatoriFinal = {};
+      const friendlyCartelliniFinal = {};
       const friendlyTeamVotoFinal = {};
       const friendlyConvocatiFinal = {};
       const friendlyFormazioneFinal = {};
@@ -669,6 +675,13 @@ function GironeATracker() {
           const gol = { id: m.id, giocatore: m.giocatore, minuto: m.minuto || "" };
           if (m.tipo === "amichevole") (friendlyMarcatoriFinal[m.fixtureId] = friendlyMarcatoriFinal[m.fixtureId] || []).push(gol);
           else (detailEntry(m.fixtureId).marcatori = detailEntry(m.fixtureId).marcatori || []).push(gol);
+        });
+      }
+      if (cartelliniRows) {
+        cartelliniRows.forEach((c) => {
+          const cartellino = { id: c.id, giocatore: c.giocatore, colore: c.colore, minuto: c.minuto || "" };
+          if (c.tipo === "amichevole") (friendlyCartelliniFinal[c.fixtureId] = friendlyCartelliniFinal[c.fixtureId] || []).push(cartellino);
+          else (detailEntry(c.fixtureId).cartellini = detailEntry(c.fixtureId).cartellini || []).push(cartellino);
         });
       }
       if (votoSquadraRows) {
@@ -734,11 +747,12 @@ function GironeATracker() {
         });
       }
 
-      if (votiRows || marcatoriRows || votoSquadraRows || convocatiRows || formazioniRows || moduliRows || impostazioniRows) {
+      if (votiRows || marcatoriRows || cartelliniRows || votoSquadraRows || convocatiRows || formazioniRows || moduliRows || impostazioniRows) {
         setDetailsShared(detailsSharedFinal);
       }
       if (votiRows) setFriendlyVoti(friendlyVotiFinal);
       if (marcatoriRows) setFriendlyMarcatori(friendlyMarcatoriFinal);
+      if (cartelliniRows) setFriendlyCartellini(friendlyCartelliniFinal);
       if (votoSquadraRows) setFriendlyTeamVoto(friendlyTeamVotoFinal);
       if (convocatiRows) setFriendlyConvocati(friendlyConvocatiFinal);
       if (formazioniRows) {
@@ -922,6 +936,23 @@ function GironeATracker() {
         if (player) addPresence(player.nome);
       });
     });
+    // Cartellini: conteggio gialli/rossi per giocatore, campionato+coppa+amichevoli insieme.
+    const cartelliniCount = {};
+    function addCartellino(nome, colore) {
+      if (!nome) return;
+      if (!cartelliniCount[nome]) cartelliniCount[nome] = { gialli: 0, rossi: 0 };
+      if (colore === "rosso") cartelliniCount[nome].rossi += 1;
+      else cartelliniCount[nome].gialli += 1;
+    }
+    ROUNDS.forEach((r) => {
+      r.matches.forEach((fx) => {
+        if (fx.home !== CIMIANO && fx.away !== CIMIANO) return;
+        ((detailsShared[fx.id] && detailsShared[fx.id].cartellini) || []).forEach((c) => addCartellino(c.giocatore, c.colore));
+      });
+    });
+    friendlies.forEach((f) => {
+      (friendlyCartellini[f.id] || []).forEach((c) => addCartellino(c.giocatore, c.colore));
+    });
     // Ordinati per cognome, come tutti gli altri elenchi giocatori del Tracker (punto 15).
     const names = Array.from(new Set([...roster.map((p) => p.nome), ...Object.keys(map)]))
       .sort((a, b) => lastName(a).localeCompare(lastName(b), "it", { sensitivity: "base" }));
@@ -934,9 +965,10 @@ function GironeATracker() {
       // Non scende mai sotto al conteggio basato sui voti (se per qualche partita vecchia mancasse
       // il dato di formazione), aggiunge solo le presenze reali che i voti da soli non intercettano.
       const presenze = Math.max(entries.length, presenzeCount[name] || 0);
-      return { name, entries, presenze, media, minutiTot };
+      const cartellini = cartelliniCount[name] || { gialli: 0, rossi: 0 };
+      return { name, entries, presenze, media, minutiTot, cartellini };
     });
-  }, [detailsShared, friendlies, friendlyVoti, friendlyFormazione, friendlyFormazione2, roster]);
+  }, [detailsShared, friendlies, friendlyVoti, friendlyCartellini, friendlyFormazione, friendlyFormazione2, roster]);
 
   const playersWithData = useMemo(() => playerStats.filter((p) => p.entries.length > 0), [playerStats]);
 
@@ -1182,6 +1214,45 @@ function GironeATracker() {
     window.rows.upsert("Marcatori", { id }, { fixtureId, tipo: tipoDaFixtureId(fixtureId), giocatore: d.giocatore, minuto: d.minuto || "" }).catch(() => {});
   }
 
+  // --- CARTELLINI (campionato/coppa) ---
+  function addCard(fixtureId) {
+    const d = cardDraft[fixtureId];
+    if (!d || !d.giocatore || !d.colore) return;
+    const id = Date.now().toString();
+    setDetailsShared((prev) => {
+      const cur = prev[fixtureId] || {};
+      const list = cur.cartellini || [];
+      return { ...prev, [fixtureId]: { ...cur, cartellini: [...list, { id, giocatore: d.giocatore, colore: d.colore, minuto: d.minuto || "" }] } };
+    });
+    setCardDraft((prev) => ({ ...prev, [fixtureId]: { giocatore: "", colore: "", minuto: "" } }));
+    window.rows.insert("Cartellini", { id, fixtureId, tipo: tipoDaFixtureId(fixtureId), giocatore: d.giocatore, colore: d.colore, minuto: d.minuto || "" }).catch(() => {});
+  }
+
+  function removeCard(fixtureId, id) {
+    setDetailsShared((prev) => {
+      const cur = prev[fixtureId] || {};
+      return { ...prev, [fixtureId]: { ...cur, cartellini: (cur.cartellini || []).filter((c) => c.id !== id) } };
+    });
+    window.rows.remove("Cartellini", { id }).catch(() => {});
+  }
+
+  function startEditCard(fixtureId, c) {
+    setEditingCard(`${fixtureId}:${c.id}`);
+    setCardDraft((prev) => ({ ...prev, [`edit-${fixtureId}`]: { giocatore: c.giocatore, colore: c.colore, minuto: c.minuto || "" } }));
+  }
+
+  function saveEditCard(fixtureId, id) {
+    const d = cardDraft[`edit-${fixtureId}`];
+    if (!d || !d.giocatore || !d.colore) return;
+    setDetailsShared((prev) => {
+      const cur = prev[fixtureId] || {};
+      const list = (cur.cartellini || []).map((c) => (c.id === id ? { ...c, giocatore: d.giocatore, colore: d.colore, minuto: d.minuto || "" } : c));
+      return { ...prev, [fixtureId]: { ...cur, cartellini: list } };
+    });
+    setEditingCard(null);
+    window.rows.upsert("Cartellini", { id }, { fixtureId, tipo: tipoDaFixtureId(fixtureId), giocatore: d.giocatore, colore: d.colore, minuto: d.minuto || "" }).catch(() => {});
+  }
+
   function addRating(fixtureId) {
     const d = ratingDraft[fixtureId];
     if (!voterName || !d || !d.giocatore || !d.voto) return;
@@ -1252,6 +1323,7 @@ function GironeATracker() {
       await window.rows.remove("Amichevoli", { id }).catch(() => {});
       await window.rows.remove("Voti", { fixtureId: id }).catch(() => {});
       await window.rows.remove("Marcatori", { fixtureId: id }).catch(() => {});
+      await window.rows.remove("Cartellini", { fixtureId: id }).catch(() => {});
       await window.rows.remove("VotoSquadra", { fixtureId: id }).catch(() => {});
       await window.rows.remove("Convocati", { fixtureId: id }).catch(() => {});
       await window.rows.remove("Formazioni", { fixtureId: id }).catch(() => {});
@@ -1343,6 +1415,40 @@ function GironeATracker() {
     }));
     setEditingScorerF(null);
     window.rows.upsert("Marcatori", { id }, { fixtureId: friendlyId, tipo: "amichevole", giocatore: d.giocatore, minuto: d.minuto || "" }).catch(() => {});
+  }
+
+  // --- CARTELLINI (amichevoli) ---
+  function addCardF(friendlyId) {
+    const d = cardDraftF[friendlyId];
+    if (!d || !d.giocatore || !d.colore) return;
+    const id = Date.now().toString();
+    setFriendlyCartellini((prev) => {
+      const list = prev[friendlyId] || [];
+      return { ...prev, [friendlyId]: [...list, { id, giocatore: d.giocatore, colore: d.colore, minuto: d.minuto || "" }] };
+    });
+    setCardDraftF((prev) => ({ ...prev, [friendlyId]: { giocatore: "", colore: "", minuto: "" } }));
+    window.rows.insert("Cartellini", { id, fixtureId: friendlyId, tipo: "amichevole", giocatore: d.giocatore, colore: d.colore, minuto: d.minuto || "" }).catch(() => {});
+  }
+
+  function removeCardF(friendlyId, id) {
+    setFriendlyCartellini((prev) => ({ ...prev, [friendlyId]: (prev[friendlyId] || []).filter((c) => c.id !== id) }));
+    window.rows.remove("Cartellini", { id }).catch(() => {});
+  }
+
+  function startEditCardF(friendlyId, c) {
+    setEditingCardF(`${friendlyId}:${c.id}`);
+    setCardDraftF((prev) => ({ ...prev, [`edit-${friendlyId}`]: { giocatore: c.giocatore, colore: c.colore, minuto: c.minuto || "" } }));
+  }
+
+  function saveEditCardF(friendlyId, id) {
+    const d = cardDraftF[`edit-${friendlyId}`];
+    if (!d || !d.giocatore || !d.colore) return;
+    setFriendlyCartellini((prev) => ({
+      ...prev,
+      [friendlyId]: (prev[friendlyId] || []).map((c) => (c.id === id ? { ...c, giocatore: d.giocatore, colore: d.colore, minuto: d.minuto || "" } : c)),
+    }));
+    setEditingCardF(null);
+    window.rows.upsert("Cartellini", { id }, { fixtureId: friendlyId, tipo: "amichevole", giocatore: d.giocatore, colore: d.colore, minuto: d.minuto || "" }).catch(() => {});
   }
 
   // --- VOTANTI: aggiunta manuale nascosta (5 click sul logo), salvataggio condiviso ---
@@ -1894,8 +2000,10 @@ function GironeATracker() {
     const isCimianoMatch = fx.home === CIMIANO || fx.away === CIMIANO;
     const isOpen = !!expanded[fx.id];
     const sd = scorerDraft[fx.id] || {};
+    const cd = cardDraft[fx.id] || {};
     const rd = ratingDraft[fx.id] || {};
     const marcatori = (detailsShared[fx.id] && detailsShared[fx.id].marcatori) || [];
+    const cartellini = (detailsShared[fx.id] && detailsShared[fx.id].cartellini) || [];
     const voti = (detailsShared[fx.id] && detailsShared[fx.id].voti) || [];
     const votoSquadraList = (detailsShared[fx.id] && detailsShared[fx.id].votoSquadra) || [];
     const convocati = (detailsShared[fx.id] && detailsShared[fx.id].convocati) || {};
@@ -2049,6 +2157,59 @@ function GironeATracker() {
               </div>
             </div>
 
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Cartellini</div>
+              {cartellini.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
+                  {cartellini.map((c) => {
+                    const isEditing = editingCard === `${fx.id}:${c.id}`;
+                    const ed = cardDraft[`edit-${fx.id}`] || {};
+                    return isEditing ? (
+                      <div key={c.id} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                        <input value={ed.giocatore || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], giocatore: e.target.value } }))}
+                          style={{ flex: 1, minWidth: 100, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                        <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], colore: "giallo" } }))}
+                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 3, border: ed.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: "#fff", cursor: "pointer" }}>🟨</button>
+                        <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], colore: "rosso" } }))}
+                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 3, border: ed.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: "#fff", cursor: "pointer" }}>🟥</button>
+                        <input placeholder="Min." value={ed.minuto || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], minuto: e.target.value } }))}
+                          style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                        <button onClick={() => saveEditCard(fx.id, c.id)} style={{ background: RED, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>Salva</button>
+                        <button onClick={() => setEditingCard(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>annulla</button>
+                      </div>
+                    ) : (
+                      <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span>{c.colore === "rosso" ? "🟥" : "🟨"} {c.giocatore}{c.minuto ? ` (${c.minuto}')` : ""}</span>
+                        <span style={{ display: "flex", gap: 8 }}>
+                          <button onClick={() => startEditCard(fx.id, c)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+                          <button onClick={() => removeCard(fx.id, c.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                {rosterSorted.map((rp) => (
+                  <button key={rp.id} onClick={() => setCardDraft((prev) => ({ ...prev, [fx.id]: { ...prev[fx.id], giocatore: rp.nome } }))}
+                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: cd.giocatore === rp.nome ? RED : "#fff", color: cd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
+                    {rp.nome}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input placeholder="Giocatore" value={cd.giocatore || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], giocatore: e.target.value } }))}
+                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], colore: "giallo" } }))}
+                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 3, border: cd.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: "#fff", cursor: "pointer" }}>🟨</button>
+                <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], colore: "rosso" } }))}
+                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 3, border: cd.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: "#fff", cursor: "pointer" }}>🟥</button>
+                <input placeholder="Min." value={cd.minuto || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], minuto: e.target.value } }))}
+                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <button onClick={() => addCard(fx.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>+</button>
+              </div>
+            </div>
+
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 6 }}>
                 <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>Voti</div>
@@ -2197,7 +2358,9 @@ function GironeATracker() {
     const rd = ratingDraftF[f.id] || {};
     const voti = friendlyVoti[f.id] || [];
     const marcatoriF = friendlyMarcatori[f.id] || [];
+    const cartelliniF = friendlyCartellini[f.id] || [];
     const sdF = scorerDraftF[f.id] || {};
+    const cdF = cardDraftF[f.id] || {};
     const convocatiF = friendlyConvocati[f.id] || {};
     const convocatiIdsF = Object.keys(convocatiF);
     // Titolari = giocatori piazzati sul campo nella mappa "INIZIO"; il resto dei convocati è panchina.
@@ -2350,6 +2513,59 @@ function GironeATracker() {
                 <input placeholder="Min." value={sdF.minuto || ""} onChange={(e) => setScorerDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], minuto: e.target.value } }))}
                   style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
                 <button onClick={() => addScorerF(f.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>+</button>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Cartellini</div>
+              {cartelliniF.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
+                  {cartelliniF.map((c) => {
+                    const isEditingC = editingCardF === `${f.id}:${c.id}`;
+                    const ed = cardDraftF[`edit-${f.id}`] || {};
+                    return isEditingC ? (
+                      <div key={c.id} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                        <input value={ed.giocatore || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], giocatore: e.target.value } }))}
+                          style={{ flex: 1, minWidth: 100, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                        <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], colore: "giallo" } }))}
+                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 3, border: ed.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: "#fff", cursor: "pointer" }}>🟨</button>
+                        <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], colore: "rosso" } }))}
+                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 3, border: ed.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: "#fff", cursor: "pointer" }}>🟥</button>
+                        <input placeholder="Min." value={ed.minuto || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], minuto: e.target.value } }))}
+                          style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                        <button onClick={() => saveEditCardF(f.id, c.id)} style={{ background: RED, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>Salva</button>
+                        <button onClick={() => setEditingCardF(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>annulla</button>
+                      </div>
+                    ) : (
+                      <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span>{c.colore === "rosso" ? "🟥" : "🟨"} {c.giocatore}{c.minuto ? ` (${c.minuto}')` : ""}</span>
+                        <span style={{ display: "flex", gap: 8 }}>
+                          <button onClick={() => startEditCardF(f.id, c)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+                          <button onClick={() => removeCardF(f.id, c.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                {rosterSorted.map((rp) => (
+                  <button key={rp.id} onClick={() => setCardDraftF((prev) => ({ ...prev, [f.id]: { ...prev[f.id], giocatore: rp.nome } }))}
+                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: cdF.giocatore === rp.nome ? RED : "#fff", color: cdF.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
+                    {rp.nome}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input placeholder="Giocatore" value={cdF.giocatore || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], giocatore: e.target.value } }))}
+                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], colore: "giallo" } }))}
+                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 3, border: cdF.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: "#fff", cursor: "pointer" }}>🟨</button>
+                <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], colore: "rosso" } }))}
+                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 3, border: cdF.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: "#fff", cursor: "pointer" }}>🟥</button>
+                <input placeholder="Min." value={cdF.minuto || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], minuto: e.target.value } }))}
+                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                <button onClick={() => addCardF(f.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>+</button>
               </div>
             </div>
 
@@ -2804,6 +3020,8 @@ function GironeATracker() {
                           {p.presenze} {p.presenze === 1 ? "presenza" : "presenze"}
                           {p.media !== null && ` · media voto ${p.media.toFixed(1)}`}
                           {p.minutiTot !== null && ` · ${p.minutiTot}' totali`}
+                          {p.cartellini.gialli > 0 && ` · 🟨×${p.cartellini.gialli}`}
+                          {p.cartellini.rossi > 0 && ` · 🟥×${p.cartellini.rossi}`}
                         </div>
                       </div>
                       {p.entries.length > 0 && (
