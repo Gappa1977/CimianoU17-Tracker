@@ -484,8 +484,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.7";
-const TRACKER_VERSION_DATE = "04/09/2026@12.30";
+const TRACKER_VERSION = "3.8";
+const TRACKER_VERSION_DATE = "04/09/2026@13.15";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -982,6 +982,10 @@ function GironeATracker() {
     }
     return null;
   }, [allCimianoMatches, friendlies, results]);
+
+  const nextMatchInfo = useMemo(() => allCimianoMatches.find((m) => m.id === nextCimianoMatchId), [allCimianoMatches, nextCimianoMatchId]);
+  const nextOpponentCampionato = nextMatchInfo && nextMatchInfo.type === "campionato" ? (nextMatchInfo.home === CIMIANO ? nextMatchInfo.away : nextMatchInfo.home) : null;
+  const nextOpponentCoppa = nextMatchInfo && nextMatchInfo.type === "coppa" ? (nextMatchInfo.home === CIMIANO ? nextMatchInfo.away : nextMatchInfo.home) : null;
 
   const coppaStandings = useMemo(() => {
     const table = {};
@@ -2228,15 +2232,21 @@ function GironeATracker() {
     const isNextMatch = fx.id === nextCimianoMatchId;
     const canOpenDetails = isCimianoMatch && (played || isNextMatch);
     const sc = statusColor ? STATUS_COLORS[statusColor] : null;
-    const rowBg = PANEL_BG;
-    const rowBorder = LINE;
     const accentColor = sc ? sc.border : LINE;
     return (
-      <div key={fx.id} style={{ background: rowBg, border: `1px solid ${rowBorder}`, borderLeft: `3px solid ${accentColor}`, borderRadius: 6, fontSize: 13 }}>
+      <div key={fx.id} className="chrome-box">
+        <div className="chrome-box-inner" style={{ borderLeft: `3px solid ${accentColor}`, borderRadius: "0 9.5px 9.5px 0", fontSize: 13 }}>
         {metaLabel && (
           <div className="body-font" style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 12px 0" }}>{metaLabel}</div>
         )}
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 108px minmax(0,1fr) auto", alignItems: "center", columnGap: 10, padding: metaLabel ? "4px 12px 8px" : "8px 12px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "26px minmax(0,1fr) 108px minmax(0,1fr) auto", alignItems: "center", columnGap: 10, padding: metaLabel ? "4px 12px 8px" : "8px 12px" }}>
+          {canOpenDetails ? (
+            <div className={`plus-btn ${isOpen ? "plus-open" : ""}`} onClick={() => setExpanded((p) => ({ ...p, [fx.id]: !p[fx.id] }))}
+              tabIndex={0} role="button" aria-label="Apri dettagli partita"
+              style={{ borderColor: accentColor, color: accentColor, boxShadow: sc ? `0 0 8px ${accentColor}73` : "none" }}>
+              <span className="plus-shape"></span>
+            </div>
+          ) : <span />}
           <span style={{ fontWeight: fx.home === CIMIANO ? 700 : 400, color: fx.home === CIMIANO ? RED : INK, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fx.home}</span>
           {played ? (
             <span className="mono-font" style={{ fontWeight: 700, textAlign: "center", fontSize: 15 }}>{played.golHome} – {played.golAway}</span>
@@ -2251,14 +2261,8 @@ function GironeATracker() {
           )}
           <span style={{ fontWeight: fx.away === CIMIANO ? 700 : 400, color: fx.away === CIMIANO ? RED : INK, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fx.away}</span>
           <div style={{ display: "flex", gap: 10, alignItems: "center", justifySelf: "end" }}>
-            {canOpenDetails && (
-              <button onClick={() => setExpanded((p) => ({ ...p, [fx.id]: !p[fx.id] }))}
-                style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                {isOpen ? "chiudi dettagli" : "Dettagli"}
-              </button>
-            )}
             {played ? (
-              <button onClick={() => clearResult(fx.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+              <button onClick={() => clearResult(fx.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>Modifica</button>
             ) : (
               <button onClick={() => saveResult(fx.id)} style={{ background: RED, color: "#fff", border: "none", padding: "5px 12px", borderRadius: 3, fontWeight: 600, cursor: "pointer", fontSize: 12 }}>Salva</button>
             )}
@@ -2340,7 +2344,7 @@ function GironeATracker() {
                       <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span>⚽ {s.giocatore}{s.minuto ? ` (${s.minuto}')` : ""}</span>
                         <span style={{ display: "flex", gap: 8 }}>
-                          <button onClick={() => startEditScorer(fx.id, s)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+                          <button onClick={() => startEditScorer(fx.id, s)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>Modifica</button>
                           <button onClick={() => removeScorer(fx.id, s.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
                         </span>
                       </div>
@@ -2389,7 +2393,7 @@ function GironeATracker() {
                       <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span>{c.colore === "rosso" ? "🟥" : "🟨"} {c.giocatore}{c.minuto ? ` (${c.minuto}')` : ""}</span>
                         <span style={{ display: "flex", gap: 8 }}>
-                          <button onClick={() => startEditCard(fx.id, c)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+                          <button onClick={() => startEditCard(fx.id, c)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>Modifica</button>
                           <button onClick={() => removeCard(fx.id, c.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
                         </span>
                       </div>
@@ -2485,7 +2489,7 @@ function GironeATracker() {
                                   <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 8 }}>{v.autore}</span>
                                 </div>
                                 <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                                  <button onClick={() => startEditRating(fx.id, v)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+                                  <button onClick={() => startEditRating(fx.id, v)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>Modifica</button>
                                   <button onClick={() => removeRating(fx.id, v.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
                                 </span>
                               </div>
@@ -2570,7 +2574,7 @@ function GironeATracker() {
                           <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 8 }}>{v.autore}</span>
                         </div>
                         <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                          <button onClick={() => startEditTeamVoto(fx.id, v)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+                          <button onClick={() => startEditTeamVoto(fx.id, v)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>Modifica</button>
                           <button onClick={() => removeTeamVoto(fx.id, v.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
                         </span>
                       </div>
@@ -2589,6 +2593,7 @@ function GironeATracker() {
             </div>
           </div>
         )}
+        </div>
       </div>
     );
   }
@@ -2618,11 +2623,10 @@ function GironeATracker() {
     const isNextMatch = f.id === nextCimianoMatchId;
     const canOpenDetails = hasScore || isNextMatch;
     const sc = statusColor ? STATUS_COLORS[statusColor] : null;
-    const rowBg = PANEL_BG;
-    const rowBorder = LINE;
     const accentColor = sc ? sc.border : LINE;
     return (
-      <div key={f.id} style={{ background: rowBg, border: `1px solid ${rowBorder}`, borderLeft: `3px solid ${accentColor}`, borderRadius: 6, fontSize: 13 }}>
+      <div key={f.id} className="chrome-box">
+        <div className="chrome-box-inner" style={{ borderLeft: `3px solid ${accentColor}`, borderRadius: "0 9.5px 9.5px 0", fontSize: 13 }}>
         {isEditingF ? (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "10px 12px", alignItems: "center" }}>
             <input placeholder="Avversario" value={friendlyEditDraft.avversario || ""} onChange={(e) => setFriendlyEditDraft((p) => ({ ...p, avversario: e.target.value }))}
@@ -2640,8 +2644,15 @@ function GironeATracker() {
             <button onClick={() => setEditingFriendly(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
           </div>
         ) : (
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", flexWrap: "wrap", gap: 6 }}>
-            <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", flexWrap: "wrap", gap: 10 }}>
+            {canOpenDetails ? (
+              <div className={`plus-btn ${isOpen ? "plus-open" : ""}`} onClick={() => setExpandedFriendly((p) => ({ ...p, [f.id]: !p[f.id] }))}
+                tabIndex={0} role="button" aria-label="Apri dettagli partita"
+                style={{ borderColor: accentColor, color: accentColor, boxShadow: sc ? `0 0 8px ${accentColor}73` : "none", flexShrink: 0 }}>
+                <span className="plus-shape"></span>
+              </div>
+            ) : <span style={{ width: 22, flexShrink: 0 }} />}
+            <div style={{ flex: 1, minWidth: 0 }}>
               <span style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginRight: 8 }}>Amichevole</span>
               {hasScore ? (
                 <><strong style={{ color: RED }}>Cimiano</strong> <span className="mono-font" style={{ fontWeight: 700 }}>{f.golCimiano} – {f.golAvv}</span> <strong>{f.avversario}</strong></>
@@ -2652,13 +2663,7 @@ function GironeATracker() {
               {f.data && <span style={{ color: MUTED, marginLeft: 8 }}>{fmtDate(f.data)}{f.ora ? ` ore ${f.ora}` : ""}</span>}
             </div>
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <button onClick={() => startEditFriendly(f)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>modifica</button>
-              {canOpenDetails && (
-                <button onClick={() => setExpandedFriendly((p) => ({ ...p, [f.id]: !p[f.id] }))}
-                  style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                  {isOpen ? "chiudi dettagli" : "Dettagli"}
-                </button>
-              )}
+              <button onClick={() => startEditFriendly(f)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Modifica</button>
               <button onClick={() => removeFriendly(f.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 16 }}>×</button>
             </div>
           </div>
@@ -2731,7 +2736,7 @@ function GironeATracker() {
                       <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span>⚽ {s.giocatore}{s.minuto ? ` (${s.minuto}')` : ""}</span>
                         <span style={{ display: "flex", gap: 8 }}>
-                          <button onClick={() => startEditScorerF(f.id, s)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+                          <button onClick={() => startEditScorerF(f.id, s)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>Modifica</button>
                           <button onClick={() => removeScorerF(f.id, s.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
                         </span>
                       </div>
@@ -2780,7 +2785,7 @@ function GironeATracker() {
                       <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span>{c.colore === "rosso" ? "🟥" : "🟨"} {c.giocatore}{c.minuto ? ` (${c.minuto}')` : ""}</span>
                         <span style={{ display: "flex", gap: 8 }}>
-                          <button onClick={() => startEditCardF(f.id, c)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+                          <button onClick={() => startEditCardF(f.id, c)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>Modifica</button>
                           <button onClick={() => removeCardF(f.id, c.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
                         </span>
                       </div>
@@ -2875,7 +2880,7 @@ function GironeATracker() {
                                 <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 8 }}>{v.autore}</span>
                               </div>
                               <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                                <button onClick={() => startEditRatingF(f.id, v)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+                                <button onClick={() => startEditRatingF(f.id, v)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>Modifica</button>
                                 <button onClick={() => removeRatingFriendly(f.id, v.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
                               </span>
                             </div>
@@ -2959,7 +2964,7 @@ function GironeATracker() {
                           <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 8 }}>{v.autore}</span>
                         </div>
                         <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                          <button onClick={() => startEditTeamVotoF(f.id, v)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
+                          <button onClick={() => startEditTeamVotoF(f.id, v)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>Modifica</button>
                           <button onClick={() => removeTeamVotoF(f.id, v.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
                         </span>
                       </div>
@@ -2978,6 +2983,7 @@ function GironeATracker() {
             </div>
           </div>
         )}
+        </div>
       </div>
     );
   }
@@ -3006,8 +3012,13 @@ function GironeATracker() {
         .body-font { font-family: 'Inter', system-ui, sans-serif; }
         .title-font { font-family: 'Space Grotesk', sans-serif; }
         .mono-font { font-family: 'JetBrains Mono', monospace; }
-        .chrome-box { padding: 1.5px; border-radius: 11px; background: ${CHROME_BORDER}; box-shadow: 0 14px 26px -10px rgba(0,0,0,0.55); }
+        .chrome-box { padding: 1.5px; border-radius: 11px; background: ${CHROME_BORDER}; box-shadow: 0 10px 20px -10px rgba(0,0,0,0.5); }
         .chrome-box-inner { border-radius: 9.5px; background: ${PANEL_BG}; }
+        .plus-btn { box-sizing: border-box; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; border: 1.5px solid; }
+        .plus-shape { position: relative; width: 10px; height: 10px; flex-shrink: 0; }
+        .plus-shape::before { content: ""; position: absolute; background: currentColor; width: 10px; height: 2px; top: 4px; left: 0; }
+        .plus-shape::after { content: ""; position: absolute; background: currentColor; width: 2px; height: 10px; top: 0; left: 4px; }
+        .plus-open .plus-shape::after { display: none; }
         table { border-collapse: collapse; width: 100%; }
         th, td { padding: 8px 10px; text-align: left; }
         tbody tr { border-bottom: 1px solid ${LINE}; }
@@ -3016,7 +3027,7 @@ function GironeATracker() {
         .score-input { width: 40px; padding: 5px; border: 1px solid ${LINE}; text-align: center; border-radius: 3px; box-sizing: border-box; }
       `}</style>
 
-      <div style={{ background: GREEN, color: INK, padding: "22px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, boxShadow: `0 2px 14px -4px rgba(200,16,46,0.5)` }}>
+      <div style={{ background: "linear-gradient(160deg, #16351f 0%, #0f2818 55%, #0a1c11 100%)", color: INK, padding: "22px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, boxShadow: `0 2px 14px -4px rgba(200,16,46,0.5)` }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="body-font" style={{ fontSize: 11, letterSpacing: 2.5, color: "#9fb5a5", textTransform: "uppercase" }}>
             Girone A · Allievi U17 Élite · Lombardia 2026/27
@@ -3149,20 +3160,25 @@ function GironeATracker() {
                     </tr>
                   </thead>
                   <tbody>
-                    {standings.map((s, i) => (
-                      <tr key={s.name} style={{ background: s.name === CIMIANO ? "rgba(200,16,46,0.12)" : "transparent", fontWeight: s.name === CIMIANO ? 700 : 400 }}>
-                        <td className="mono-font" style={{ color: MUTED }}>{i + 1}</td>
-                        <td style={{ color: s.name === CIMIANO ? RED : INK }}>{s.name}</td>
-                        <td className="mono-font" style={{ textAlign: "center" }}>{s.pg}</td>
-                        <td className="mono-font" style={{ textAlign: "center" }}>{s.v}</td>
-                        <td className="mono-font" style={{ textAlign: "center" }}>{s.n}</td>
-                        <td className="mono-font" style={{ textAlign: "center" }}>{s.p}</td>
-                        <td className="mono-font" style={{ textAlign: "center" }}>{s.gf}</td>
-                        <td className="mono-font" style={{ textAlign: "center" }}>{s.gs}</td>
-                        <td className="mono-font" style={{ textAlign: "center" }}>{s.gf - s.gs > 0 ? "+" : ""}{s.gf - s.gs}</td>
-                        <td className="mono-font" style={{ textAlign: "center", fontWeight: 700, color: INK }}>{s.pt}</td>
-                      </tr>
-                    ))}
+                    {standings.map((s, i) => {
+                      const isCimiano = s.name === CIMIANO;
+                      const isNextOpp = s.name === nextOpponentCampionato;
+                      const rowAccent = isCimiano ? RED : (isNextOpp ? "#e0a52c" : "transparent");
+                      return (
+                        <tr key={s.name} style={{ background: isCimiano ? "rgba(200,16,46,0.12)" : (isNextOpp ? "rgba(224,165,44,0.10)" : "transparent"), fontWeight: isCimiano ? 700 : 400 }}>
+                          <td className="mono-font" style={{ color: MUTED, borderLeft: `3px solid ${rowAccent}`, paddingLeft: 6 }}>{i + 1}</td>
+                          <td style={{ color: isCimiano ? RED : (isNextOpp ? "#e0a52c" : INK) }}>{s.name}</td>
+                          <td className="mono-font" style={{ textAlign: "center" }}>{s.pg}</td>
+                          <td className="mono-font" style={{ textAlign: "center" }}>{s.v}</td>
+                          <td className="mono-font" style={{ textAlign: "center" }}>{s.n}</td>
+                          <td className="mono-font" style={{ textAlign: "center" }}>{s.p}</td>
+                          <td className="mono-font" style={{ textAlign: "center" }}>{s.gf}</td>
+                          <td className="mono-font" style={{ textAlign: "center" }}>{s.gs}</td>
+                          <td className="mono-font" style={{ textAlign: "center" }}>{s.gf - s.gs > 0 ? "+" : ""}{s.gf - s.gs}</td>
+                          <td className="mono-font" style={{ textAlign: "center", fontWeight: 700, color: INK }}>{s.pt}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -3297,9 +3313,17 @@ function GironeATracker() {
               {playerStats.map((p) => {
                 const isOpen = !!expandedPlayer[p.name];
                 return (
-                  <div key={p.name} style={{ background: PANEL_BG, border: `1px solid ${LINE}`, borderRadius: 4, fontSize: 13 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", flexWrap: "wrap", gap: 6 }}>
-                      <div>
+                  <div key={p.name} className="chrome-box">
+                    <div className="chrome-box-inner" style={{ fontSize: 13 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", flexWrap: "wrap", gap: 10 }}>
+                      {p.entries.length > 0 ? (
+                        <div className={`plus-btn ${isOpen ? "plus-open" : ""}`} onClick={() => setExpandedPlayer((prev) => ({ ...prev, [p.name]: !prev[p.name] }))}
+                          tabIndex={0} role="button" aria-label="Apri storico giocatore"
+                          style={{ borderColor: RED, color: RED, flexShrink: 0 }}>
+                          <span className="plus-shape"></span>
+                        </div>
+                      ) : <span style={{ width: 22, flexShrink: 0 }} />}
+                      <div style={{ flex: 1 }}>
                         <strong style={{ fontSize: 15 }} className="title-font">{p.name}</strong>
                         <div style={{ color: MUTED, fontSize: 12, marginTop: 2 }}>
                           {p.presenze} {p.presenze === 1 ? "presenza" : "presenze"}
@@ -3309,12 +3333,6 @@ function GironeATracker() {
                           {p.cartellini.rossi > 0 && ` · 🟥×${p.cartellini.rossi}`}
                         </div>
                       </div>
-                      {p.entries.length > 0 && (
-                        <button onClick={() => setExpandedPlayer((prev) => ({ ...prev, [p.name]: !prev[p.name] }))}
-                          style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                          {isOpen ? "chiudi storico" : "vedi storico"}
-                        </button>
-                      )}
                     </div>
 
                     {isOpen && (
@@ -3390,6 +3408,7 @@ function GironeATracker() {
                         </div>
                       </div>
                     )}
+                    </div>
                   </div>
                 );
               })}
@@ -3451,12 +3470,14 @@ function GironeATracker() {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {rosterSorted.map((rp) => (
-                  <div key={rp.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: PANEL_BG, padding: "8px 12px", border: `1px solid ${LINE}`, borderRadius: 4, fontSize: 13 }}>
-                    <span>{rp.nome}</span>
-                    <span style={{ display: "flex", gap: 10 }}>
-                      <button onClick={() => startEditRoster(rp)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>modifica</button>
-                      <button onClick={() => removeRosterPlayer(rp.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 16 }}>×</button>
-                    </span>
+                  <div key={rp.id} className="chrome-box" style={{ boxShadow: "none" }}>
+                    <div className="chrome-box-inner" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", fontSize: 13 }}>
+                      <span>{rp.nome}</span>
+                      <span style={{ display: "flex", gap: 10 }}>
+                        <button onClick={() => startEditRoster(rp)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>Modifica</button>
+                        <button onClick={() => removeRosterPlayer(rp.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 16 }}>×</button>
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -3573,20 +3594,25 @@ function GironeATracker() {
                     </tr>
                   </thead>
                   <tbody>
-                    {coppaStandings.map((s, i) => (
-                      <tr key={s.name} style={{ background: s.name === CIMIANO ? "rgba(200,16,46,0.12)" : "transparent", fontWeight: s.name === CIMIANO ? 700 : 400 }}>
-                        <td className="mono-font" style={{ color: MUTED }}>{i + 1}</td>
-                        <td style={{ color: s.name === CIMIANO ? RED : INK }}>{s.name}</td>
-                        <td className="mono-font" style={{ textAlign: "center" }}>{s.pg}</td>
-                        <td className="mono-font" style={{ textAlign: "center" }}>{s.v}</td>
-                        <td className="mono-font" style={{ textAlign: "center" }}>{s.n}</td>
-                        <td className="mono-font" style={{ textAlign: "center" }}>{s.p}</td>
-                        <td className="mono-font" style={{ textAlign: "center" }}>{s.gf}</td>
-                        <td className="mono-font" style={{ textAlign: "center" }}>{s.gs}</td>
-                        <td className="mono-font" style={{ textAlign: "center" }}>{s.gf - s.gs > 0 ? "+" : ""}{s.gf - s.gs}</td>
-                        <td className="mono-font" style={{ textAlign: "center", fontWeight: 700, color: INK }}>{s.pt}</td>
-                      </tr>
-                    ))}
+                    {coppaStandings.map((s, i) => {
+                      const isCimiano = s.name === CIMIANO;
+                      const isNextOpp = s.name === nextOpponentCoppa;
+                      const rowAccent = isCimiano ? RED : (isNextOpp ? "#e0a52c" : "transparent");
+                      return (
+                        <tr key={s.name} style={{ background: isCimiano ? "rgba(200,16,46,0.12)" : (isNextOpp ? "rgba(224,165,44,0.10)" : "transparent"), fontWeight: isCimiano ? 700 : 400 }}>
+                          <td className="mono-font" style={{ color: MUTED, borderLeft: `3px solid ${rowAccent}`, paddingLeft: 6 }}>{i + 1}</td>
+                          <td style={{ color: isCimiano ? RED : (isNextOpp ? "#e0a52c" : INK) }}>{s.name}</td>
+                          <td className="mono-font" style={{ textAlign: "center" }}>{s.pg}</td>
+                          <td className="mono-font" style={{ textAlign: "center" }}>{s.v}</td>
+                          <td className="mono-font" style={{ textAlign: "center" }}>{s.n}</td>
+                          <td className="mono-font" style={{ textAlign: "center" }}>{s.p}</td>
+                          <td className="mono-font" style={{ textAlign: "center" }}>{s.gf}</td>
+                          <td className="mono-font" style={{ textAlign: "center" }}>{s.gs}</td>
+                          <td className="mono-font" style={{ textAlign: "center" }}>{s.gf - s.gs > 0 ? "+" : ""}{s.gf - s.gs}</td>
+                          <td className="mono-font" style={{ textAlign: "center", fontWeight: 700, color: INK }}>{s.pt}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
