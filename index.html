@@ -340,6 +340,31 @@ const SKILLS = [
   { key: "carattere", col: "skCarattere", label: "Carattere" },
   { key: "impatto", col: "skImpatto", label: "Impatto" },
 ];
+
+// Anagrafica giocatore (04/09/2026): ruolo/lato/piede sono flag multipli (un giocatore può avere
+// più di un ruolo), salvati come colonne booleane separate sul foglio Rosa. "col" = nome colonna
+// sul foglio, "label" = testo mostrato nei filtri/chip.
+const RUOLI = [
+  { col: "ruoloP", label: "P" },
+  { col: "ruoloD", label: "D" },
+  { col: "ruoloC", label: "C" },
+  { col: "ruoloA", label: "A" },
+];
+const LATI = [
+  { col: "latoSx", label: "Sx" },
+  { col: "latoCx", label: "Cx" },
+  { col: "latoDx", label: "Dx" },
+];
+const PIEDI = [
+  { col: "piedeSx", label: "Sx" },
+  { col: "piedeDx", label: "Dx" },
+];
+
+// Un valore booleano sul foglio Google può tornare in forme diverse (true/"TRUE"/"1"/1): questa
+// funzione le riconosce tutte, così il resto del codice controlla sempre solo true/false.
+function isFlagTrue(v) {
+  return v === true || v === "TRUE" || v === "true" || v === "1" || v === 1;
+}
 function mediaSkill(voti) {
   // voti = { tecnica: "7", atleticita: "6", ... }. Richiede tutte e 5 compilate per avere senso.
   const nums = SKILLS.map((s) => parseFloat(voti[s.key])).filter((n) => !isNaN(n));
@@ -484,8 +509,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.11";
-const TRACKER_VERSION_DATE = "04/09/2026@14.35";
+const TRACKER_VERSION = "3.12";
+const TRACKER_VERSION_DATE = "04/09/2026@15.20";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -703,7 +728,20 @@ function GironeATracker() {
   const [cardDraftF, setCardDraftF] = useState({});
   const [editingCardF, setEditingCardF] = useState(null); // `${friendlyId}:${cardId}`
   const [friendlyCartellini, setFriendlyCartellini] = useState({}); // { friendlyId: [{id, giocatore, colore, minuto}] } — CONDIVISO
-  const [rosterDraft, setRosterDraft] = useState({ nome: "" });
+  const [rosterDraft, setRosterDraft] = useState({ nome: "", dataNascita: "", ruolo: [], lato: [], piede: [], maglia: "", capitano: false });
+  // Filtro "identikit" (Ruolo/Lato/Piede), stesso meccanismo riusato sia in Rosa che in Giocatori,
+  // ma con stato separato: filtrare in una sezione non deve cambiare cosa vedi nell'altra.
+  const [rosaFiltroRuolo, setRosaFiltroRuolo] = useState([]);
+  const [rosaFiltroLato, setRosaFiltroLato] = useState([]);
+  const [rosaFiltroPiede, setRosaFiltroPiede] = useState([]);
+  const [rosaSoloCapitano, setRosaSoloCapitano] = useState(false);
+  const [rosaSortBy, setRosaSortBy] = useState("nome"); // "nome" | "maglia" | "dataNascita"
+  const [rosaSortDir, setRosaSortDir] = useState("desc");
+  const [giocFiltroRuolo, setGiocFiltroRuolo] = useState([]);
+  const [giocFiltroLato, setGiocFiltroLato] = useState([]);
+  const [giocFiltroPiede, setGiocFiltroPiede] = useState([]);
+  const [giocSortBy, setGiocSortBy] = useState("nome"); // "nome" | "media" | "minuti" | "gol" | chiave skill
+  const [giocSortDir, setGiocSortDir] = useState("desc");
   const [playerVoteFilter, setPlayerVoteFilter] = useState({});
   const [bulkImportText, setBulkImportText] = useState("");
   const [bulkImportResult, setBulkImportResult] = useState(null);
@@ -1187,6 +1225,79 @@ function GironeATracker() {
       .map(([name, gol]) => ({ name, gol }))
       .sort((a, b) => b.gol - a.gol);
   }, [detailsShared, friendlyMarcatori]);
+
+  // Stessi conteggi di "cannonieri" ma come mappa nome->gol, comoda per l'ordinamento di Giocatori
+  // (evita di dover ricercare in un array ogni volta).
+  const golPerGiocatore = useMemo(() => {
+    const map = {};
+    cannonieri.forEach((c) => { map[c.name] = c.gol; });
+    return map;
+  }, [cannonieri]);
+
+  // Anagrafica per nome (Voti/Marcatori salvano il nome come testo, non l'id): permette di
+  // recuperare ruolo/lato/piede di un giocatore a partire da playerStats, che è indicizzato per nome.
+  const rosterByName = useMemo(() => {
+    const map = {};
+    roster.forEach((r) => { map[r.nome] = r; });
+    return map;
+  }, [roster]);
+
+  // Un giocatore soddisfa il filtro identikit se, per ogni categoria con almeno una scelta attiva,
+  // ha almeno uno dei flag scelti (OR dentro la categoria, AND fra categorie diverse).
+  function matchesIdentikit(anagrafica, ruoloSel, latoSel, piedeSel) {
+    if (!anagrafica) return ruoloSel.length === 0 && latoSel.length === 0 && piedeSel.length === 0;
+    const check = (defs, sel) => sel.length === 0 || defs.some((d) => sel.includes(d.label) && isFlagTrue(anagrafica[d.col]));
+    return check(RUOLI, ruoloSel) && check(LATI, latoSel) && check(PIEDI, piedeSel);
+  }
+
+  // Ordina mettendo sempre i valori mancanti (null/undefined) in fondo, qualunque sia la direzione:
+  // altrimenti un giocatore senza voti finirebbe primo ordinando "dal più basso".
+  function sortWithNullsLast(list, getValue, dir) {
+    const withVal = list.filter((x) => getValue(x) !== null && getValue(x) !== undefined);
+    const withoutVal = list.filter((x) => getValue(x) === null || getValue(x) === undefined);
+    withVal.sort((a, b) => (dir === "asc" ? getValue(a) - getValue(b) : getValue(b) - getValue(a)));
+    return [...withVal, ...withoutVal];
+  }
+
+  const rosaFilteredSorted = useMemo(() => {
+    let list = rosterSorted.filter((rp) =>
+      matchesIdentikit(rp, rosaFiltroRuolo, rosaFiltroLato, rosaFiltroPiede) &&
+      (!rosaSoloCapitano || isFlagTrue(rp.capitano))
+    );
+    if (rosaSortBy === "nome") {
+      list = [...list].sort((a, b) => lastName(a.nome).localeCompare(lastName(b.nome), "it", { sensitivity: "base" }));
+      if (rosaSortDir === "desc") list.reverse();
+    } else if (rosaSortBy === "maglia") {
+      list = sortWithNullsLast(list, (rp) => (rp.maglia !== "" && rp.maglia != null ? Number(rp.maglia) : null), rosaSortDir);
+    } else if (rosaSortBy === "dataNascita") {
+      list = sortWithNullsLast(list, (rp) => (rp.dataNascita ? new Date(rp.dataNascita).getTime() : null), rosaSortDir);
+    }
+    return list;
+  }, [rosterSorted, rosaFiltroRuolo, rosaFiltroLato, rosaFiltroPiede, rosaSoloCapitano, rosaSortBy, rosaSortDir]);
+
+  const giocFilteredSorted = useMemo(() => {
+    let list = playerStats.filter((p) => matchesIdentikit(rosterByName[p.name], giocFiltroRuolo, giocFiltroLato, giocFiltroPiede));
+    if (giocSortBy === "nome") {
+      list = [...list].sort((a, b) => lastName(a.name).localeCompare(lastName(b.name), "it", { sensitivity: "base" }));
+      if (giocSortDir === "desc") list.reverse();
+    } else if (giocSortBy === "media") {
+      list = sortWithNullsLast(list, (p) => p.media, giocSortDir);
+    } else if (giocSortBy === "minuti") {
+      list = sortWithNullsLast(list, (p) => p.minutiTot, giocSortDir);
+    } else if (giocSortBy === "gol") {
+      list = sortWithNullsLast(list, (p) => (golPerGiocatore[p.name] != null ? golPerGiocatore[p.name] : null), giocSortDir);
+    } else {
+      const skillDef = SKILLS.find((s) => s.key === giocSortBy);
+      if (skillDef) {
+        list = sortWithNullsLast(list, (p) => {
+          if (!p.skillAvg) return null;
+          const entry = p.skillAvg.find((s) => s.skill === skillDef.label);
+          return entry ? entry.valore : null;
+        }, giocSortDir);
+      }
+    }
+    return list;
+  }, [playerStats, rosterByName, golPerGiocatore, giocFiltroRuolo, giocFiltroLato, giocFiltroPiede, giocSortBy, giocSortDir]);
 
   // --- FORMA RECENTE (ultime 5 partite Cimiano, campionato + coppa + amichevoli) ---
   const formaRecente = useMemo(() => {
@@ -2099,7 +2210,66 @@ function GironeATracker() {
     );
   }
 
+  // Un gruppo di chip cliccabili per una categoria di flag (es. Ruolo: P/D/C/A). Multi-selezionabile
+  // dentro la categoria; il confronto fra categorie diverse è gestito da matchesIdentikit (AND).
+  function renderChipGroup(label, defs, selected, setSelected) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <span className="body-font" style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</span>
+        {defs.map((d) => {
+          const active = selected.includes(d.label);
+          return (
+            <span key={d.label} onClick={() => setSelected((prev) => active ? prev.filter((x) => x !== d.label) : [...prev, d.label])}
+              className="body-font"
+              style={{ cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 12,
+                border: `1px solid ${active ? RED : LINE}`, color: active ? "#fff" : MUTED,
+                background: active ? RED : "transparent", boxShadow: active ? "0 0 6px rgba(200,16,46,0.5)" : "none" }}>
+              {d.label}
+            </span>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Filtro identikit (Ruolo/Lato/Piede) + menù ordina per, riusato identico sia in Rosa che in
+  // Giocatori: cambia solo lo stato passato e le opzioni dell'ordinamento.
+  function renderFiltroOrdina(opts) {
+    const { ruoloSel, setRuoloSel, latoSel, setLatoSel, piedeSel, setPiedeSel, sortBy, setSortBy, sortDir, setSortDir, sortOptions, extra } = opts;
+    return (
+      <div className="chrome-box" style={{ marginBottom: 16 }}>
+        <div className="chrome-box-inner" style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+          {renderChipGroup("Ruolo", RUOLI, ruoloSel, setRuoloSel)}
+          {renderChipGroup("Lato", LATI, latoSel, setLatoSel)}
+          {renderChipGroup("Piede", PIEDI, piedeSel, setPiedeSel)}
+          {extra}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, borderTop: `1px solid ${LINE}`, paddingTop: 10 }}>
+            <span className="body-font" style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>Ordina per</span>
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="body-font"
+              style={{ fontSize: 12, padding: "4px 8px", borderRadius: 4, border: `1px solid ${LINE}` }}>
+              {sortOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <span onClick={() => setSortDir((d) => d === "asc" ? "desc" : "asc")}
+              style={{ cursor: "pointer", fontSize: 16, color: RED, userSelect: "none" }}
+              title={sortDir === "desc" ? "Dal più alto al più basso" : "Dal più basso al più alto"}>
+              {sortDir === "desc" ? "▼" : "▲"}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // --- ROSA SQUADRA ---
+  // Converte i flag scelti nel form (array di label, es. ["D","C"]) nelle colonne booleane del
+  // foglio (es. { ruoloD: 1, ruoloC: 1 }), impostando esplicitamente a "" quelle non scelte così
+  // da sovrascrivere sempre lo stato precedente su un upsert.
+  function flagsToColumns(defs, selected) {
+    const out = {};
+    defs.forEach((d) => { out[d.col] = selected.includes(d.label) ? 1 : ""; });
+    return out;
+  }
+
   function addRosterPlayer() {
     if (!rosterDraft.nome) return;
     // Id leggibile nel foglio Google (schema 04/09/2026, stile codice fiscale): prime 3 consonanti
@@ -2120,9 +2290,18 @@ function GironeATracker() {
     const existingIds = new Set(roster.map((p) => p.id));
     let id = base, suffix = 2;
     while (existingIds.has(id)) { id = `${base}-${suffix}`; suffix++; }
-    setRoster((prev) => [...prev, { id, nome: rosterDraft.nome }]);
-    window.rows.insert("Rosa", { id, nome: rosterDraft.nome }).catch(() => {});
-    setRosterDraft({ nome: "" });
+    const anagrafica = {
+      dataNascita: rosterDraft.dataNascita || "",
+      maglia: rosterDraft.maglia || "",
+      capitano: rosterDraft.capitano ? 1 : "",
+      ...flagsToColumns(RUOLI, rosterDraft.ruolo),
+      ...flagsToColumns(LATI, rosterDraft.lato),
+      ...flagsToColumns(PIEDI, rosterDraft.piede),
+    };
+    const nuovo = { id, nome: rosterDraft.nome, ...anagrafica };
+    setRoster((prev) => [...prev, nuovo]);
+    window.rows.insert("Rosa", nuovo).catch(() => {});
+    setRosterDraft({ nome: "", dataNascita: "", ruolo: [], lato: [], piede: [], maglia: "", capitano: false });
   }
 
   function removeRosterPlayer(id) {
@@ -2132,15 +2311,31 @@ function GironeATracker() {
 
   function startEditRoster(p) {
     setEditingRosterId(p.id);
-    setRosterDraft({ nome: p.nome });
+    setRosterDraft({
+      nome: p.nome,
+      dataNascita: p.dataNascita || "",
+      maglia: p.maglia || "",
+      capitano: isFlagTrue(p.capitano),
+      ruolo: RUOLI.filter((d) => isFlagTrue(p[d.col])).map((d) => d.label),
+      lato: LATI.filter((d) => isFlagTrue(p[d.col])).map((d) => d.label),
+      piede: PIEDI.filter((d) => isFlagTrue(p[d.col])).map((d) => d.label),
+    });
   }
 
   function saveEditRoster(id) {
     if (!rosterDraft.nome) return;
-    setRoster((prev) => prev.map((p) => (p.id === id ? { ...p, nome: rosterDraft.nome } : p)));
+    const anagrafica = {
+      dataNascita: rosterDraft.dataNascita || "",
+      maglia: rosterDraft.maglia || "",
+      capitano: rosterDraft.capitano ? 1 : "",
+      ...flagsToColumns(RUOLI, rosterDraft.ruolo),
+      ...flagsToColumns(LATI, rosterDraft.lato),
+      ...flagsToColumns(PIEDI, rosterDraft.piede),
+    };
+    setRoster((prev) => prev.map((p) => (p.id === id ? { ...p, nome: rosterDraft.nome, ...anagrafica } : p)));
     setEditingRosterId(null);
-    window.rows.upsert("Rosa", { id }, { nome: rosterDraft.nome }).catch(() => {});
-    setRosterDraft({ nome: "" });
+    window.rows.upsert("Rosa", { id }, { nome: rosterDraft.nome, ...anagrafica }).catch(() => {});
+    setRosterDraft({ nome: "", dataNascita: "", ruolo: [], lato: [], piede: [], maglia: "", capitano: false });
   }
 
 
@@ -3335,8 +3530,24 @@ function GironeATracker() {
             <div style={{ fontSize: 12, color: MUTED, marginBottom: 16 }}>
               Storico voti, minutaggio e commenti per giocatore, dalla partita più recente alla più vecchia.
             </div>
+            {renderFiltroOrdina({
+              ruoloSel: giocFiltroRuolo, setRuoloSel: setGiocFiltroRuolo,
+              latoSel: giocFiltroLato, setLatoSel: setGiocFiltroLato,
+              piedeSel: giocFiltroPiede, setPiedeSel: setGiocFiltroPiede,
+              sortBy: giocSortBy, setSortBy: setGiocSortBy, sortDir: giocSortDir, setSortDir: setGiocSortDir,
+              sortOptions: [
+                { value: "nome", label: "Nome" },
+                { value: "media", label: "Media voto" },
+                { value: "minuti", label: "Minuti giocati" },
+                { value: "gol", label: "Gol segnati" },
+                ...SKILLS.map((s) => ({ value: s.key, label: s.label })),
+              ],
+            })}
+            {giocFilteredSorted.length === 0 ? (
+              <div style={{ color: MUTED, fontSize: 13 }}>Nessun giocatore corrisponde al filtro.</div>
+            ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {playerStats.map((p) => {
+              {giocFilteredSorted.map((p) => {
                 const isOpen = !!expandedPlayer[p.name];
                 return (
                   <div key={p.name} className="chrome-box">
@@ -3448,6 +3659,7 @@ function GironeATracker() {
                 );
               })}
             </div>
+            )}
           </div>
         )}
 
@@ -3485,17 +3697,34 @@ function GironeATracker() {
 
         {macroTab === "stagione" && stagSub === "rosa" && (
           <div className="body-font">
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, background: PANEL_BG, padding: 12, borderRadius: 4, border: `1px solid ${LINE}` }}>
-              <input placeholder="Nome giocatore" value={rosterDraft.nome} onChange={(e) => setRosterDraft((p) => ({ ...p, nome: e.target.value }))}
-                style={{ flex: 1, minWidth: 140, padding: 6, border: `1px solid ${LINE}` }} />
-              {editingRosterId ? (
-                <>
-                  <button onClick={() => saveEditRoster(editingRosterId)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
-                  <button onClick={() => { setEditingRosterId(null); setRosterDraft({ nome: "" }); }} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
-                </>
-              ) : (
-                <button onClick={addRosterPlayer} style={{ background: RED, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Aggiungi</button>
-              )}
+            <div className="chrome-box" style={{ marginBottom: 16 }}>
+              <div className="chrome-box-inner" style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  <input placeholder="Nome giocatore" value={rosterDraft.nome} onChange={(e) => setRosterDraft((p) => ({ ...p, nome: e.target.value }))}
+                    style={{ flex: 1, minWidth: 140, padding: 6, border: `1px solid ${LINE}` }} />
+                  <input type="date" value={rosterDraft.dataNascita} onChange={(e) => setRosterDraft((p) => ({ ...p, dataNascita: e.target.value }))}
+                    style={{ padding: 6, border: `1px solid ${LINE}` }} />
+                  <input type="number" placeholder="N. maglia" value={rosterDraft.maglia} onChange={(e) => setRosterDraft((p) => ({ ...p, maglia: e.target.value }))}
+                    style={{ width: 90, padding: 6, border: `1px solid ${LINE}` }} />
+                </div>
+                {renderChipGroup("Ruolo", RUOLI, rosterDraft.ruolo, (fn) => setRosterDraft((p) => ({ ...p, ruolo: fn(p.ruolo) })))}
+                {renderChipGroup("Lato", LATI, rosterDraft.lato, (fn) => setRosterDraft((p) => ({ ...p, lato: fn(p.lato) })))}
+                {renderChipGroup("Piede", PIEDI, rosterDraft.piede, (fn) => setRosterDraft((p) => ({ ...p, piede: fn(p.piede) })))}
+                <label className="body-font" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                  <input type="checkbox" checked={rosterDraft.capitano} onChange={(e) => setRosterDraft((p) => ({ ...p, capitano: e.target.checked }))} />
+                  Capitano
+                </label>
+                <div>
+                  {editingRosterId ? (
+                    <>
+                      <button onClick={() => saveEditRoster(editingRosterId)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
+                      <button onClick={() => { setEditingRosterId(null); setRosterDraft({ nome: "", dataNascita: "", ruolo: [], lato: [], piede: [], maglia: "", capitano: false }); }} style={{ marginLeft: 8, background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
+                    </>
+                  ) : (
+                    <button onClick={addRosterPlayer} style={{ background: RED, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Aggiungi</button>
+                  )}
+                </div>
+              </div>
             </div>
             <div style={{ fontSize: 11, color: MUTED, marginBottom: 16 }}>
               Tutto qui è condiviso: rosa, voti (con autore e media calcolata automaticamente), marcatori, presenze e formazioni. Chi usa questo tracker vede sempre gli stessi dati.
@@ -3503,19 +3732,50 @@ function GironeATracker() {
             {roster.length === 0 ? (
               <div style={{ color: MUTED, fontSize: 13 }}>Nessun giocatore in rosa.</div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {rosterSorted.map((rp) => (
-                  <div key={rp.id} className="chrome-box" style={{ boxShadow: "none" }}>
-                    <div className="chrome-box-inner" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", fontSize: 13 }}>
-                      <span>{rp.nome}</span>
-                      <span style={{ display: "flex", gap: 10 }}>
-                        <button onClick={() => startEditRoster(rp)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>Modifica</button>
-                        <button onClick={() => removeRosterPlayer(rp.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 16 }}>×</button>
-                      </span>
-                    </div>
+              <>
+                {renderFiltroOrdina({
+                  ruoloSel: rosaFiltroRuolo, setRuoloSel: setRosaFiltroRuolo,
+                  latoSel: rosaFiltroLato, setLatoSel: setRosaFiltroLato,
+                  piedeSel: rosaFiltroPiede, setPiedeSel: setRosaFiltroPiede,
+                  sortBy: rosaSortBy, setSortBy: setRosaSortBy, sortDir: rosaSortDir, setSortDir: setRosaSortDir,
+                  sortOptions: [
+                    { value: "nome", label: "Nome" },
+                    { value: "maglia", label: "Numero maglia" },
+                    { value: "dataNascita", label: "Data di nascita" },
+                  ],
+                  extra: (
+                    <label className="body-font" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                      <input type="checkbox" checked={rosaSoloCapitano} onChange={(e) => setRosaSoloCapitano(e.target.checked)} />
+                      Solo capitano
+                    </label>
+                  ),
+                })}
+                {rosaFilteredSorted.length === 0 ? (
+                  <div style={{ color: MUTED, fontSize: 13 }}>Nessun giocatore corrisponde al filtro.</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {rosaFilteredSorted.map((rp) => {
+                      const ruoliAttivi = RUOLI.filter((d) => isFlagTrue(rp[d.col])).map((d) => d.label);
+                      return (
+                        <div key={rp.id} className="chrome-box" style={{ boxShadow: "none" }}>
+                          <div className="chrome-box-inner" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", fontSize: 13, gap: 8 }}>
+                            <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                              {rp.maglia && <span className="mono-font" style={{ fontSize: 11, color: MUTED, border: `1px solid ${LINE}`, borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{rp.maglia}</span>}
+                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rp.nome}</span>
+                              {isFlagTrue(rp.capitano) && <span title="Capitano" style={{ color: RED, fontWeight: 700, fontSize: 11 }}>C</span>}
+                              {ruoliAttivi.length > 0 && <span className="body-font" style={{ fontSize: 10, color: MUTED, letterSpacing: 0.5 }}>{ruoliAttivi.join(" · ")}</span>}
+                            </span>
+                            <span style={{ display: "flex", gap: 10, flexShrink: 0 }}>
+                              <button onClick={() => startEditRoster(rp)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>Modifica</button>
+                              <button onClick={() => removeRosterPlayer(rp.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 16 }}>×</button>
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
           </div>
         )}
