@@ -484,8 +484,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.9";
-const TRACKER_VERSION_DATE = "04/09/2026@13.50";
+const TRACKER_VERSION = "3.10";
+const TRACKER_VERSION_DATE = "04/09/2026@14.10";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -608,6 +608,7 @@ function GironeATracker() {
   const [results, setResults] = useState({}); // { fixtureId: {golHome, golAway} } — CONDIVISO
   const [detailsShared, setDetailsShared] = useState({}); // { fixtureId: {marcatori, voti, votoSquadra, presenze, formazione, modulo} } — CONDIVISO, i voti sono etichettati con l'autore
   const [voterName, setVoterNameState] = useState(""); // identità di chi vota su questo dispositivo — LOCALE
+  const [chartModal, setChartModal] = useState(null); // { type: 'line'|'radar', name, data } per lo zoom dei grafici
   const [voterOptionsExtra, setVoterOptionsExtra] = useState([]); // nominativi votanti aggiunti a mano, si fondono con VOTER_OPTIONS — CONDIVISO
   const [showAddVoter, setShowAddVoter] = useState(false); // form nascosto "aggiungi votante", si apre con 5 click sul logo
   const [newVoterDraft, setNewVoterDraft] = useState("");
@@ -2234,8 +2235,9 @@ function GironeATracker() {
     const sc = statusColor ? STATUS_COLORS[statusColor] : null;
     const accentColor = sc ? sc.border : LINE;
     return (
-      <div key={fx.id} className="chrome-box" style={{ padding: "1.5px 1.5px 1.5px 0" }}>
-        <div className="chrome-box-inner" style={{ borderLeft: `5px solid ${accentColor}`, borderRadius: "0 9.5px 9.5px 0", fontSize: 13 }}>
+      <div key={fx.id} className="chrome-box">
+        <div className="chrome-box-inner" style={{ fontSize: 13 }}>
+        <div style={{ margin: 6, borderLeft: `5px solid ${accentColor}`, borderRadius: 4 }}>
         {metaLabel && (
           <div className="body-font" style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 12px 0" }}>{metaLabel}</div>
         )}
@@ -2594,6 +2596,7 @@ function GironeATracker() {
           </div>
         )}
         </div>
+        </div>
       </div>
     );
   }
@@ -2625,8 +2628,9 @@ function GironeATracker() {
     const sc = statusColor ? STATUS_COLORS[statusColor] : null;
     const accentColor = sc ? sc.border : LINE;
     return (
-      <div key={f.id} className="chrome-box" style={{ padding: "1.5px 1.5px 1.5px 0" }}>
-        <div className="chrome-box-inner" style={{ borderLeft: `5px solid ${accentColor}`, borderRadius: "0 9.5px 9.5px 0", fontSize: 13 }}>
+      <div key={f.id} className="chrome-box">
+        <div className="chrome-box-inner" style={{ fontSize: 13 }}>
+        <div style={{ margin: 6, borderLeft: `5px solid ${accentColor}`, borderRadius: 4 }}>
         {isEditingF ? (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "10px 12px", alignItems: "center" }}>
             <input placeholder="Avversario" value={friendlyEditDraft.avversario || ""} onChange={(e) => setFriendlyEditDraft((p) => ({ ...p, avversario: e.target.value }))}
@@ -2984,6 +2988,7 @@ function GironeATracker() {
           </div>
         )}
         </div>
+        </div>
       </div>
     );
   }
@@ -3027,7 +3032,8 @@ function GironeATracker() {
         .score-input { width: 40px; padding: 5px; border: 1px solid ${LINE}; text-align: center; border-radius: 3px; box-sizing: border-box; }
       `}</style>
 
-      <div style={{ background: "linear-gradient(160deg, #16351f 0%, #0f2818 55%, #0a1c11 100%)", color: INK, padding: "22px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, boxShadow: `0 2px 14px -4px rgba(200,16,46,0.5)` }}>
+      <div className="chrome-box" style={{ borderRadius: 0, padding: "0 0 1.5px 0", boxShadow: `0 4px 18px -4px rgba(200,16,46,0.5)` }}>
+      <div style={{ background: "linear-gradient(160deg, #16351f 0%, #0f2818 55%, #0a1c11 100%)", color: INK, padding: "22px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="body-font" style={{ fontSize: 11, letterSpacing: 2.5, color: "#9fb5a5", textTransform: "uppercase" }}>
             Girone A · Allievi U17 Élite · Lombardia 2026/27
@@ -3059,7 +3065,8 @@ function GironeATracker() {
             </div>
           )}
         </div>
-        <div style={{ background: CREAM, border: `1px solid ${RED}`, borderRadius: 4, padding: 8, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+        <div className="chrome-box" style={{ flexShrink: 0 }}>
+          <div className="chrome-box-inner" style={{ padding: 8, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
           <img src={CIMIANO_LOGO} alt="Cimiano Calcio" width="80" height="80" onClick={handleLogoClick}
             style={{ display: "block", borderRadius: 4, objectFit: "cover", cursor: "pointer", userSelect: "none" }} />
           <select value={voterName} onChange={(e) => setVoterNameState(e.target.value)} className="body-font"
@@ -3081,7 +3088,9 @@ function GironeATracker() {
               <button onClick={() => { setShowAddVoter(false); setNewVoterDraft(""); }} style={{ fontSize: 10, background: "none", border: "none", color: MUTED, cursor: "pointer" }}>chiudi</button>
             </div>
           )}
+          </div>
         </div>
+      </div>
       </div>
 
       <div style={{ display: "flex", padding: "0 4px", background: CREAM, boxShadow: `inset 0 -1px 0 ${LINE}` }}>
@@ -3353,8 +3362,12 @@ function GironeATracker() {
                             .map((date) => ({ date, voto: byDate[date].sum / byDate[date].count }));
                           if (playerChartData.length < 2) return null;
                           return (
-                            <div style={{ marginBottom: 14 }}>
-                              <ResponsiveContainer width="100%" height={140}>
+                            <div style={{ marginBottom: 14, position: "relative" }}>
+                              <div className="body-font" onClick={() => setChartModal({ type: "line", name: p.name, data: playerChartData })}
+                                style={{ position: "absolute", top: 2, right: 2, zIndex: 1, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                                  width: 24, height: 24, borderRadius: "50%", border: `1px solid ${LINE}`, background: PANEL_BG, color: MUTED }}
+                                title="Ingrandisci grafico">🔍</div>
+                              <ResponsiveContainer width="100%" height={175}>
                                 <LineChart data={playerChartData} margin={{ top: 16, right: 12, left: -28, bottom: 5 }}>
                                   <CartesianGrid strokeDasharray="3 3" stroke={LINE} />
                                   <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fontSize: 10, fill: MUTED }} />
@@ -3369,9 +3382,13 @@ function GironeATracker() {
                           );
                         })()}
                         {p.skillAvg && (
-                          <div style={{ marginBottom: 14 }}>
+                          <div style={{ marginBottom: 14, position: "relative" }}>
                             <div style={{ fontSize: 11, color: MUTED, marginBottom: 4, textAlign: "center" }}>Media per skill</div>
-                            <ResponsiveContainer width="100%" height={200}>
+                            <div className="body-font" onClick={() => setChartModal({ type: "radar", name: p.name, data: p.skillAvg })}
+                              style={{ position: "absolute", top: 20, right: 2, zIndex: 1, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                                width: 24, height: 24, borderRadius: "50%", border: `1px solid ${LINE}`, background: PANEL_BG, color: MUTED }}
+                              title="Ingrandisci grafico">🔍</div>
+                            <ResponsiveContainer width="100%" height={250}>
                               <RadarChart data={p.skillAvg.map((d) => ({ ...d, soglia: 6 }))} outerRadius="70%">
                                 <PolarGrid stroke={LINE} />
                                 <PolarAngleAxis dataKey="skill" tick={{ fontSize: 10, fill: INK }} />
@@ -3637,6 +3654,40 @@ function GironeATracker() {
           </div>
         )}
       </div>
+
+      {chartModal && (
+        <div onClick={() => setChartModal(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} className="chrome-box" style={{ maxWidth: 480, width: "100%" }}>
+            <div className="chrome-box-inner" style={{ padding: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <strong className="title-font" style={{ fontSize: 16, color: INK }}>{chartModal.name}</strong>
+                <span onClick={() => setChartModal(null)} style={{ cursor: "pointer", fontSize: 22, color: MUTED, lineHeight: 1 }}>×</span>
+              </div>
+              <ResponsiveContainer width="100%" height={380}>
+                {chartModal.type === "line" ? (
+                  <LineChart data={chartModal.data} margin={{ top: 16, right: 16, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={LINE} />
+                    <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fontSize: 11, fill: MUTED }} />
+                    <YAxis domain={[1, 10]} tick={{ fontSize: 11, fill: MUTED }} />
+                    <Tooltip labelFormatter={fmtDate} formatter={(v) => [v.toFixed(1), "Voto"]} />
+                    <ReferenceLine y={6} stroke={MUTED} strokeDasharray="4 4" />
+                    <Line type="monotone" dataKey="voto" stroke={RED} strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                  </LineChart>
+                ) : (
+                  <RadarChart data={(chartModal.data || []).map((d) => ({ ...d, soglia: 6 }))} outerRadius="75%">
+                    <PolarGrid stroke={LINE} />
+                    <PolarAngleAxis dataKey="skill" tick={{ fontSize: 12, fill: INK }} />
+                    <PolarRadiusAxis domain={[0, 10]} tick={{ fontSize: 10, fill: MUTED }} />
+                    <Radar dataKey="soglia" name="Sufficienza" stroke={MUTED} strokeDasharray="4 4" fill="none" />
+                    <Radar dataKey="valore" name="Media" stroke={RED} fill={RED} fillOpacity={0.35} />
+                    <Tooltip formatter={(v) => [v.toFixed(1), "Media"]} />
+                  </RadarChart>
+                )}
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
