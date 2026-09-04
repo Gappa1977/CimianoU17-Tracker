@@ -484,8 +484,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.10";
-const TRACKER_VERSION_DATE = "04/09/2026@14.10";
+const TRACKER_VERSION = "3.11";
+const TRACKER_VERSION_DATE = "04/09/2026@14.35";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -593,6 +593,25 @@ const COPPA_FIXTURES_DEFAULT = [
 function fmtDate(iso) {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y}`;
+}
+
+// Etichetta del valore su ogni punta del grafico radar: renderizzata "a mano" invece di usare il
+// default di Recharts, che altrimenti orienta il testo seguendo l'inclinazione del raggio a cui
+// appartiene. Qui il testo resta sempre dritto e leggibile, spostato leggermente verso l'esterno
+// rispetto al punto per non sovrapporsi alla linea del grafico.
+function radarValueLabel(fontSize, color) {
+  return (props) => {
+    const { x, y, cx, cy, value } = props;
+    const dx = x - cx, dy = y - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const ox = x + (dx / dist) * 12;
+    const oy = y + (dy / dist) * 12;
+    return (
+      <text x={ox} y={oy} fill={color} fontSize={fontSize} fontWeight={700} textAnchor="middle" dominantBaseline="middle">
+        {Number(value).toFixed(1)}
+      </text>
+    );
+  };
 }
 
 function emptyStanding(name) {
@@ -2236,8 +2255,7 @@ function GironeATracker() {
     const accentColor = sc ? sc.border : LINE;
     return (
       <div key={fx.id} className="chrome-box">
-        <div className="chrome-box-inner" style={{ fontSize: 13 }}>
-        <div style={{ margin: 6, borderLeft: `5px solid ${accentColor}`, borderRadius: 4 }}>
+        <div className="chrome-box-inner" style={{ fontSize: 13, borderLeft: `5px solid ${accentColor}` }}>
         {metaLabel && (
           <div className="body-font" style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 12px 0" }}>{metaLabel}</div>
         )}
@@ -2596,7 +2614,6 @@ function GironeATracker() {
           </div>
         )}
         </div>
-        </div>
       </div>
     );
   }
@@ -2629,8 +2646,7 @@ function GironeATracker() {
     const accentColor = sc ? sc.border : LINE;
     return (
       <div key={f.id} className="chrome-box">
-        <div className="chrome-box-inner" style={{ fontSize: 13 }}>
-        <div style={{ margin: 6, borderLeft: `5px solid ${accentColor}`, borderRadius: 4 }}>
+        <div className="chrome-box-inner" style={{ fontSize: 13, borderLeft: `5px solid ${accentColor}` }}>
         {isEditingF ? (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "10px 12px", alignItems: "center" }}>
             <input placeholder="Avversario" value={friendlyEditDraft.avversario || ""} onChange={(e) => setFriendlyEditDraft((p) => ({ ...p, avversario: e.target.value }))}
@@ -2988,7 +3004,6 @@ function GironeATracker() {
           </div>
         )}
         </div>
-        </div>
       </div>
     );
   }
@@ -3017,7 +3032,7 @@ function GironeATracker() {
         .body-font { font-family: 'Inter', system-ui, sans-serif; }
         .title-font { font-family: 'Space Grotesk', sans-serif; }
         .mono-font { font-family: 'JetBrains Mono', monospace; }
-        .chrome-box { padding: 1.5px; border-radius: 11px; background: ${CHROME_BORDER}; box-shadow: 0 10px 20px -10px rgba(0,0,0,0.5); }
+        .chrome-box { padding: 1.5px; border-radius: 11px; background: ${CHROME_BORDER}; box-shadow: 0 14px 26px -10px rgba(0,0,0,0.55); }
         .chrome-box-inner { border-radius: 9.5px; background: ${PANEL_BG}; }
         .plus-btn { box-sizing: border-box; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; border: 1.5px solid; }
         .plus-shape { position: relative; width: 10px; height: 10px; flex-shrink: 0; }
@@ -3032,7 +3047,7 @@ function GironeATracker() {
         .score-input { width: 40px; padding: 5px; border: 1px solid ${LINE}; text-align: center; border-radius: 3px; box-sizing: border-box; }
       `}</style>
 
-      <div className="chrome-box" style={{ borderRadius: 0, padding: "0 0 1.5px 0", boxShadow: `0 4px 18px -4px rgba(200,16,46,0.5)` }}>
+      <div className="chrome-box" style={{ borderRadius: 0, padding: "3px 0", boxShadow: `0 4px 18px -4px rgba(200,16,46,0.5)` }}>
       <div style={{ background: "linear-gradient(160deg, #16351f 0%, #0f2818 55%, #0a1c11 100%)", color: INK, padding: "22px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="body-font" style={{ fontSize: 11, letterSpacing: 2.5, color: "#9fb5a5", textTransform: "uppercase" }}>
@@ -3393,9 +3408,10 @@ function GironeATracker() {
                                 <PolarGrid stroke={LINE} />
                                 <PolarAngleAxis dataKey="skill" tick={{ fontSize: 10, fill: INK }} />
                                 <PolarRadiusAxis domain={[0, 10]} tick={{ fontSize: 9, fill: MUTED }} />
-                                <Radar dataKey="soglia" name="Sufficienza" stroke={MUTED} strokeDasharray="4 4" fill="none" />
-                                <Radar dataKey="valore" name="Media" stroke={RED} fill={RED} fillOpacity={0.35}
-                                  label={{ fontSize: 10, fill: INK }} />
+                                <Radar dataKey="soglia" name="Sufficienza (6)" stroke={MUTED} strokeDasharray="4 4" fill="none" />
+                                <Radar dataKey="valore" name="Media giocatore" stroke={RED} fill={RED} fillOpacity={0.35}
+                                  label={radarValueLabel(10, INK)} />
+                                <Legend wrapperStyle={{ fontSize: 11 }} />
                                 <Tooltip formatter={(v) => [v.toFixed(1), "Media"]} />
                               </RadarChart>
                             </ResponsiveContainer>
@@ -3678,8 +3694,10 @@ function GironeATracker() {
                     <PolarGrid stroke={LINE} />
                     <PolarAngleAxis dataKey="skill" tick={{ fontSize: 12, fill: INK }} />
                     <PolarRadiusAxis domain={[0, 10]} tick={{ fontSize: 10, fill: MUTED }} />
-                    <Radar dataKey="soglia" name="Sufficienza" stroke={MUTED} strokeDasharray="4 4" fill="none" />
-                    <Radar dataKey="valore" name="Media" stroke={RED} fill={RED} fillOpacity={0.35} />
+                    <Radar dataKey="soglia" name="Sufficienza (6)" stroke={MUTED} strokeDasharray="4 4" fill="none" />
+                    <Radar dataKey="valore" name="Media giocatore" stroke={RED} fill={RED} fillOpacity={0.35}
+                      label={radarValueLabel(12, INK)} />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
                     <Tooltip formatter={(v) => [v.toFixed(1), "Media"]} />
                   </RadarChart>
                 )}
