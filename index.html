@@ -273,9 +273,9 @@ const AUTHOR_BADGE_BG = "#e8e6df";
 const AUTHOR_BADGE_TEXT = "#5a5648";
 const SUB_COLOR = "#2b6cb0";
 const STATUS_COLORS = {
-  played: { bg: "#e3f5e6", border: "#a9d8b1" },
-  next: { bg: "#fff6c4", border: "#e6d27a" },
-  upcoming: { bg: "#fbe1df", border: "#e8b3ae" },
+  played: { bg: "rgba(58,167,87,0.08)", border: "#3aa757" },
+  next: { bg: "rgba(224,165,44,0.08)", border: "#e0a52c" },
+  upcoming: { bg: "rgba(138,144,136,0.06)", border: "#4a504e" },
 };
 
 // Moduli disponibili: ogni modulo ha 11 slot posizionati in percentuale sul campo
@@ -484,8 +484,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.5";
-const TRACKER_VERSION_DATE = "04/09/2026@11.20";
+const TRACKER_VERSION = "3.6";
+const TRACKER_VERSION_DATE = "04/09/2026@11.55";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -1955,7 +1955,7 @@ function GironeATracker() {
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
             {Object.entries(FORMATIONS).map(([key, f]) => (
               <button key={key} onClick={() => onChangeModulo(key)}
-                style={{ fontSize: 11, padding: "4px 10px", borderRadius: 10, border: `1px solid ${LINE}`, background: moduloKey === key ? RED : "#fff", color: moduloKey === key ? "#fff" : INK, cursor: "pointer", fontWeight: 600 }}>
+                style={{ fontSize: 11, padding: "4px 10px", borderRadius: 10, border: `1px solid ${LINE}`, background: moduloKey === key ? RED : PANEL_BG, color: moduloKey === key ? "#fff" : INK, cursor: "pointer", fontWeight: 600 }}>
                 {f.label}
               </button>
             ))}
@@ -2228,17 +2228,18 @@ function GironeATracker() {
     const isNextMatch = fx.id === nextCimianoMatchId;
     const canOpenDetails = isCimianoMatch && (played || isNextMatch);
     const sc = statusColor ? STATUS_COLORS[statusColor] : null;
-    const rowBg = sc ? sc.bg : (isCimianoMatch ? "#fdeceb" : PANEL_BG);
-    const rowBorder = sc ? sc.border : LINE;
+    const rowBg = PANEL_BG;
+    const rowBorder = LINE;
+    const accentColor = sc ? sc.border : LINE;
     return (
-      <div key={fx.id} style={{ background: rowBg, border: `1px solid ${rowBorder}`, borderRadius: 4, fontSize: 13 }}>
+      <div key={fx.id} style={{ background: rowBg, border: `1px solid ${rowBorder}`, borderLeft: `3px solid ${accentColor}`, borderRadius: 6, fontSize: 13 }}>
         {metaLabel && (
-          <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 12px 0" }}>{metaLabel}</div>
+          <div className="body-font" style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 12px 0" }}>{metaLabel}</div>
         )}
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 108px minmax(0,1fr) auto", alignItems: "center", columnGap: 10, padding: metaLabel ? "4px 12px 8px" : "8px 12px" }}>
           <span style={{ fontWeight: fx.home === CIMIANO ? 700 : 400, color: fx.home === CIMIANO ? RED : INK, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fx.home}</span>
           {played ? (
-            <span style={{ fontWeight: 700, textAlign: "center" }}>{played.golHome} – {played.golAway}</span>
+            <span className="mono-font" style={{ fontWeight: 700, textAlign: "center", fontSize: 15 }}>{played.golHome} – {played.golAway}</span>
           ) : (
             <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
               <input className="score-input" type="number" min="0" value={d.golHome ?? ""}
@@ -2279,7 +2280,7 @@ function GironeATracker() {
                     return (
                       <button key={rp.id} onClick={() => { if (!blocked) toggleConvocato(fx.id, rp.id); }} disabled={blocked}
                         title={blocked ? "Limite di 20 convocati raggiunto (regolamento FIGC)" : undefined}
-                        style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: `1px solid ${LINE}`, background: isConv ? RED : "#fff", color: isConv ? "#fff" : (blocked ? "#c2beb0" : INK), cursor: blocked ? "not-allowed" : "pointer" }}>
+                        style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: `1px solid ${LINE}`, background: isConv ? RED : PANEL_BG, color: isConv ? "#fff" : (blocked ? "#c2beb0" : INK), cursor: blocked ? "not-allowed" : "pointer" }}>
                         {rp.nome}
                       </button>
                     );
@@ -2350,7 +2351,7 @@ function GironeATracker() {
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
                 {rosterSorted.map((rp) => (
                   <button key={rp.id} onClick={() => setScorerDraft((prev) => ({ ...prev, [fx.id]: { ...prev[fx.id], giocatore: rp.nome } }))}
-                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: sd.giocatore === rp.nome ? RED : "#fff", color: sd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
+                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: sd.giocatore === rp.nome ? RED : PANEL_BG, color: sd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
                     {rp.nome}
                   </button>
                 ))}
@@ -2399,7 +2400,7 @@ function GironeATracker() {
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
                 {rosterSorted.map((rp) => (
                   <button key={rp.id} onClick={() => setCardDraft((prev) => ({ ...prev, [fx.id]: { ...prev[fx.id], giocatore: rp.nome } }))}
-                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: cd.giocatore === rp.nome ? RED : "#fff", color: cd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
+                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: cd.giocatore === rp.nome ? RED : PANEL_BG, color: cd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
                     {rp.nome}
                   </button>
                 ))}
@@ -2499,7 +2500,7 @@ function GironeATracker() {
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
                 {rosterSorted.map((rp) => (
                   <button key={rp.id} onClick={() => setRatingDraft((prev) => ({ ...prev, [fx.id]: { ...prev[fx.id], giocatore: rp.nome } }))}
-                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: rd.giocatore === rp.nome ? RED : "#fff", color: rd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
+                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: rd.giocatore === rp.nome ? RED : PANEL_BG, color: rd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
                     {rp.nome}
                   </button>
                 ))}
@@ -2617,10 +2618,11 @@ function GironeATracker() {
     const isNextMatch = f.id === nextCimianoMatchId;
     const canOpenDetails = hasScore || isNextMatch;
     const sc = statusColor ? STATUS_COLORS[statusColor] : null;
-    const rowBg = sc ? sc.bg : PANEL_BG;
-    const rowBorder = sc ? sc.border : LINE;
+    const rowBg = PANEL_BG;
+    const rowBorder = LINE;
+    const accentColor = sc ? sc.border : LINE;
     return (
-      <div key={f.id} style={{ background: rowBg, border: `1px solid ${rowBorder}`, borderRadius: 4, fontSize: 13 }}>
+      <div key={f.id} style={{ background: rowBg, border: `1px solid ${rowBorder}`, borderLeft: `3px solid ${accentColor}`, borderRadius: 6, fontSize: 13 }}>
         {isEditingF ? (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "10px 12px", alignItems: "center" }}>
             <input placeholder="Avversario" value={friendlyEditDraft.avversario || ""} onChange={(e) => setFriendlyEditDraft((p) => ({ ...p, avversario: e.target.value }))}
@@ -2642,7 +2644,7 @@ function GironeATracker() {
             <div>
               <span style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginRight: 8 }}>Amichevole</span>
               {hasScore ? (
-                <><strong style={{ color: RED }}>Cimiano</strong> {f.golCimiano} – {f.golAvv} <strong>{f.avversario}</strong></>
+                <><strong style={{ color: RED }}>Cimiano</strong> <span className="mono-font" style={{ fontWeight: 700 }}>{f.golCimiano} – {f.golAvv}</span> <strong>{f.avversario}</strong></>
               ) : (
                 <><strong style={{ color: RED }}>Cimiano</strong> vs <strong>{f.avversario}</strong>
                   <span style={{ marginLeft: 8, fontSize: 11, color: RED, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>in programma</span></>
@@ -2673,7 +2675,7 @@ function GironeATracker() {
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {rosterSorted.map((rp) => (
                     <button key={rp.id} onClick={() => toggleConvocatoF(f.id, rp.id)}
-                      style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: `1px solid ${LINE}`, background: convocatiF[rp.id] ? RED : "#fff", color: convocatiF[rp.id] ? "#fff" : INK, cursor: "pointer" }}>
+                      style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: `1px solid ${LINE}`, background: convocatiF[rp.id] ? RED : PANEL_BG, color: convocatiF[rp.id] ? "#fff" : INK, cursor: "pointer" }}>
                       {rp.nome}
                     </button>
                   ))}
@@ -2740,7 +2742,7 @@ function GironeATracker() {
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
                 {rosterSorted.map((rp) => (
                   <button key={rp.id} onClick={() => setScorerDraftF((prev) => ({ ...prev, [f.id]: { ...prev[f.id], giocatore: rp.nome } }))}
-                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: sdF.giocatore === rp.nome ? RED : "#fff", color: sdF.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
+                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: sdF.giocatore === rp.nome ? RED : PANEL_BG, color: sdF.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
                     {rp.nome}
                   </button>
                 ))}
@@ -2789,7 +2791,7 @@ function GironeATracker() {
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
                 {rosterSorted.map((rp) => (
                   <button key={rp.id} onClick={() => setCardDraftF((prev) => ({ ...prev, [f.id]: { ...prev[f.id], giocatore: rp.nome } }))}
-                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: cdF.giocatore === rp.nome ? RED : "#fff", color: cdF.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
+                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: cdF.giocatore === rp.nome ? RED : PANEL_BG, color: cdF.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
                     {rp.nome}
                   </button>
                 ))}
@@ -2888,7 +2890,7 @@ function GironeATracker() {
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
               {rosterSorted.map((rp) => (
                 <button key={rp.id} onClick={() => setRatingDraftF((prev) => ({ ...prev, [f.id]: { ...prev[f.id], giocatore: rp.nome } }))}
-                  style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: rd.giocatore === rp.nome ? RED : "#fff", color: rd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
+                  style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: rd.giocatore === rp.nome ? RED : PANEL_BG, color: rd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
                   {rp.nome}
                 </button>
               ))}
@@ -3134,33 +3136,37 @@ function GironeATracker() {
       <div style={{ padding: 18 }}>
         {macroTab === "campionato" && campSub === "classifica" && (
           <div className="body-font">
-            <table style={{ fontSize: 13 }}>
-              <thead>
-                <tr style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                  <th>#</th><th>Squadra</th><th style={{ textAlign: "center" }}>PG</th>
-                  <th style={{ textAlign: "center" }}>V</th><th style={{ textAlign: "center" }}>N</th>
-                  <th style={{ textAlign: "center" }}>P</th><th style={{ textAlign: "center" }}>GF</th>
-                  <th style={{ textAlign: "center" }}>GS</th><th style={{ textAlign: "center" }}>DR</th>
-                  <th style={{ textAlign: "center" }}>Pt</th>
-                </tr>
-              </thead>
-              <tbody>
-                {standings.map((s, i) => (
-                  <tr key={s.name} style={{ background: s.name === CIMIANO ? "#fdeceb" : "transparent", fontWeight: s.name === CIMIANO ? 700 : 400 }}>
-                    <td>{i + 1}</td>
-                    <td style={{ color: s.name === CIMIANO ? RED : INK }}>{s.name}</td>
-                    <td style={{ textAlign: "center" }}>{s.pg}</td>
-                    <td style={{ textAlign: "center" }}>{s.v}</td>
-                    <td style={{ textAlign: "center" }}>{s.n}</td>
-                    <td style={{ textAlign: "center" }}>{s.p}</td>
-                    <td style={{ textAlign: "center" }}>{s.gf}</td>
-                    <td style={{ textAlign: "center" }}>{s.gs}</td>
-                    <td style={{ textAlign: "center" }}>{s.gf - s.gs > 0 ? "+" : ""}{s.gf - s.gs}</td>
-                    <td style={{ textAlign: "center", fontWeight: 700 }}>{s.pt}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="chrome-box">
+              <div className="chrome-box-inner" style={{ padding: "4px 14px" }}>
+                <table style={{ fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                      <th>#</th><th>Squadra</th><th style={{ textAlign: "center" }}>PG</th>
+                      <th style={{ textAlign: "center" }}>V</th><th style={{ textAlign: "center" }}>N</th>
+                      <th style={{ textAlign: "center" }}>P</th><th style={{ textAlign: "center" }}>GF</th>
+                      <th style={{ textAlign: "center" }}>GS</th><th style={{ textAlign: "center" }}>DR</th>
+                      <th style={{ textAlign: "center" }}>Pt</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {standings.map((s, i) => (
+                      <tr key={s.name} style={{ background: s.name === CIMIANO ? "rgba(200,16,46,0.12)" : "transparent", fontWeight: s.name === CIMIANO ? 700 : 400 }}>
+                        <td className="mono-font" style={{ color: MUTED }}>{i + 1}</td>
+                        <td style={{ color: s.name === CIMIANO ? RED : INK }}>{s.name}</td>
+                        <td className="mono-font" style={{ textAlign: "center" }}>{s.pg}</td>
+                        <td className="mono-font" style={{ textAlign: "center" }}>{s.v}</td>
+                        <td className="mono-font" style={{ textAlign: "center" }}>{s.n}</td>
+                        <td className="mono-font" style={{ textAlign: "center" }}>{s.p}</td>
+                        <td className="mono-font" style={{ textAlign: "center" }}>{s.gf}</td>
+                        <td className="mono-font" style={{ textAlign: "center" }}>{s.gs}</td>
+                        <td className="mono-font" style={{ textAlign: "center" }}>{s.gf - s.gs > 0 ? "+" : ""}{s.gf - s.gs}</td>
+                        <td className="mono-font" style={{ textAlign: "center", fontWeight: 700, color: INK }}>{s.pt}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
             {positionHistory.length > 1 && (
               <div style={{ background: PANEL_BG, border: `1px solid ${LINE}`, borderRadius: 4, padding: "12px 8px 4px", marginTop: 20 }}>
@@ -3550,33 +3556,37 @@ function GironeATracker() {
             <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
               Fase a gironi · Girone {COPPA_GIRONE} · 6-30 settembre 2026
             </div>
-            <table style={{ fontSize: 13 }}>
-              <thead>
-                <tr style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                  <th>#</th><th>Squadra</th><th style={{ textAlign: "center" }}>PG</th>
-                  <th style={{ textAlign: "center" }}>V</th><th style={{ textAlign: "center" }}>N</th>
-                  <th style={{ textAlign: "center" }}>P</th><th style={{ textAlign: "center" }}>GF</th>
-                  <th style={{ textAlign: "center" }}>GS</th><th style={{ textAlign: "center" }}>DR</th>
-                  <th style={{ textAlign: "center" }}>Pt</th>
-                </tr>
-              </thead>
-              <tbody>
-                {coppaStandings.map((s, i) => (
-                  <tr key={s.name} style={{ background: s.name === CIMIANO ? "#fdeceb" : "transparent", fontWeight: s.name === CIMIANO ? 700 : 400 }}>
-                    <td>{i + 1}</td>
-                    <td style={{ color: s.name === CIMIANO ? RED : INK }}>{s.name}</td>
-                    <td style={{ textAlign: "center" }}>{s.pg}</td>
-                    <td style={{ textAlign: "center" }}>{s.v}</td>
-                    <td style={{ textAlign: "center" }}>{s.n}</td>
-                    <td style={{ textAlign: "center" }}>{s.p}</td>
-                    <td style={{ textAlign: "center" }}>{s.gf}</td>
-                    <td style={{ textAlign: "center" }}>{s.gs}</td>
-                    <td style={{ textAlign: "center" }}>{s.gf - s.gs > 0 ? "+" : ""}{s.gf - s.gs}</td>
-                    <td style={{ textAlign: "center", fontWeight: 700 }}>{s.pt}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="chrome-box">
+              <div className="chrome-box-inner" style={{ padding: "4px 14px" }}>
+                <table style={{ fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                      <th>#</th><th>Squadra</th><th style={{ textAlign: "center" }}>PG</th>
+                      <th style={{ textAlign: "center" }}>V</th><th style={{ textAlign: "center" }}>N</th>
+                      <th style={{ textAlign: "center" }}>P</th><th style={{ textAlign: "center" }}>GF</th>
+                      <th style={{ textAlign: "center" }}>GS</th><th style={{ textAlign: "center" }}>DR</th>
+                      <th style={{ textAlign: "center" }}>Pt</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {coppaStandings.map((s, i) => (
+                      <tr key={s.name} style={{ background: s.name === CIMIANO ? "rgba(200,16,46,0.12)" : "transparent", fontWeight: s.name === CIMIANO ? 700 : 400 }}>
+                        <td className="mono-font" style={{ color: MUTED }}>{i + 1}</td>
+                        <td style={{ color: s.name === CIMIANO ? RED : INK }}>{s.name}</td>
+                        <td className="mono-font" style={{ textAlign: "center" }}>{s.pg}</td>
+                        <td className="mono-font" style={{ textAlign: "center" }}>{s.v}</td>
+                        <td className="mono-font" style={{ textAlign: "center" }}>{s.n}</td>
+                        <td className="mono-font" style={{ textAlign: "center" }}>{s.p}</td>
+                        <td className="mono-font" style={{ textAlign: "center" }}>{s.gf}</td>
+                        <td className="mono-font" style={{ textAlign: "center" }}>{s.gs}</td>
+                        <td className="mono-font" style={{ textAlign: "center" }}>{s.gf - s.gs > 0 ? "+" : ""}{s.gf - s.gs}</td>
+                        <td className="mono-font" style={{ textAlign: "center", fontWeight: 700, color: INK }}>{s.pt}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 
