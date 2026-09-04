@@ -399,6 +399,42 @@ function slugify(s) {
     .slice(0, 24);
 }
 
+// --- Schema id leggibili "stile codice fiscale" (04/09/2026) ---
+// Giocatori: [3 consonanti cognome][3 consonanti nome][progressivo 3 cifre], es. RSSMRA001.
+// Partite: [Tipo]-[YYYYMMDD]-[Avversario o Casa-Trasferta], es. Amic-20260904-Vrneoa,
+// Camp-20260906-Lnss-Smpnhlf, Copp-20260906-Vll-Nrt.
+// Normalizza un testo: rimuove accenti/spazi/punteggiatura, tiene solo lettere, tutto maiuscolo.
+function normalizzaLettere(s) {
+  return (s || "")
+    .toString()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z]/g, "")
+    .toUpperCase();
+}
+
+// Estrae le prime n consonanti da un testo; se non bastano completa con le vocali (in ordine),
+// se ancora non bastano completa con X. Stesso criterio del vero codice fiscale italiano.
+function estraiConsonanti(s, n) {
+  const lettere = normalizzaLettere(s);
+  const vocali = "AEIOU";
+  let cons = "", vow = "";
+  for (let i = 0; i < lettere.length; i++) {
+    const ch = lettere[i];
+    if (vocali.indexOf(ch) === -1) cons += ch; else vow += ch;
+  }
+  let risultato = cons.slice(0, n);
+  if (risultato.length < n) risultato += vow.slice(0, n - risultato.length);
+  while (risultato.length < n) risultato += "X";
+  return risultato;
+}
+
+// Codifica il nome di una squadra per gli id delle partite: prime 6 consonanti (da tutta la
+// stringa, spazi compresi), prima lettera maiuscola e resto minuscolo. Es. "Hellas Verona" -> "Hllsvr".
+function codificaSquadra(nome) {
+  const c = estraiConsonanti(nome, 6);
+  return c.charAt(0) + c.slice(1).toLowerCase();
+}
+
 // Nome di battesimo = prima parola del nome completo (es. "Nicolò Lodi" -> "Nicolò"). Usato dentro il
 // pallino sulla mappa formazione, in coppia col cognome mostrato sotto (lastName).
 function firstName(fullName) {
@@ -438,8 +474,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.3";
-const TRACKER_VERSION_DATE = "03/09/2026@23.35";
+const TRACKER_VERSION = "3.4";
+const TRACKER_VERSION_DATE = "04/09/2026@09.38";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -1200,9 +1236,10 @@ function GironeATracker() {
 
   const round = ROUNDS[roundIdx];
 
-  // Stesso criterio usato in Code.gs per distinguere campionato/coppa dal fixtureId.
+  // Schema id leggibili (04/09/2026): distingue campionato/coppa dal prefisso "Copp-"/"Camp-"
+  // del fixtureId (prima era "coppa" in minuscolo, id tipo "coppa9-1" - vedi migrazione id leggibili).
   function tipoDaFixtureId(fixtureId) {
-    return String(fixtureId).indexOf("coppa") === 0 ? "coppa" : "campionato";
+    return String(fixtureId).indexOf("Copp-") === 0 ? "coppa" : "campionato";
   }
 
   function saveResult(fixtureId) {
@@ -1414,12 +1451,11 @@ function GironeATracker() {
 
   function addFriendly() {
     if (!fForm.avversario) return;
-    // Id leggibile nel foglio Google: data (senza trattini) + ora + avversario abbreviato.
-    // Es. "20260903-2000-CalcioLecco". Se manca la data (partita non ancora programmata con
-    // precisione) usa "sd" (senza data) al suo posto, così l'id resta comunque univoco e leggibile.
-    const dataPart = fForm.data ? fForm.data.replace(/-/g, "") : "sd";
-    const oraPart = fForm.ora ? fForm.ora.replace(":", "") : "";
-    const base = `${dataPart}${oraPart ? "-" + oraPart : ""}-${slugify(fForm.avversario) || "avversario"}`;
+    // Id leggibile nel foglio Google (schema 04/09/2026): Amic-YYYYMMDD-Avversario, con l'avversario
+    // codificato con le prime 6 consonanti (prima maiuscola, resto minuscolo). Es. "Amic-20260904-Vrneoa".
+    // Se manca la data (partita non ancora programmata con precisione) usa "SD" al suo posto.
+    const dataPart = fForm.data ? fForm.data.replace(/-/g, "") : "SD";
+    const base = `Amic-${dataPart}-${codificaSquadra(fForm.avversario)}`;
     const existingIds = new Set(friendlies.map((f) => f.id));
     let id = base, suffix = 2;
     while (existingIds.has(id)) { id = `${base}-${suffix}`; suffix++; }
@@ -2032,9 +2068,21 @@ function GironeATracker() {
   // --- ROSA SQUADRA ---
   function addRosterPlayer() {
     if (!rosterDraft.nome) return;
-    // Id leggibile nel foglio Google: slug del nome (es. "Nicolò Lodi" -> "nicolo-lodi").
-    // Se due giocatori hanno lo stesso nome (o lo stesso slug), aggiunge un suffisso numerico.
-    const base = slugify(rosterDraft.nome).toLowerCase() || "giocatore";
+    // Id leggibile nel foglio Google (schema 04/09/2026, stile codice fiscale): prime 3 consonanti
+    // del cognome (ultima parola del nome completo) + prime 3 del nome + progressivo 3 cifre.
+    // Es. "Nicolò Lodi" -> "LDNNCL001". Il progressivo riparte dal massimo esistente + 1, così resta
+    // univoco anche dopo eventuali rimozioni di giocatori dalla rosa.
+    const nomeCompleto = rosterDraft.nome.trim();
+    const idxSpazio = nomeCompleto.lastIndexOf(" ");
+    const partNome = idxSpazio === -1 ? "" : nomeCompleto.slice(0, idxSpazio);
+    const partCognome = idxSpazio === -1 ? nomeCompleto : nomeCompleto.slice(idxSpazio + 1);
+    const codice6 = estraiConsonanti(partCognome, 3) + estraiConsonanti(partNome, 3);
+    let maxProgressivo = 0;
+    roster.forEach((p) => {
+      const m = String(p.id).match(/(\d{3})$/);
+      if (m) maxProgressivo = Math.max(maxProgressivo, parseInt(m[1], 10));
+    });
+    const base = codice6 + String(maxProgressivo + 1).padStart(3, "0");
     const existingIds = new Set(roster.map((p) => p.id));
     let id = base, suffix = 2;
     while (existingIds.has(id)) { id = `${base}-${suffix}`; suffix++; }
