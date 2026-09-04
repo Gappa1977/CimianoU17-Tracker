@@ -10,12 +10,12 @@
 <script src="https://unpkg.com/recharts@2/umd/Recharts.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone@7/babel.min.js" crossorigin></script>
 <style>
-  html, body { margin: 0; padding: 0; background: #f6f1e4; font-family: system-ui, sans-serif; }
+  html, body { margin: 0; padding: 0; background: #14181a; font-family: system-ui, sans-serif; color-scheme: dark; }
   #app-root { max-width: 720px; margin: 0 auto; min-height: 100vh; }
-  #loading { max-width: 720px; margin: 40px auto; padding: 20px; color: #6b6350; text-align: center; }
+  #loading { max-width: 720px; margin: 40px auto; padding: 20px; color: #8a9088; text-align: center; }
   #loading .spinner {
     width: 34px; height: 34px; margin: 0 auto 14px;
-    border: 3px solid #ddd8c8; border-top-color: #c8102e; border-radius: 50%;
+    border: 3px solid #2a2f2f; border-top-color: #c8102e; border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -484,8 +484,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.6";
-const TRACKER_VERSION_DATE = "04/09/2026@11.55";
+const TRACKER_VERSION = "3.7";
+const TRACKER_VERSION_DATE = "04/09/2026@12.30";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -2280,7 +2280,7 @@ function GironeATracker() {
                     return (
                       <button key={rp.id} onClick={() => { if (!blocked) toggleConvocato(fx.id, rp.id); }} disabled={blocked}
                         title={blocked ? "Limite di 20 convocati raggiunto (regolamento FIGC)" : undefined}
-                        style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: `1px solid ${LINE}`, background: isConv ? RED : PANEL_BG, color: isConv ? "#fff" : (blocked ? "#c2beb0" : INK), cursor: blocked ? "not-allowed" : "pointer" }}>
+                        style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: `1px solid ${LINE}`, background: isConv ? RED : PANEL_BG, color: isConv ? "#fff" : (blocked ? MUTED : INK), cursor: blocked ? "not-allowed" : "pointer" }}>
                         {rp.nome}
                       </button>
                     );
@@ -3011,8 +3011,8 @@ function GironeATracker() {
         table { border-collapse: collapse; width: 100%; }
         th, td { padding: 8px 10px; text-align: left; }
         tbody tr { border-bottom: 1px solid ${LINE}; }
-        input, select { font-family: 'Inter', system-ui, sans-serif; }
-        ::placeholder { color: #9a968a; }
+        input, select, textarea { font-family: 'Inter', system-ui, sans-serif; background: ${PANEL_BG}; color: ${INK}; border: 1px solid ${LINE}; }
+        ::placeholder { color: ${MUTED}; opacity: 1; }
         .score-input { width: 40px; padding: 5px; border: 1px solid ${LINE}; text-align: center; border-radius: 3px; box-sizing: border-box; }
       `}</style>
 
@@ -3300,11 +3300,11 @@ function GironeATracker() {
                   <div key={p.name} style={{ background: PANEL_BG, border: `1px solid ${LINE}`, borderRadius: 4, fontSize: 13 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", flexWrap: "wrap", gap: 6 }}>
                       <div>
-                        <strong style={{ fontSize: 15 }}>{p.name}</strong>
+                        <strong style={{ fontSize: 15 }} className="title-font">{p.name}</strong>
                         <div style={{ color: MUTED, fontSize: 12, marginTop: 2 }}>
                           {p.presenze} {p.presenze === 1 ? "presenza" : "presenze"}
-                          {p.media !== null && ` · media voto ${p.media.toFixed(1)}`}
-                          {p.minutiTot !== null && ` · ${p.minutiTot}' totali`}
+                          {p.media !== null && <> · media voto <span className="mono-font" style={{ color: INK, fontWeight: 700 }}>{p.media.toFixed(1)}</span></>}
+                          {p.minutiTot !== null && <> · <span className="mono-font">{p.minutiTot}'</span> totali</>}
                           {p.cartellini.gialli > 0 && ` · 🟨×${p.cartellini.gialli}`}
                           {p.cartellini.rossi > 0 && ` · 🟥×${p.cartellini.rossi}`}
                         </div>
@@ -3375,7 +3375,7 @@ function GironeATracker() {
                                   vs <strong>{e.opponent}</strong>
                                   <span style={{ color: MUTED, marginLeft: 6 }}>{e.date && e.date !== "0000-00-00" ? fmtDate(e.date) : ""}</span>
                                 </span>
-                                <span style={{ fontWeight: 700 }}>
+                                <span className="mono-font" style={{ fontWeight: 700 }}>
                                   {e.voto}{e.minutaggio ? ` · ${e.minutaggio}'` : ""}
                                 </span>
                               </div>
@@ -3405,22 +3405,26 @@ function GironeATracker() {
             {cannonieri.length === 0 ? (
               <div style={{ color: MUTED, fontSize: 13 }}>Nessun marcatore registrato ancora.</div>
             ) : (
-              <table style={{ fontSize: 13, width: "100%" }}>
-                <thead>
-                  <tr style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                    <th style={{ textAlign: "left" }}>#</th><th style={{ textAlign: "left" }}>Giocatore</th><th style={{ textAlign: "center" }}>Gol</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cannonieri.map((c, i) => (
-                    <tr key={c.name} style={{ borderBottom: `1px solid ${LINE}` }}>
-                      <td style={{ padding: "8px 0" }}>{i + 1}</td>
-                      <td style={{ padding: "8px 0", fontWeight: 600 }}>{c.name}</td>
-                      <td style={{ padding: "8px 0", textAlign: "center", fontWeight: 700, color: RED }}>⚽ {c.gol}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="chrome-box">
+                <div className="chrome-box-inner" style={{ padding: "4px 14px" }}>
+                  <table style={{ fontSize: 13, width: "100%" }}>
+                    <thead>
+                      <tr style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                        <th style={{ textAlign: "left" }}>#</th><th style={{ textAlign: "left" }}>Giocatore</th><th style={{ textAlign: "center" }}>Gol</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cannonieri.map((c, i) => (
+                        <tr key={c.name} style={{ borderBottom: `1px solid ${LINE}` }}>
+                          <td className="mono-font" style={{ padding: "8px 0", color: MUTED }}>{i + 1}</td>
+                          <td style={{ padding: "8px 0", fontWeight: 600 }}>{c.name}</td>
+                          <td className="mono-font" style={{ padding: "8px 0", textAlign: "center", fontWeight: 700, color: RED }}>⚽ {c.gol}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             )}
           </div>
         )}
