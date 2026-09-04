@@ -264,13 +264,13 @@ const PANEL_BG = "#181e1f";
 const CHROME_BORDER = "linear-gradient(150deg,#eef0ee 0%,#9aa19d 18%,#3d4341 42%,#575e5b 60%,#c4cac6 78%,#4a504e 100%)";
 const TITLE_FONT = "'Space Grotesk', sans-serif";
 const MONO_FONT = "'JetBrains Mono', monospace";
-const DISABLED_BG = "#ccc";
-const TEAM_BOX_BG = "#e7f3e9";
-const TEAM_BOX_BORDER = "#bfe0c6";
-const PLAYER_BOX_BG = "#fdf6d8";
-const PLAYER_BOX_BORDER = "#eadfa0";
-const AUTHOR_BADGE_BG = "#e8e6df";
-const AUTHOR_BADGE_TEXT = "#5a5648";
+const DISABLED_BG = "#3a3f3e";
+const TEAM_BOX_BG = "#141d17";
+const TEAM_BOX_BORDER = "#2f4a38";
+const PLAYER_BOX_BG = "#1e1a12";
+const PLAYER_BOX_BORDER = "#4a3f1f";
+const AUTHOR_BADGE_BG = "#242928";
+const AUTHOR_BADGE_TEXT = "#c7cbc6";
 const SUB_COLOR = "#2b6cb0";
 const STATUS_COLORS = {
   played: { bg: "rgba(58,167,87,0.08)", border: "#3aa757" },
@@ -484,8 +484,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.8";
-const TRACKER_VERSION_DATE = "04/09/2026@13.15";
+const TRACKER_VERSION = "3.9";
+const TRACKER_VERSION_DATE = "04/09/2026@13.50";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -2234,8 +2234,8 @@ function GironeATracker() {
     const sc = statusColor ? STATUS_COLORS[statusColor] : null;
     const accentColor = sc ? sc.border : LINE;
     return (
-      <div key={fx.id} className="chrome-box">
-        <div className="chrome-box-inner" style={{ borderLeft: `3px solid ${accentColor}`, borderRadius: "0 9.5px 9.5px 0", fontSize: 13 }}>
+      <div key={fx.id} className="chrome-box" style={{ padding: "1.5px 1.5px 1.5px 0" }}>
+        <div className="chrome-box-inner" style={{ borderLeft: `5px solid ${accentColor}`, borderRadius: "0 9.5px 9.5px 0", fontSize: 13 }}>
         {metaLabel && (
           <div className="body-font" style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 12px 0" }}>{metaLabel}</div>
         )}
@@ -2625,8 +2625,8 @@ function GironeATracker() {
     const sc = statusColor ? STATUS_COLORS[statusColor] : null;
     const accentColor = sc ? sc.border : LINE;
     return (
-      <div key={f.id} className="chrome-box">
-        <div className="chrome-box-inner" style={{ borderLeft: `3px solid ${accentColor}`, borderRadius: "0 9.5px 9.5px 0", fontSize: 13 }}>
+      <div key={f.id} className="chrome-box" style={{ padding: "1.5px 1.5px 1.5px 0" }}>
+        <div className="chrome-box-inner" style={{ borderLeft: `5px solid ${accentColor}`, borderRadius: "0 9.5px 9.5px 0", fontSize: 13 }}>
         {isEditingF ? (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "10px 12px", alignItems: "center" }}>
             <input placeholder="Avversario" value={friendlyEditDraft.avversario || ""} onChange={(e) => setFriendlyEditDraft((p) => ({ ...p, avversario: e.target.value }))}
@@ -3084,16 +3084,17 @@ function GironeATracker() {
         </div>
       </div>
 
-      <div style={{ display: "flex", padding: "0 4px", background: CREAM }}>
+      <div style={{ display: "flex", padding: "0 4px", background: CREAM, boxShadow: `inset 0 -1px 0 ${LINE}` }}>
         {[
           ["stagione", "01", "Stagione"],
           ["campionato", "02", "Campionato"],
           ["coppa", "03", "Coppa"],
         ].map(([key, num, label]) => (
           <button key={key} onClick={() => setMacroTab(key)}
-            style={{ flex: 1, textAlign: "center", padding: "12px 6px", border: "none", background: "none", cursor: "pointer",
-              borderBottom: macroTab === key ? `2px solid ${RED}` : `2px solid ${LINE}`,
-              boxShadow: macroTab === key ? "0 1px 8px -2px rgba(200,16,46,0.6)" : "none" }}>
+            style={{ flex: 1, textAlign: "center", padding: "12px 6px", border: "none",
+              background: macroTab === key ? "rgba(200,16,46,0.08)" : "none", cursor: "pointer",
+              borderBottom: macroTab === key ? `4px solid ${RED}` : "4px solid transparent",
+              boxShadow: macroTab === key ? "0 3px 10px -2px rgba(200,16,46,0.7)" : "none" }}>
             <span className="title-font" style={{ fontSize: 12, fontWeight: 700, marginRight: 5, color: macroTab === key ? RED : MUTED }}>{num}</span>
             <span className="body-font" style={{ fontSize: 12, fontWeight: 600, letterSpacing: 0.5, color: macroTab === key ? INK : MUTED }}>{label}</span>
           </button>
@@ -3102,9 +3103,6 @@ function GironeATracker() {
 
       <div style={{ background: CREAM, borderBottom: `1px solid ${LINE}`, padding: "8px 12px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span className="body-font" style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, borderRight: `1px solid ${LINE}`, paddingRight: 8 }}>
-            {macroTab === "campionato" ? "Campionato" : macroTab === "coppa" ? "Coppa Lombardia" : "Stagione"}
-          </span>
           {macroTab === "campionato" && [
             ["classifica", "Classifica"],
             ["risultati", "Calendario & risultati"],
@@ -3149,38 +3147,42 @@ function GironeATracker() {
           <div className="body-font">
             <div className="chrome-box">
               <div className="chrome-box-inner" style={{ padding: "4px 14px" }}>
-                <table style={{ fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                      <th>#</th><th>Squadra</th><th style={{ textAlign: "center" }}>PG</th>
-                      <th style={{ textAlign: "center" }}>V</th><th style={{ textAlign: "center" }}>N</th>
-                      <th style={{ textAlign: "center" }}>P</th><th style={{ textAlign: "center" }}>GF</th>
-                      <th style={{ textAlign: "center" }}>GS</th><th style={{ textAlign: "center" }}>DR</th>
-                      <th style={{ textAlign: "center" }}>Pt</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {standings.map((s, i) => {
-                      const isCimiano = s.name === CIMIANO;
-                      const isNextOpp = s.name === nextOpponentCampionato;
-                      const rowAccent = isCimiano ? RED : (isNextOpp ? "#e0a52c" : "transparent");
-                      return (
-                        <tr key={s.name} style={{ background: isCimiano ? "rgba(200,16,46,0.12)" : (isNextOpp ? "rgba(224,165,44,0.10)" : "transparent"), fontWeight: isCimiano ? 700 : 400 }}>
-                          <td className="mono-font" style={{ color: MUTED, borderLeft: `3px solid ${rowAccent}`, paddingLeft: 6 }}>{i + 1}</td>
-                          <td style={{ color: isCimiano ? RED : (isNextOpp ? "#e0a52c" : INK) }}>{s.name}</td>
-                          <td className="mono-font" style={{ textAlign: "center" }}>{s.pg}</td>
-                          <td className="mono-font" style={{ textAlign: "center" }}>{s.v}</td>
-                          <td className="mono-font" style={{ textAlign: "center" }}>{s.n}</td>
-                          <td className="mono-font" style={{ textAlign: "center" }}>{s.p}</td>
-                          <td className="mono-font" style={{ textAlign: "center" }}>{s.gf}</td>
-                          <td className="mono-font" style={{ textAlign: "center" }}>{s.gs}</td>
-                          <td className="mono-font" style={{ textAlign: "center" }}>{s.gf - s.gs > 0 ? "+" : ""}{s.gf - s.gs}</td>
-                          <td className="mono-font" style={{ textAlign: "center", fontWeight: 700, color: INK }}>{s.pt}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                <div className="body-font" style={{ display: "grid", gridTemplateColumns: "20px 1fr 26px 22px 22px 22px 26px 26px 30px 30px", gap: 6, padding: "10px 0", fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, borderBottom: `1px solid ${LINE}` }}>
+                  <span>#</span><span>Squadra</span>
+                  <span style={{ textAlign: "center" }}>PG</span><span style={{ textAlign: "center" }}>V</span>
+                  <span style={{ textAlign: "center" }}>N</span><span style={{ textAlign: "center" }}>P</span>
+                  <span style={{ textAlign: "center" }}>GF</span><span style={{ textAlign: "center" }}>GS</span>
+                  <span style={{ textAlign: "center" }}>DR</span><span style={{ textAlign: "center" }}>Pt</span>
+                </div>
+                {standings.map((s, i) => {
+                  const isCimiano = s.name === CIMIANO;
+                  const isNextOpp = s.name === nextOpponentCampionato;
+                  const highlighted = isCimiano || isNextOpp;
+                  const accent = isCimiano ? RED : "#e0a52c";
+                  return (
+                    <div key={s.name} className="body-font" style={{
+                      display: "grid", gridTemplateColumns: "20px 1fr 26px 22px 22px 22px 26px 26px 30px 30px", gap: 6, alignItems: "center", fontSize: 13,
+                      padding: highlighted ? "10px 14px" : "9px 0",
+                      margin: highlighted ? "3px -14px" : 0,
+                      borderBottom: !highlighted ? `1px solid ${LINE}` : "none",
+                      borderLeft: highlighted ? `2px solid ${accent}` : "none",
+                      borderRadius: highlighted ? 4 : 0,
+                      background: highlighted ? (isCimiano ? "rgba(200,16,46,0.12)" : "rgba(224,165,44,0.10)") : "transparent",
+                      fontWeight: isCimiano ? 700 : 400,
+                    }}>
+                      <span className="mono-font" style={{ color: MUTED }}>{i + 1}</span>
+                      <span style={{ color: isCimiano ? RED : (isNextOpp ? "#e0a52c" : INK) }}>{s.name}</span>
+                      <span className="mono-font" style={{ textAlign: "center" }}>{s.pg}</span>
+                      <span className="mono-font" style={{ textAlign: "center" }}>{s.v}</span>
+                      <span className="mono-font" style={{ textAlign: "center" }}>{s.n}</span>
+                      <span className="mono-font" style={{ textAlign: "center" }}>{s.p}</span>
+                      <span className="mono-font" style={{ textAlign: "center" }}>{s.gf}</span>
+                      <span className="mono-font" style={{ textAlign: "center" }}>{s.gs}</span>
+                      <span className="mono-font" style={{ textAlign: "center" }}>{s.gf - s.gs > 0 ? "+" : ""}{s.gf - s.gs}</span>
+                      <span className="mono-font" style={{ textAlign: "center", fontWeight: 700, color: INK }}>{s.pt}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -3393,8 +3395,8 @@ function GironeATracker() {
                                   vs <strong>{e.opponent}</strong>
                                   <span style={{ color: MUTED, marginLeft: 6 }}>{e.date && e.date !== "0000-00-00" ? fmtDate(e.date) : ""}</span>
                                 </span>
-                                <span className="mono-font" style={{ fontWeight: 700 }}>
-                                  {e.voto}{e.minutaggio ? ` · ${e.minutaggio}'` : ""}
+                                <span className="mono-font" style={{ fontWeight: 700, color: RED, fontSize: 15 }}>
+                                  {e.voto}{e.minutaggio ? <span style={{ color: MUTED, fontWeight: 400, fontSize: 12 }}> · {e.minutaggio}'</span> : ""}
                                 </span>
                               </div>
                               {e.note.map((n, ni) => (
@@ -3402,7 +3404,7 @@ function GironeATracker() {
                                   {n.nota}{e.autori.length > 1 && n.autore ? ` — ${n.autore}` : ""}
                                 </div>
                               ))}
-                              {e.autori.length > 0 && <div style={{ color: MUTED, fontSize: 11, marginTop: 2 }}>votato da {e.autori.join(", ")}</div>}
+                              {e.autori.length > 0 && <div style={{ color: RED, fontWeight: 600, fontSize: 11, marginTop: 2 }}>votato da {e.autori.join(", ")}</div>}
                             </div>
                           ))}
                         </div>
@@ -3583,38 +3585,42 @@ function GironeATracker() {
             </div>
             <div className="chrome-box">
               <div className="chrome-box-inner" style={{ padding: "4px 14px" }}>
-                <table style={{ fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                      <th>#</th><th>Squadra</th><th style={{ textAlign: "center" }}>PG</th>
-                      <th style={{ textAlign: "center" }}>V</th><th style={{ textAlign: "center" }}>N</th>
-                      <th style={{ textAlign: "center" }}>P</th><th style={{ textAlign: "center" }}>GF</th>
-                      <th style={{ textAlign: "center" }}>GS</th><th style={{ textAlign: "center" }}>DR</th>
-                      <th style={{ textAlign: "center" }}>Pt</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {coppaStandings.map((s, i) => {
-                      const isCimiano = s.name === CIMIANO;
-                      const isNextOpp = s.name === nextOpponentCoppa;
-                      const rowAccent = isCimiano ? RED : (isNextOpp ? "#e0a52c" : "transparent");
-                      return (
-                        <tr key={s.name} style={{ background: isCimiano ? "rgba(200,16,46,0.12)" : (isNextOpp ? "rgba(224,165,44,0.10)" : "transparent"), fontWeight: isCimiano ? 700 : 400 }}>
-                          <td className="mono-font" style={{ color: MUTED, borderLeft: `3px solid ${rowAccent}`, paddingLeft: 6 }}>{i + 1}</td>
-                          <td style={{ color: isCimiano ? RED : (isNextOpp ? "#e0a52c" : INK) }}>{s.name}</td>
-                          <td className="mono-font" style={{ textAlign: "center" }}>{s.pg}</td>
-                          <td className="mono-font" style={{ textAlign: "center" }}>{s.v}</td>
-                          <td className="mono-font" style={{ textAlign: "center" }}>{s.n}</td>
-                          <td className="mono-font" style={{ textAlign: "center" }}>{s.p}</td>
-                          <td className="mono-font" style={{ textAlign: "center" }}>{s.gf}</td>
-                          <td className="mono-font" style={{ textAlign: "center" }}>{s.gs}</td>
-                          <td className="mono-font" style={{ textAlign: "center" }}>{s.gf - s.gs > 0 ? "+" : ""}{s.gf - s.gs}</td>
-                          <td className="mono-font" style={{ textAlign: "center", fontWeight: 700, color: INK }}>{s.pt}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                <div className="body-font" style={{ display: "grid", gridTemplateColumns: "20px 1fr 26px 22px 22px 22px 26px 26px 30px 30px", gap: 6, padding: "10px 0", fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, borderBottom: `1px solid ${LINE}` }}>
+                  <span>#</span><span>Squadra</span>
+                  <span style={{ textAlign: "center" }}>PG</span><span style={{ textAlign: "center" }}>V</span>
+                  <span style={{ textAlign: "center" }}>N</span><span style={{ textAlign: "center" }}>P</span>
+                  <span style={{ textAlign: "center" }}>GF</span><span style={{ textAlign: "center" }}>GS</span>
+                  <span style={{ textAlign: "center" }}>DR</span><span style={{ textAlign: "center" }}>Pt</span>
+                </div>
+                {coppaStandings.map((s, i) => {
+                  const isCimiano = s.name === CIMIANO;
+                  const isNextOpp = s.name === nextOpponentCoppa;
+                  const highlighted = isCimiano || isNextOpp;
+                  const accent = isCimiano ? RED : "#e0a52c";
+                  return (
+                    <div key={s.name} className="body-font" style={{
+                      display: "grid", gridTemplateColumns: "20px 1fr 26px 22px 22px 22px 26px 26px 30px 30px", gap: 6, alignItems: "center", fontSize: 13,
+                      padding: highlighted ? "10px 14px" : "9px 0",
+                      margin: highlighted ? "3px -14px" : 0,
+                      borderBottom: !highlighted ? `1px solid ${LINE}` : "none",
+                      borderLeft: highlighted ? `2px solid ${accent}` : "none",
+                      borderRadius: highlighted ? 4 : 0,
+                      background: highlighted ? (isCimiano ? "rgba(200,16,46,0.12)" : "rgba(224,165,44,0.10)") : "transparent",
+                      fontWeight: isCimiano ? 700 : 400,
+                    }}>
+                      <span className="mono-font" style={{ color: MUTED }}>{i + 1}</span>
+                      <span style={{ color: isCimiano ? RED : (isNextOpp ? "#e0a52c" : INK) }}>{s.name}</span>
+                      <span className="mono-font" style={{ textAlign: "center" }}>{s.pg}</span>
+                      <span className="mono-font" style={{ textAlign: "center" }}>{s.v}</span>
+                      <span className="mono-font" style={{ textAlign: "center" }}>{s.n}</span>
+                      <span className="mono-font" style={{ textAlign: "center" }}>{s.p}</span>
+                      <span className="mono-font" style={{ textAlign: "center" }}>{s.gf}</span>
+                      <span className="mono-font" style={{ textAlign: "center" }}>{s.gs}</span>
+                      <span className="mono-font" style={{ textAlign: "center" }}>{s.gf - s.gs > 0 ? "+" : ""}{s.gf - s.gs}</span>
+                      <span className="mono-font" style={{ textAlign: "center", fontWeight: 700, color: INK }}>{s.pt}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
