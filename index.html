@@ -371,6 +371,44 @@ function mediaSkill(voti) {
   if (nums.length < SKILLS.length) return null;
   return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10;
 }
+// Come mediaSkill, ma per l'anteprima dal vivo mentre si compila il voto (05/09/2026): mostra la
+// media di qualunque skill sia già stata inserita, non solo a tutte e 5 completate. Il voto vero e
+// proprio resta comunque bloccato finché non sono tutte compilate (vedi missingForRating).
+function mediaSkillPreview(voti) {
+  const nums = SKILLS.map((s) => parseFloat(voti[s.key])).filter((n) => !isNaN(n));
+  if (nums.length === 0) return null;
+  return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10;
+}
+// "titolare" se il giocatore compare in formazione (mappa 1), "sostituto" se compare solo in
+// formazione2 (mappa 2) senza essere mai stato titolare, altrimenti null (solo convocato, non
+// ancora schierato). Chi gioca tutta la partita resta "titolare" anche se ricompare invariato in
+// mappa 2 (il sistema lo riporta lì di default finché non lo si cambia).
+function statoInCampo(playerId, formazione, formazione2) {
+  const inMappa1 = Object.values(formazione || {}).some((id) => String(id) === String(playerId));
+  if (inMappa1) return "titolare";
+  const inMappa2 = Object.values(formazione2 || {}).some((id) => String(id) === String(playerId));
+  if (inMappa2) return "sostituto";
+  return null;
+}
+// Insieme di tutti i playerId effettivamente scesi in campo (titolari + sostituti), usato per
+// restringere la lista di chi si può votare a chi ha davvero giocato quella partita.
+function giocatoriInCampo(formazione, formazione2) {
+  const ids = new Set();
+  Object.values(formazione || {}).forEach((id) => ids.add(String(id)));
+  Object.values(formazione2 || {}).forEach((id) => ids.add(String(id)));
+  return ids;
+}
+// Elenca cosa manca per poter salvare un voto (05/09/2026): tutte e 5 le skill + il minutaggio
+// sono obbligatori, il commento no. Ritorna un array di messaggi, vuoto se si può salvare.
+function missingForRating(d) {
+  if (!d || !d.giocatore) return ["Manca il giocatore"];
+  const skillsMancanti = SKILLS.filter((s) => d[s.key] === undefined || d[s.key] === "" || isNaN(parseFloat(d[s.key])));
+  const missing = [];
+  if (skillsMancanti.length === SKILLS.length) missing.push("Manca un voto");
+  else if (skillsMancanti.length > 0) missing.push(`Mancano: ${skillsMancanti.map((s) => s.label).join(", ")}`);
+  if (!d.minutaggio) missing.push("Manca il minutaggio");
+  return missing;
+}
 // Costruisce le colonne skXxx da salvare sul foglio Voti a partire da un draft { tecnica, atleticita, ... }.
 function skillColsFromDraft(d) {
   const cols = {};
@@ -509,8 +547,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.12";
-const TRACKER_VERSION_DATE = "04/09/2026@15.20";
+const TRACKER_VERSION = "3.15";
+const TRACKER_VERSION_DATE = "05/09/2026@11.30";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -653,6 +691,12 @@ function GironeATracker() {
   const [detailsShared, setDetailsShared] = useState({}); // { fixtureId: {marcatori, voti, votoSquadra, presenze, formazione, modulo} } — CONDIVISO, i voti sono etichettati con l'autore
   const [voterName, setVoterNameState] = useState(""); // identità di chi vota su questo dispositivo — LOCALE
   const [chartModal, setChartModal] = useState(null); // { type: 'line'|'radar', name, data } per lo zoom dei grafici
+  const [showBackToTop, setShowBackToTop] = useState(false);
+  useEffect(() => {
+    function onScroll() { setShowBackToTop(window.scrollY > 400); }
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   const [voterOptionsExtra, setVoterOptionsExtra] = useState([]); // nominativi votanti aggiunti a mano, si fondono con VOTER_OPTIONS — CONDIVISO
   const [showAddVoter, setShowAddVoter] = useState(false); // form nascosto "aggiungi votante", si apre con 5 click sul logo
   const [newVoterDraft, setNewVoterDraft] = useState("");
@@ -710,6 +754,8 @@ function GironeATracker() {
   const [editingRatingF, setEditingRatingF] = useState(null); // `${friendlyId}:${voteId}`
   const [editingFriendly, setEditingFriendly] = useState(null); // friendlyId
   const [friendlyEditDraft, setFriendlyEditDraft] = useState({});
+  const [editingFixtureDate, setEditingFixtureDate] = useState(null); // fixtureId (campionato o coppa)
+  const [fixtureDateDraft, setFixtureDateDraft] = useState({});
   const [expanded, setExpanded] = useState({});
   const [scorerDraft, setScorerDraft] = useState({});
   const [ratingDraft, setRatingDraft] = useState({});
@@ -784,7 +830,7 @@ function GironeATracker() {
         calendarioCampionatoRows.forEach((r) => {
           const key = String(r.giornata) + (r.half === "ritorno" ? "R" : "A");
           if (!byKey[key]) byKey[key] = { key, giornata: Number(r.giornata), half: r.half, data: r.data, matches: [] };
-          byKey[key].matches.push({ id: r.id, home: r.home, away: r.away });
+          byKey[key].matches.push({ id: r.id, home: r.home, away: r.away, dataOverride: r.dataOverride || "", oraOverride: r.oraOverride || "" });
         });
         const rebuilt = Object.values(byKey).sort((x, y) => x.data.localeCompare(y.data));
         setROUNDS(rebuilt);
@@ -1014,7 +1060,7 @@ function GironeATracker() {
       r.matches.forEach((fx) => {
         if (fx.home !== CIMIANO && fx.away !== CIMIANO) return;
         campionato.push({
-          type: "campionato", date: r.data, id: fx.id,
+          type: "campionato", date: fx.dataOverride || r.data, ora: fx.oraOverride || "", id: fx.id,
           giornata: r.giornata, half: r.half,
           home: fx.home, away: fx.away,
         });
@@ -1022,10 +1068,10 @@ function GironeATracker() {
     });
     const coppa = COPPA_FIXTURES
       .filter((fx) => fx.home === CIMIANO || fx.away === CIMIANO)
-      .map((fx) => ({ type: "coppa", date: fx.data, id: fx.id, home: fx.home, away: fx.away }));
+      .map((fx) => ({ type: "coppa", date: fx.data, ora: fx.ora, id: fx.id, home: fx.home, away: fx.away }));
     const amichevoli = friendlies.map((f) => ({ type: "amichevole", date: f.data || "9999-99-99", id: f.id }));
     return [...campionato, ...coppa, ...amichevoli].sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"));
-  }, [friendlies]);
+  }, [friendlies, ROUNDS, COPPA_FIXTURES]);
 
   const nextCimianoMatchId = useMemo(() => {
     for (const m of allCimianoMatches) {
@@ -1648,6 +1694,32 @@ function GironeATracker() {
     setEditingFriendly(null);
     const { avversario, golCimiano, golAvv, data, ora } = friendlyEditDraft;
     window.rows.upsert("Amichevoli", { id }, { avversario, golCimiano, golAvv, data, ora }).catch(() => {});
+  }
+
+  // Modifica data/ora di UNA SINGOLA partita di Campionato o Coppa (05/09/2026). Per la Coppa il
+  // campo "data"/"ora" è già per singola partita, si aggiorna direttamente. Per il Campionato la
+  // data di base è condivisa da tutta la giornata: qui si scrive un "override" solo per questa
+  // partita (dataOverride/oraOverride), che ha sempre la precedenza quando presente, senza toccare
+  // le altre 7 partite dello stesso turno.
+  function startEditFixtureDate(fx) {
+    setEditingFixtureDate(fx.id);
+    setFixtureDateDraft({ data: fx.data || "", ora: fx.ora || "" });
+  }
+
+  function saveEditFixtureDate(fx) {
+    const tipo = tipoDaFixtureId(fx.id);
+    const { data, ora } = fixtureDateDraft;
+    if (tipo === "coppa") {
+      setCOPPA_FIXTURES((prev) => prev.map((f) => (f.id === fx.id ? { ...f, data, ora } : f)));
+      window.rows.upsert("CalendarioCoppa", { id: fx.id }, { data, ora }).catch(() => {});
+    } else {
+      setROUNDS((prev) => prev.map((r) => ({
+        ...r,
+        matches: r.matches.map((m) => (m.id === fx.id ? { ...m, dataOverride: data, oraOverride: ora } : m)),
+      })));
+      window.rows.upsert("CalendarioCampionato", { id: fx.id }, { dataOverride: data, oraOverride: ora }).catch(() => {});
+    }
+    setEditingFixtureDate(null);
   }
 
   function addRatingFriendly(friendlyId) {
@@ -2448,12 +2520,23 @@ function GironeATracker() {
     const canOpenDetails = isCimianoMatch && (played || isNextMatch);
     const sc = statusColor ? STATUS_COLORS[statusColor] : null;
     const accentColor = sc ? sc.border : LINE;
+    const isEditingDate = editingFixtureDate === fx.id;
     return (
       <div key={fx.id} className="chrome-box">
         <div className="chrome-box-inner" style={{ fontSize: 13, borderLeft: `5px solid ${accentColor}` }}>
         {metaLabel && (
           <div className="body-font" style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 12px 0" }}>{metaLabel}</div>
         )}
+        {isEditingDate ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "10px 12px", alignItems: "center" }}>
+            <input type="date" value={fixtureDateDraft.data || ""} onChange={(e) => setFixtureDateDraft((p) => ({ ...p, data: e.target.value }))}
+              style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+            <input type="time" value={fixtureDateDraft.ora || ""} onChange={(e) => setFixtureDateDraft((p) => ({ ...p, ora: e.target.value }))}
+              style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+            <button onClick={() => saveEditFixtureDate(fx)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
+            <button onClick={() => setEditingFixtureDate(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
+          </div>
+        ) : (
         <div style={{ display: "grid", gridTemplateColumns: "26px minmax(0,1fr) 108px minmax(0,1fr) auto", alignItems: "center", columnGap: 10, padding: metaLabel ? "4px 12px 8px" : "8px 12px" }}>
           {canOpenDetails ? (
             <div className={`plus-btn ${isOpen ? "plus-open" : ""}`} onClick={() => setExpanded((p) => ({ ...p, [fx.id]: !p[fx.id] }))}
@@ -2476,13 +2559,15 @@ function GironeATracker() {
           )}
           <span style={{ fontWeight: fx.away === CIMIANO ? 700 : 400, color: fx.away === CIMIANO ? RED : INK, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fx.away}</span>
           <div style={{ display: "flex", gap: 10, alignItems: "center", justifySelf: "end" }}>
+            <span onClick={() => startEditFixtureDate(fx)} title="Modifica data/ora" style={{ cursor: "pointer", color: MUTED, fontSize: 12, fontWeight: 600 }}>Modifica</span>
             {played ? (
-              <button onClick={() => clearResult(fx.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>Modifica</button>
+              <button onClick={() => clearResult(fx.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>Azzera</button>
             ) : (
               <button onClick={() => saveResult(fx.id)} style={{ background: RED, color: "#fff", border: "none", padding: "5px 12px", borderRadius: 3, fontWeight: 600, cursor: "pointer", fontSize: 12 }}>Salva</button>
             )}
           </div>
         </div>
+        )}
 
         {isOpen && canOpenDetails && (
           <div style={{ borderTop: `1px solid ${LINE}`, padding: "10px 12px", background: PANEL_BG }}>
@@ -2496,10 +2581,13 @@ function GironeATracker() {
                   {rosterSorted.map((rp) => {
                     const isConv = !!convocati[rp.id];
                     const blocked = !isConv && convocatiIds.length >= 20;
+                    const stato = statoInCampo(rp.id, formazioneIniziale, formazioneFinale);
+                    const bg = stato === "titolare" ? RED : stato === "sostituto" ? CYAN : isConv ? "#3aa757" : (blocked ? DISABLED_BG : PANEL_BG);
+                    const fg = (stato || isConv) ? "#fff" : (blocked ? MUTED : INK);
                     return (
                       <button key={rp.id} onClick={() => { if (!blocked) toggleConvocato(fx.id, rp.id); }} disabled={blocked}
-                        title={blocked ? "Limite di 20 convocati raggiunto (regolamento FIGC)" : undefined}
-                        style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: `1px solid ${LINE}`, background: isConv ? RED : PANEL_BG, color: isConv ? "#fff" : (blocked ? MUTED : INK), cursor: blocked ? "not-allowed" : "pointer" }}>
+                        title={blocked ? "Limite di 20 convocati raggiunto (regolamento FIGC)" : (stato === "titolare" ? "Titolare" : stato === "sostituto" ? "Sostituto" : undefined)}
+                        style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: `1px solid ${LINE}`, background: bg, color: fg, cursor: blocked ? "not-allowed" : "pointer" }}>
                         {rp.nome}
                       </button>
                     );
@@ -2685,17 +2773,19 @@ function GironeATracker() {
                                   ))}
                                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                                     <span style={{ fontSize: 9, color: MUTED, marginBottom: 2 }}>Media</span>
-                                    <div style={{ width: 40, padding: 5, textAlign: "center", fontWeight: 700, fontSize: 13, color: mediaSkill(ed) !== null ? RED : MUTED }}>
-                                      {mediaSkill(ed) !== null ? mediaSkill(ed).toFixed(1) : "—"}
+                                    <div style={{ width: 40, padding: 5, textAlign: "center", fontWeight: 700, fontSize: 13, color: mediaSkillPreview(ed) !== null ? RED : MUTED }}>
+                                      {mediaSkillPreview(ed) !== null ? mediaSkillPreview(ed).toFixed(1) : "—"}
                                     </div>
                                   </div>
                                 </div>
-                                <div style={{ display: "flex", gap: 6 }}>
+                                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                                   <input placeholder="Nota" value={ed.nota || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], nota: e.target.value } }))}
                                     style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                                  <button onClick={() => saveEditRating(fx.id, v.id)} style={{ background: RED, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>Salva</button>
+                                  <button onClick={() => saveEditRating(fx.id, v.id)} disabled={missingForRating(ed).length > 0}
+                                    style={{ background: missingForRating(ed).length > 0 ? DISABLED_BG : RED, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 3, cursor: missingForRating(ed).length > 0 ? "not-allowed" : "pointer", fontSize: 12 }}>Salva</button>
                                   <button onClick={() => setEditingRating(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>annulla</button>
                                 </div>
+                                {missingForRating(ed).length > 0 && <div style={{ fontSize: 11, color: "#e0a52c", marginTop: 4 }}>{missingForRating(ed).join(" · ")}</div>}
                               </div>
                             ) : (
                               <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: PLAYER_BOX_BG, border: `1px solid ${PLAYER_BOX_BORDER}`, borderRadius: 6, padding: "8px 10px", gap: 8 }}>
@@ -2717,12 +2807,16 @@ function GironeATracker() {
                 </div>
               )}
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
-                {rosterSorted.map((rp) => (
-                  <button key={rp.id} onClick={() => setRatingDraft((prev) => ({ ...prev, [fx.id]: { ...prev[fx.id], giocatore: rp.nome } }))}
-                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: rd.giocatore === rp.nome ? RED : PANEL_BG, color: rd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
-                    {rp.nome}
-                  </button>
-                ))}
+                {rosterSorted.filter((rp) => giocatoriInCampo(formazioneIniziale, formazioneFinale).has(String(rp.id))).map((rp) => {
+                  const giaVotato = voti.some((v) => v.giocatore === rp.nome);
+                  const selezionato = rd.giocatore === rp.nome;
+                  return (
+                    <button key={rp.id} onClick={() => setRatingDraft((prev) => ({ ...prev, [fx.id]: { ...prev[fx.id], giocatore: rp.nome } }))}
+                      style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: selezionato ? RED : (giaVotato ? RED : PANEL_BG), color: (selezionato || giaVotato) ? "#fff" : INK, cursor: "pointer", opacity: giaVotato && !selezionato ? 0.7 : 1 }}>
+                      {rp.nome}
+                    </button>
+                  );
+                })}
               </div>
               <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
                 <input placeholder="Giocatore" value={rd.giocatore || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], giocatore: e.target.value } }))}
@@ -2741,16 +2835,18 @@ function GironeATracker() {
                 ))}
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                   <span style={{ fontSize: 9, color: MUTED, marginBottom: 2 }}>Media</span>
-                  <div style={{ width: 40, padding: 5, textAlign: "center", fontWeight: 700, fontSize: 13, color: mediaSkill(rd) !== null ? RED : MUTED }}>
-                    {mediaSkill(rd) !== null ? mediaSkill(rd).toFixed(1) : "—"}
+                  <div style={{ width: 40, padding: 5, textAlign: "center", fontWeight: 700, fontSize: 13, color: mediaSkillPreview(rd) !== null ? RED : MUTED }}>
+                    {mediaSkillPreview(rd) !== null ? mediaSkillPreview(rd).toFixed(1) : "—"}
                   </div>
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6 }}>
                 <input placeholder="Nota (opz.)" value={rd.nota || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], nota: e.target.value } }))}
                   style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                <button onClick={() => addRating(fx.id)} disabled={!voterName} style={{ background: voterName ? RED : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
+                <button onClick={() => addRating(fx.id)} disabled={!voterName || missingForRating(rd).length > 0}
+                  style={{ background: (voterName && missingForRating(rd).length === 0) ? RED : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: (voterName && missingForRating(rd).length === 0) ? "pointer" : "not-allowed" }}>+</button>
               </div>
+              {voterName && missingForRating(rd).length > 0 && <div style={{ fontSize: 11, color: "#e0a52c", marginTop: 4 }}>{missingForRating(rd).join(" · ")}</div>}
               {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
             </div>
             <div style={{ marginBottom: 14 }}>
@@ -2893,12 +2989,19 @@ function GironeATracker() {
                   1. Convocati {convocatiIdsF.length > 0 && `(${convocatiIdsF.length})`}
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {rosterSorted.map((rp) => (
-                    <button key={rp.id} onClick={() => toggleConvocatoF(f.id, rp.id)}
-                      style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: `1px solid ${LINE}`, background: convocatiF[rp.id] ? RED : PANEL_BG, color: convocatiF[rp.id] ? "#fff" : INK, cursor: "pointer" }}>
-                      {rp.nome}
-                    </button>
-                  ))}
+                  {rosterSorted.map((rp) => {
+                    const isConv = !!convocatiF[rp.id];
+                    const stato = statoInCampo(rp.id, formazioneInizialeF, formazioneFinaleF);
+                    const bg = stato === "titolare" ? RED : stato === "sostituto" ? CYAN : isConv ? "#3aa757" : PANEL_BG;
+                    const fg = (stato || isConv) ? "#fff" : INK;
+                    return (
+                      <button key={rp.id} onClick={() => toggleConvocatoF(f.id, rp.id)}
+                        title={stato === "titolare" ? "Titolare" : stato === "sostituto" ? "Sostituto" : undefined}
+                        style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: `1px solid ${LINE}`, background: bg, color: fg, cursor: "pointer" }}>
+                        {rp.nome}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -3076,17 +3179,19 @@ function GironeATracker() {
                                 ))}
                                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                                   <span style={{ fontSize: 9, color: MUTED, marginBottom: 2 }}>Media</span>
-                                  <div style={{ width: 40, padding: 5, textAlign: "center", fontWeight: 700, fontSize: 13, color: mediaSkill(ed) !== null ? RED : MUTED }}>
-                                    {mediaSkill(ed) !== null ? mediaSkill(ed).toFixed(1) : "—"}
+                                  <div style={{ width: 40, padding: 5, textAlign: "center", fontWeight: 700, fontSize: 13, color: mediaSkillPreview(ed) !== null ? RED : MUTED }}>
+                                    {mediaSkillPreview(ed) !== null ? mediaSkillPreview(ed).toFixed(1) : "—"}
                                   </div>
                                 </div>
                               </div>
                               <div style={{ display: "flex", gap: 6 }}>
                                 <input placeholder="Nota" value={ed.nota || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], nota: e.target.value } }))}
                                   style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                                <button onClick={() => saveEditRatingF(f.id, v.id)} style={{ background: RED, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>Salva</button>
+                                <button onClick={() => saveEditRatingF(f.id, v.id)} disabled={missingForRating(ed).length > 0}
+                                  style={{ background: missingForRating(ed).length > 0 ? DISABLED_BG : RED, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 3, cursor: missingForRating(ed).length > 0 ? "not-allowed" : "pointer", fontSize: 12 }}>Salva</button>
                                 <button onClick={() => setEditingRatingF(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>annulla</button>
                               </div>
+                              {missingForRating(ed).length > 0 && <div style={{ fontSize: 11, color: "#e0a52c", marginTop: 4 }}>{missingForRating(ed).join(" · ")}</div>}
                             </div>
                           ) : (
                             <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: PLAYER_BOX_BG, border: `1px solid ${PLAYER_BOX_BORDER}`, borderRadius: 6, padding: "8px 10px", gap: 8 }}>
@@ -3108,12 +3213,16 @@ function GironeATracker() {
               </div>
             )}
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
-              {rosterSorted.map((rp) => (
-                <button key={rp.id} onClick={() => setRatingDraftF((prev) => ({ ...prev, [f.id]: { ...prev[f.id], giocatore: rp.nome } }))}
-                  style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: rd.giocatore === rp.nome ? RED : PANEL_BG, color: rd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
-                  {rp.nome}
-                </button>
-              ))}
+              {rosterSorted.filter((rp) => giocatoriInCampo(formazioneInizialeF, formazioneFinaleF).has(String(rp.id))).map((rp) => {
+                const giaVotato = voti.some((v) => v.giocatore === rp.nome);
+                const selezionato = rd.giocatore === rp.nome;
+                return (
+                  <button key={rp.id} onClick={() => setRatingDraftF((prev) => ({ ...prev, [f.id]: { ...prev[f.id], giocatore: rp.nome } }))}
+                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: (selezionato || giaVotato) ? RED : PANEL_BG, color: (selezionato || giaVotato) ? "#fff" : INK, cursor: "pointer", opacity: giaVotato && !selezionato ? 0.7 : 1 }}>
+                    {rp.nome}
+                  </button>
+                );
+              })}
             </div>
             <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
               <input placeholder="Giocatore" value={rd.giocatore || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], giocatore: e.target.value } }))}
@@ -3132,16 +3241,18 @@ function GironeATracker() {
               ))}
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                 <span style={{ fontSize: 9, color: MUTED, marginBottom: 2 }}>Media</span>
-                <div style={{ width: 40, padding: 5, textAlign: "center", fontWeight: 700, fontSize: 13, color: mediaSkill(rd) !== null ? RED : MUTED }}>
-                  {mediaSkill(rd) !== null ? mediaSkill(rd).toFixed(1) : "—"}
+                <div style={{ width: 40, padding: 5, textAlign: "center", fontWeight: 700, fontSize: 13, color: mediaSkillPreview(rd) !== null ? RED : MUTED }}>
+                  {mediaSkillPreview(rd) !== null ? mediaSkillPreview(rd).toFixed(1) : "—"}
                 </div>
               </div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
               <input placeholder="Nota (opz.)" value={rd.nota || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], nota: e.target.value } }))}
                 style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-              <button onClick={() => addRatingFriendly(f.id)} disabled={!voterName} style={{ background: voterName ? RED : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
+              <button onClick={() => addRatingFriendly(f.id)} disabled={!voterName || missingForRating(rd).length > 0}
+                style={{ background: (voterName && missingForRating(rd).length === 0) ? RED : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: (voterName && missingForRating(rd).length === 0) ? "pointer" : "not-allowed" }}>+</button>
             </div>
+            {voterName && missingForRating(rd).length > 0 && <div style={{ fontSize: 11, color: "#e0a52c", marginTop: 4 }}>{missingForRating(rd).join(" · ")}</div>}
             {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
@@ -3242,6 +3353,7 @@ function GironeATracker() {
         .score-input { width: 40px; padding: 5px; border: 1px solid ${LINE}; text-align: center; border-radius: 3px; box-sizing: border-box; }
       `}</style>
 
+      <div style={{ position: "sticky", top: 0, zIndex: 50 }}>
       <div className="chrome-box" style={{ borderRadius: 0, padding: "3px 0", boxShadow: `0 4px 18px -4px rgba(200,16,46,0.5)` }}>
       <div style={{ background: "linear-gradient(160deg, #16351f 0%, #0f2818 55%, #0a1c11 100%)", color: INK, padding: "22px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -3318,6 +3430,7 @@ function GironeATracker() {
             <span className="body-font" style={{ fontSize: 12, fontWeight: 600, letterSpacing: 0.5, color: macroTab === key ? INK : MUTED }}>{label}</span>
           </button>
         ))}
+      </div>
       </div>
 
       <div style={{ background: CREAM, borderBottom: `1px solid ${LINE}`, padding: "8px 12px" }}>
@@ -3492,10 +3605,10 @@ function GironeATracker() {
                       return f ? renderFriendlyRow(f, statusColor) : null;
                     }
                     const label = m.type === "coppa"
-                      ? `Coppa Lombardia · Girone ${COPPA_GIRONE} · ${fmtDate(m.date)}`
-                      : `Campionato · G${m.giornata} ${m.half === "andata" ? "A" : "R"} · ${fmtDate(m.date)}`;
+                      ? `Coppa Lombardia · Girone ${COPPA_GIRONE} · ${fmtDate(m.date)}${m.ora ? ` ore ${m.ora}` : ""}`
+                      : `Campionato · G${m.giornata} ${m.half === "andata" ? "A" : "R"} · ${fmtDate(m.date)}${m.ora ? ` ore ${m.ora}` : ""}`;
                     return renderCampionatoRow(
-                      { id: m.id, home: m.home, away: m.away },
+                      { id: m.id, home: m.home, away: m.away, data: m.date, ora: m.ora || "" },
                       label,
                       statusColor
                     );
@@ -3803,7 +3916,7 @@ function GironeATracker() {
             </select>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {round.matches.map((fx) => renderCampionatoRow(fx))}
+              {round.matches.map((fx) => renderCampionatoRow({ ...fx, data: fx.dataOverride || round.data, ora: fx.oraOverride || "" }))}
             </div>
           </div>
         )}
@@ -3930,6 +4043,16 @@ function GironeATracker() {
           </div>
         )}
       </div>
+
+      {showBackToTop && (
+        <div onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          title="Torna in cima" role="button" tabIndex={0}
+          style={{ position: "fixed", bottom: 20, right: 20, zIndex: 900, width: 44, height: 44, borderRadius: "50%",
+            background: RED, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", boxShadow: "0 4px 14px rgba(0,0,0,0.5), 0 0 10px rgba(200,16,46,0.5)", fontSize: 20 }}>
+          ↑
+        </div>
+      )}
 
       {chartModal && (
         <div onClick={() => setChartModal(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
