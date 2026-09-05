@@ -589,8 +589,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.17";
-const TRACKER_VERSION_DATE = "05/09/2026@13.10";
+const TRACKER_VERSION = "3.18";
+const TRACKER_VERSION_DATE = "06/09/2026@00.55";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -2310,12 +2310,12 @@ function GironeATracker() {
             ? "Mappa 2 gestita manualmente: da qui in poi le modifiche a INIZIO non la toccano più."
             : "Mappa 2 agganciata a INIZIO: si aggiorna in automatico finché non la tocchi direttamente."}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <div>
+        <div className="dual-pitch-wrapper">
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 10, color: MUTED, marginBottom: 4, fontWeight: 700, textAlign: "center" }}>INIZIO</div>
             {renderPitch(formazione1, onChangeSlot1, modulo1Key, onChangeModulo1, poolIniziale, { compact: true, otherMapEffective: eff2 })}
           </div>
-          <div>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 10, color: MUTED, marginBottom: 4, fontWeight: 700, textAlign: "center" }}>CAMBI / FINE</div>
             {renderPitch(formazione2, onChangeSlot2, modulo2Key, onChangeModulo2, convocatiIds, { compact: true, startersIds, otherMapEffective: eff1 })}
           </div>
@@ -2579,8 +2579,8 @@ function GironeATracker() {
             <button onClick={() => setEditingFixtureDate(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
           </div>
         ) : (
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", rowGap: 8, columnGap: 10, padding: metaLabel ? "4px 12px 8px" : "8px 12px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+        <div style={{ padding: metaLabel ? "4px 12px 4px" : "8px 12px 4px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
             {canOpenDetails ? (
               <div className={`plus-btn ${isOpen ? "plus-open" : ""}`} onClick={() => setExpanded((p) => ({ ...p, [fx.id]: !p[fx.id] }))}
                 tabIndex={0} role="button" aria-label="Apri dettagli partita"
@@ -2588,13 +2588,7 @@ function GironeATracker() {
                 <span className="plus-shape"></span>
               </div>
             ) : <span style={{ width: 22, flexShrink: 0 }} />}
-            <span>
-              <span style={{ fontWeight: fx.home === CIMIANO ? 700 : 400, color: fx.home === CIMIANO ? RED : INK }}>{fx.home}</span>
-              <span style={{ color: MUTED }}> vs </span>
-              <span style={{ fontWeight: fx.away === CIMIANO ? 700 : 400, color: fx.away === CIMIANO ? RED : INK }}>{fx.away}</span>
-            </span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ fontWeight: fx.home === CIMIANO ? 700 : 400, color: fx.home === CIMIANO ? RED : INK, textAlign: "right" }}>{fx.home}</span>
             {played ? (
               <span className="mono-font" style={{ fontWeight: 700, fontSize: 15 }}>{played.golHome} – {played.golAway}</span>
             ) : (
@@ -2606,6 +2600,9 @@ function GironeATracker() {
                   onChange={(e) => setDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], golAway: e.target.value } }))} />
               </span>
             )}
+            <span style={{ fontWeight: fx.away === CIMIANO ? 700 : 400, color: fx.away === CIMIANO ? RED : INK, textAlign: "left" }}>{fx.away}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, flexWrap: "wrap", padding: "8px 0 4px" }}>
             <span onClick={() => startEditFixtureDate(fx)} title="Modifica data/ora" style={{ cursor: "pointer", color: MUTED, fontSize: 12, fontWeight: 600 }}>Modifica</span>
             {played ? (
               <button onClick={() => clearResult(fx.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>Azzera</button>
@@ -3002,27 +2999,30 @@ function GironeATracker() {
             <button onClick={() => setEditingFriendly(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
           </div>
         ) : (
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", flexWrap: "wrap", gap: 10 }}>
-            {canOpenDetails ? (
-              <div className={`plus-btn ${isOpen ? "plus-open" : ""}`} onClick={() => setExpandedFriendly((p) => ({ ...p, [f.id]: !p[f.id] }))}
-                tabIndex={0} role="button" aria-label="Apri dettagli partita"
-                style={{ borderColor: accentColor, color: accentColor, boxShadow: sc ? `0 0 8px ${accentColor}73` : "none", flexShrink: 0 }}>
-                <span className="plus-shape"></span>
-              </div>
-            ) : <span style={{ width: 22, flexShrink: 0 }} />}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginRight: 8 }}>Amichevole</span>
-              {hasScore ? (
-                <><strong style={{ color: RED }}>Cimiano</strong> <span className="mono-font" style={{ fontWeight: 700 }}>{f.golCimiano} – {f.golAvv}</span> <strong>{f.avversario}</strong></>
-              ) : (
-                <><strong style={{ color: RED }}>Cimiano</strong> vs <strong>{f.avversario}</strong>
-                  <span style={{ marginLeft: 8, fontSize: 11, color: RED, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>in programma</span></>
-              )}
-              {f.data && <span style={{ color: MUTED, marginLeft: 8 }}>{fmtDate(f.data)}{f.ora ? ` ore ${f.ora}` : ""}</span>}
+          <div style={{ padding: "8px 12px 4px" }}>
+            <div className="body-font" style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center", marginBottom: 6 }}>
+              Amichevole{f.data && ` · ${fmtDate(f.data)}`}{f.ora && ` · ore ${f.ora}`}
             </div>
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
+              {canOpenDetails ? (
+                <div className={`plus-btn ${isOpen ? "plus-open" : ""}`} onClick={() => setExpandedFriendly((p) => ({ ...p, [f.id]: !p[f.id] }))}
+                  tabIndex={0} role="button" aria-label="Apri dettagli partita"
+                  style={{ borderColor: accentColor, color: accentColor, boxShadow: sc ? `0 0 8px ${accentColor}73` : "none", flexShrink: 0 }}>
+                  <span className="plus-shape"></span>
+                </div>
+              ) : <span style={{ width: 22, flexShrink: 0 }} />}
+              <strong style={{ color: RED }}>Cimiano</strong>
+              {hasScore ? (
+                <span className="mono-font" style={{ fontWeight: 700, fontSize: 15 }}>{f.golCimiano} – {f.golAvv}</span>
+              ) : (
+                <span style={{ fontSize: 11, color: RED, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>vs</span>
+              )}
+              <strong>{f.avversario}</strong>
+              {!hasScore && <span style={{ fontSize: 11, color: RED, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>in programma</span>}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, flexWrap: "wrap", padding: "8px 0 4px" }}>
               <button onClick={() => startEditFriendly(f)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Modifica</button>
-              <button onClick={() => removeFriendly(f.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 16 }}>×</button>
+              <button onClick={() => removeFriendly(f.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Cancella</button>
             </div>
           </div>
         )}
@@ -3398,6 +3398,10 @@ function GironeATracker() {
         input, select, textarea { font-family: 'Inter', system-ui, sans-serif; background: ${PANEL_BG}; color: ${INK}; border: 1px solid ${LINE}; }
         ::placeholder { color: ${MUTED}; opacity: 1; }
         .score-input { width: 40px; padding: 5px; border: 1px solid ${LINE}; text-align: center; border-radius: 3px; box-sizing: border-box; }
+        .dual-pitch-wrapper { display: flex; flex-direction: column; gap: 20px; }
+        @media (min-width: 700px) {
+          .dual-pitch-wrapper { flex-direction: row; gap: 14px; }
+        }
       `}</style>
 
       <div style={{ position: "sticky", top: 0, zIndex: 50 }}>
