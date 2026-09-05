@@ -51,11 +51,49 @@
   // (fetchWithRetry ha già ritentato 3 volte in automatico prima di arrivare qui). Un piccolo
   // indicatore in basso a destra, cliccabile, con un pulsante "Riprova tutto" che rilancia
   // esattamente le stesse operazioni fallite.
-  window.__failedSaves = [];
-  function registerFailedSave(sheet, retryFn) {
-    window.__failedSaves.push({ id: Date.now() + Math.random(), sheet: sheet, retryFn: retryFn });
+  // Fix 05/09/2026: prima la coda viveva SOLO in memoria (un array con dentro una funzione di
+  // retry), quindi un ricaricamento della pagina la cancellava senza nessun avviso — un salvataggio
+  // fallito spariva per sempre, senza lasciare traccia in nessun backup. Ora la coda si salva in
+  // localStorage (sopravvive al reload) e la pagina avvisa prima di chiudersi/ricaricarsi se ci
+  // sono modifiche in sospeso.
+  const FAILED_SAVES_KEY = "cimianoTracker_failedSaves_v1";
+  function leggiFailedSavesSalvati() {
+    try {
+      const raw = localStorage.getItem(FAILED_SAVES_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) { return []; }
+  }
+  function scriviFailedSavesSalvati(lista) {
+    try {
+      // Si salva solo ciò che serve per ripetere l'azione (action/sheet/match/valori), non la
+      // funzione retryFn: le funzioni non sono serializzabili in JSON e non sopravvivrebbero comunque
+      // a un reload, che ricrea da zero l'intero script.
+      localStorage.setItem(FAILED_SAVES_KEY, JSON.stringify(lista.map((f) => ({ id: f.id, sheet: f.sheet, action: f.action, match: f.match || null, valori: f.valori || null }))));
+    } catch (e) { /* storage pieno o non disponibile: peggio per la persistenza, non blocca l'app */ }
+  }
+  function eseguiAzioneSalvataggio(f) {
+    if (f.action === "insert") return window.rows.insert(f.sheet, f.valori);
+    if (f.action === "upsert") return window.rows.upsert(f.sheet, f.match, f.valori);
+    if (f.action === "delete") return window.rows.remove(f.sheet, f.match);
+    return Promise.resolve(null);
+  }
+  function registerFailedSave(sheet, action, match, valori) {
+    window.__failedSaves.push({ id: Date.now() + Math.random(), sheet: sheet, action: action, match: match || null, valori: valori || null });
+    scriviFailedSavesSalvati(window.__failedSaves);
     renderSaveErrorIndicator();
   }
+  // Recupera eventuali salvataggi rimasti in sospeso da PRIMA di questo caricamento (es. la pagina
+  // era stata ricaricata con l'indicatore rosso ancora acceso): l'utente li vede e può ritentarli
+  // subito, invece che perderli senza saperlo.
+  window.__failedSaves = leggiFailedSavesSalvati();
+  if (document.body) { renderSaveErrorIndicator(); } else { document.addEventListener("DOMContentLoaded", renderSaveErrorIndicator); }
+  window.addEventListener("beforeunload", function (e) {
+    if (window.__failedSaves.length > 0) {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    }
+  });
   function renderSaveErrorIndicator() {
     let el = document.getElementById("save-error-indicator");
     const n = window.__failedSaves.length;
@@ -63,6 +101,7 @@
       if (el) el.remove();
       const panel = document.getElementById("save-error-panel");
       if (panel) panel.remove();
+      try { localStorage.removeItem(FAILED_SAVES_KEY); } catch (e) {}
       return;
     }
     if (!el) {
@@ -90,9 +129,12 @@
   async function retryAllFailedSaves() {
     const daRiprovare = window.__failedSaves.slice();
     window.__failedSaves = [];
+    scriviFailedSavesSalvati(window.__failedSaves);
     renderSaveErrorIndicator();
     for (const f of daRiprovare) {
-      await f.retryFn();
+      const risultato = await eseguiAzioneSalvataggio(f);
+      // Se anche questo ritentativo fallisce, eseguiAzioneSalvataggio richiama internamente
+      // window.rows.*, che a sua volta rimette in coda da sola (vedi sotto): niente da fare qui.
     }
   }
 
@@ -156,11 +198,11 @@
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ action: "insert", sheet: sheet, valori: valori }),
       }, 3);
-      if (!res) { registerFailedSave(sheet, () => window.rows.insert(sheet, valori)); return null; }
+      if (!res) { registerFailedSave(sheet, "insert", null, valori); return null; }
       try {
         const data = await res.json();
         if (data && data.ok) return data.row;
-        registerFailedSave(sheet, () => window.rows.insert(sheet, valori));
+        registerFailedSave(sheet, "insert", null, valori);
         return null;
       } catch (e) {
         return null;
@@ -172,11 +214,11 @@
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ action: "upsert", sheet: sheet, match: match, valori: valori }),
       }, 3);
-      if (!res) { registerFailedSave(sheet, () => window.rows.upsert(sheet, match, valori)); return null; }
+      if (!res) { registerFailedSave(sheet, "upsert", match, valori); return null; }
       try {
         const data = await res.json();
         if (data && data.ok) return data.row;
-        registerFailedSave(sheet, () => window.rows.upsert(sheet, match, valori));
+        registerFailedSave(sheet, "upsert", match, valori);
         return null;
       } catch (e) {
         return null;
@@ -188,10 +230,10 @@
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ action: "delete", sheet: sheet, match: match }),
       }, 3);
-      if (!res) { registerFailedSave(sheet, () => window.rows.remove(sheet, match)); return false; }
+      if (!res) { registerFailedSave(sheet, "delete", match, null); return false; }
       try {
         const data = await res.json();
-        if (!data || !data.ok) registerFailedSave(sheet, () => window.rows.remove(sheet, match));
+        if (!data || !data.ok) registerFailedSave(sheet, "delete", match, null);
         return !!(data && data.ok);
       } catch (e) {
         return false;
@@ -547,8 +589,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.15";
-const TRACKER_VERSION_DATE = "05/09/2026@11.30";
+const TRACKER_VERSION = "3.17";
+const TRACKER_VERSION_DATE = "05/09/2026@13.10";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -2268,12 +2310,12 @@ function GironeATracker() {
             ? "Mappa 2 gestita manualmente: da qui in poi le modifiche a INIZIO non la toccano più."
             : "Mappa 2 agganciata a INIZIO: si aggiorna in automatico finché non la tocchi direttamente."}
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div>
             <div style={{ fontSize: 10, color: MUTED, marginBottom: 4, fontWeight: 700, textAlign: "center" }}>INIZIO</div>
             {renderPitch(formazione1, onChangeSlot1, modulo1Key, onChangeModulo1, poolIniziale, { compact: true, otherMapEffective: eff2 })}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div>
             <div style={{ fontSize: 10, color: MUTED, marginBottom: 4, fontWeight: 700, textAlign: "center" }}>CAMBI / FINE</div>
             {renderPitch(formazione2, onChangeSlot2, modulo2Key, onChangeModulo2, convocatiIds, { compact: true, startersIds, otherMapEffective: eff1 })}
           </div>
@@ -2537,28 +2579,33 @@ function GironeATracker() {
             <button onClick={() => setEditingFixtureDate(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
           </div>
         ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "26px minmax(0,1fr) 108px minmax(0,1fr) auto", alignItems: "center", columnGap: 10, padding: metaLabel ? "4px 12px 8px" : "8px 12px" }}>
-          {canOpenDetails ? (
-            <div className={`plus-btn ${isOpen ? "plus-open" : ""}`} onClick={() => setExpanded((p) => ({ ...p, [fx.id]: !p[fx.id] }))}
-              tabIndex={0} role="button" aria-label="Apri dettagli partita"
-              style={{ borderColor: accentColor, color: accentColor, boxShadow: sc ? `0 0 8px ${accentColor}73` : "none" }}>
-              <span className="plus-shape"></span>
-            </div>
-          ) : <span />}
-          <span style={{ fontWeight: fx.home === CIMIANO ? 700 : 400, color: fx.home === CIMIANO ? RED : INK, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fx.home}</span>
-          {played ? (
-            <span className="mono-font" style={{ fontWeight: 700, textAlign: "center", fontSize: 15 }}>{played.golHome} – {played.golAway}</span>
-          ) : (
-            <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
-              <input className="score-input" type="number" min="0" value={d.golHome ?? ""}
-                onChange={(e) => setDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], golHome: e.target.value } }))} />
-              <span style={{ color: MUTED }}>–</span>
-              <input className="score-input" type="number" min="0" value={d.golAway ?? ""}
-                onChange={(e) => setDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], golAway: e.target.value } }))} />
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", rowGap: 8, columnGap: 10, padding: metaLabel ? "4px 12px 8px" : "8px 12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            {canOpenDetails ? (
+              <div className={`plus-btn ${isOpen ? "plus-open" : ""}`} onClick={() => setExpanded((p) => ({ ...p, [fx.id]: !p[fx.id] }))}
+                tabIndex={0} role="button" aria-label="Apri dettagli partita"
+                style={{ borderColor: accentColor, color: accentColor, boxShadow: sc ? `0 0 8px ${accentColor}73` : "none", flexShrink: 0 }}>
+                <span className="plus-shape"></span>
+              </div>
+            ) : <span style={{ width: 22, flexShrink: 0 }} />}
+            <span>
+              <span style={{ fontWeight: fx.home === CIMIANO ? 700 : 400, color: fx.home === CIMIANO ? RED : INK }}>{fx.home}</span>
+              <span style={{ color: MUTED }}> vs </span>
+              <span style={{ fontWeight: fx.away === CIMIANO ? 700 : 400, color: fx.away === CIMIANO ? RED : INK }}>{fx.away}</span>
             </span>
-          )}
-          <span style={{ fontWeight: fx.away === CIMIANO ? 700 : 400, color: fx.away === CIMIANO ? RED : INK, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fx.away}</span>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", justifySelf: "end" }}>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {played ? (
+              <span className="mono-font" style={{ fontWeight: 700, fontSize: 15 }}>{played.golHome} – {played.golAway}</span>
+            ) : (
+              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <input className="score-input" type="number" min="0" value={d.golHome ?? ""}
+                  onChange={(e) => setDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], golHome: e.target.value } }))} />
+                <span style={{ color: MUTED }}>–</span>
+                <input className="score-input" type="number" min="0" value={d.golAway ?? ""}
+                  onChange={(e) => setDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], golAway: e.target.value } }))} />
+              </span>
+            )}
             <span onClick={() => startEditFixtureDate(fx)} title="Modifica data/ora" style={{ cursor: "pointer", color: MUTED, fontSize: 12, fontWeight: 600 }}>Modifica</span>
             {played ? (
               <button onClick={() => clearResult(fx.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>Azzera</button>
