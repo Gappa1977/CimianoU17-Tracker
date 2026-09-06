@@ -589,8 +589,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.18";
-const TRACKER_VERSION_DATE = "06/09/2026@00.55";
+const TRACKER_VERSION = "3.19";
+const TRACKER_VERSION_DATE = "06/09/2026@14.19";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -728,7 +728,7 @@ function GironeATracker() {
   const [macroTab, setMacroTab] = useState("stagione"); // "campionato" | "coppa" | "stagione"
   const [campSub, setCampSub] = useState("classifica"); // "classifica" | "risultati"
   const [coppaSub, setCoppaSub] = useState("classifica"); // "classifica" | "risultati"
-  const [stagSub, setStagSub] = useState("cimiano"); // "cimiano" | "giocatori" | "rosa" | "cannonieri"
+  const [stagSub, setStagSub] = useState("cimiano"); // "cimiano" | "giocatori" | "cannonieri"
   const [results, setResults] = useState({}); // { fixtureId: {golHome, golAway} } — CONDIVISO
   const [detailsShared, setDetailsShared] = useState({}); // { fixtureId: {marcatori, voti, votoSquadra, presenze, formazione, modulo} } — CONDIVISO, i voti sono etichettati con l'autore
   const [voterName, setVoterNameState] = useState(""); // identità di chi vota su questo dispositivo — LOCALE
@@ -819,12 +819,7 @@ function GironeATracker() {
   const [rosterDraft, setRosterDraft] = useState({ nome: "", dataNascita: "", ruolo: [], lato: [], piede: [], maglia: "", capitano: false });
   // Filtro "identikit" (Ruolo/Lato/Piede), stesso meccanismo riusato sia in Rosa che in Giocatori,
   // ma con stato separato: filtrare in una sezione non deve cambiare cosa vedi nell'altra.
-  const [rosaFiltroRuolo, setRosaFiltroRuolo] = useState([]);
-  const [rosaFiltroLato, setRosaFiltroLato] = useState([]);
-  const [rosaFiltroPiede, setRosaFiltroPiede] = useState([]);
-  const [rosaSoloCapitano, setRosaSoloCapitano] = useState(false);
-  const [rosaSortBy, setRosaSortBy] = useState("nome"); // "nome" | "maglia" | "dataNascita"
-  const [rosaSortDir, setRosaSortDir] = useState("desc");
+  const [giocSoloCapitano, setGiocSoloCapitano] = useState(false);
   const [giocFiltroRuolo, setGiocFiltroRuolo] = useState([]);
   const [giocFiltroLato, setGiocFiltroLato] = useState([]);
   const [giocFiltroPiede, setGiocFiltroPiede] = useState([]);
@@ -1347,24 +1342,11 @@ function GironeATracker() {
     return [...withVal, ...withoutVal];
   }
 
-  const rosaFilteredSorted = useMemo(() => {
-    let list = rosterSorted.filter((rp) =>
-      matchesIdentikit(rp, rosaFiltroRuolo, rosaFiltroLato, rosaFiltroPiede) &&
-      (!rosaSoloCapitano || isFlagTrue(rp.capitano))
-    );
-    if (rosaSortBy === "nome") {
-      list = [...list].sort((a, b) => lastName(a.nome).localeCompare(lastName(b.nome), "it", { sensitivity: "base" }));
-      if (rosaSortDir === "desc") list.reverse();
-    } else if (rosaSortBy === "maglia") {
-      list = sortWithNullsLast(list, (rp) => (rp.maglia !== "" && rp.maglia != null ? Number(rp.maglia) : null), rosaSortDir);
-    } else if (rosaSortBy === "dataNascita") {
-      list = sortWithNullsLast(list, (rp) => (rp.dataNascita ? new Date(rp.dataNascita).getTime() : null), rosaSortDir);
-    }
-    return list;
-  }, [rosterSorted, rosaFiltroRuolo, rosaFiltroLato, rosaFiltroPiede, rosaSoloCapitano, rosaSortBy, rosaSortDir]);
-
   const giocFilteredSorted = useMemo(() => {
-    let list = playerStats.filter((p) => matchesIdentikit(rosterByName[p.name], giocFiltroRuolo, giocFiltroLato, giocFiltroPiede));
+    let list = playerStats.filter((p) =>
+      matchesIdentikit(rosterByName[p.name], giocFiltroRuolo, giocFiltroLato, giocFiltroPiede) &&
+      (!giocSoloCapitano || isFlagTrue((rosterByName[p.name] || {}).capitano))
+    );
     if (giocSortBy === "nome") {
       list = [...list].sort((a, b) => lastName(a.name).localeCompare(lastName(b.name), "it", { sensitivity: "base" }));
       if (giocSortDir === "desc") list.reverse();
@@ -1374,6 +1356,16 @@ function GironeATracker() {
       list = sortWithNullsLast(list, (p) => p.minutiTot, giocSortDir);
     } else if (giocSortBy === "gol") {
       list = sortWithNullsLast(list, (p) => (golPerGiocatore[p.name] != null ? golPerGiocatore[p.name] : null), giocSortDir);
+    } else if (giocSortBy === "maglia") {
+      list = sortWithNullsLast(list, (p) => {
+        const rp = rosterByName[p.name];
+        return rp && rp.maglia !== "" && rp.maglia != null ? Number(rp.maglia) : null;
+      }, giocSortDir);
+    } else if (giocSortBy === "dataNascita") {
+      list = sortWithNullsLast(list, (p) => {
+        const rp = rosterByName[p.name];
+        return rp && rp.dataNascita ? new Date(rp.dataNascita).getTime() : null;
+      }, giocSortDir);
     } else {
       const skillDef = SKILLS.find((s) => s.key === giocSortBy);
       if (skillDef) {
@@ -1385,7 +1377,7 @@ function GironeATracker() {
       }
     }
     return list;
-  }, [playerStats, rosterByName, golPerGiocatore, giocFiltroRuolo, giocFiltroLato, giocFiltroPiede, giocSortBy, giocSortDir]);
+  }, [playerStats, rosterByName, golPerGiocatore, giocFiltroRuolo, giocFiltroLato, giocFiltroPiede, giocSoloCapitano, giocSortBy, giocSortDir]);
 
   // --- FORMA RECENTE (ultime 5 partite Cimiano, campionato + coppa + amichevoli) ---
   const formaRecente = useMemo(() => {
@@ -2248,7 +2240,10 @@ function GironeATracker() {
             const usedElsewhere = new Set([...usedElsewhereSameMap, ...usedElsewhereOtherMap]);
             const optionsForThisSlot = poolRoster.filter((rp) => String(rp.id) === playerId || !usedElsewhere.has(String(rp.id)));
             return (
-              <div key={slot.id} style={{ position: "absolute", left: `${slot.x}%`, top: `${slot.y}%`, transform: "translate(-50%,-50%)", textAlign: "center" }}>
+              <div key={slot.id} style={{ position: "absolute",
+                left: `calc(${circleSize / 2}px + (100% - ${circleSize}px) * ${slot.x / 100})`,
+                top: `calc(${circleSize / 2}px + (100% - ${circleSize}px) * ${slot.y / 100})`,
+                transform: "translate(-50%,-50%)", textAlign: "center" }}>
                 <div style={{ position: "relative", width: circleSize, height: circleSize, margin: "0 auto" }}>
                   {/* Cerchio visibile: invariato, mostra solo il nome (o l'etichetta slot se vuoto) */}
                   <div style={{
@@ -2580,7 +2575,7 @@ function GironeATracker() {
           </div>
         ) : (
         <div style={{ padding: metaLabel ? "4px 12px 4px" : "8px 12px 4px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 10, flexWrap: "wrap" }}>
             {canOpenDetails ? (
               <div className={`plus-btn ${isOpen ? "plus-open" : ""}`} onClick={() => setExpanded((p) => ({ ...p, [fx.id]: !p[fx.id] }))}
                 tabIndex={0} role="button" aria-label="Apri dettagli partita"
@@ -2588,7 +2583,7 @@ function GironeATracker() {
                 <span className="plus-shape"></span>
               </div>
             ) : <span style={{ width: 22, flexShrink: 0 }} />}
-            <span style={{ fontWeight: fx.home === CIMIANO ? 700 : 400, color: fx.home === CIMIANO ? RED : INK, textAlign: "right" }}>{fx.home}</span>
+            <span style={{ fontWeight: fx.home === CIMIANO ? 700 : 400, color: fx.home === CIMIANO ? RED : INK }}>{fx.home}</span>
             {played ? (
               <span className="mono-font" style={{ fontWeight: 700, fontSize: 15 }}>{played.golHome} – {played.golAway}</span>
             ) : (
@@ -2600,9 +2595,9 @@ function GironeATracker() {
                   onChange={(e) => setDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], golAway: e.target.value } }))} />
               </span>
             )}
-            <span style={{ fontWeight: fx.away === CIMIANO ? 700 : 400, color: fx.away === CIMIANO ? RED : INK, textAlign: "left" }}>{fx.away}</span>
+            <span style={{ fontWeight: fx.away === CIMIANO ? 700 : 400, color: fx.away === CIMIANO ? RED : INK }}>{fx.away}</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, flexWrap: "wrap", padding: "8px 0 4px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 18, flexWrap: "wrap", padding: "8px 0 4px" }}>
             <span onClick={() => startEditFixtureDate(fx)} title="Modifica data/ora" style={{ cursor: "pointer", color: MUTED, fontSize: 12, fontWeight: 600 }}>Modifica</span>
             {played ? (
               <button onClick={() => clearResult(fx.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>Azzera</button>
@@ -3000,10 +2995,10 @@ function GironeATracker() {
           </div>
         ) : (
           <div style={{ padding: "8px 12px 4px" }}>
-            <div className="body-font" style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center", marginBottom: 6 }}>
+            <div className="body-font" style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
               Amichevole{f.data && ` · ${fmtDate(f.data)}`}{f.ora && ` · ore ${f.ora}`}
             </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 10, flexWrap: "wrap" }}>
               {canOpenDetails ? (
                 <div className={`plus-btn ${isOpen ? "plus-open" : ""}`} onClick={() => setExpandedFriendly((p) => ({ ...p, [f.id]: !p[f.id] }))}
                   tabIndex={0} role="button" aria-label="Apri dettagli partita"
@@ -3020,7 +3015,7 @@ function GironeATracker() {
               <strong>{f.avversario}</strong>
               {!hasScore && <span style={{ fontSize: 11, color: RED, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>in programma</span>}
             </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, flexWrap: "wrap", padding: "8px 0 4px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 18, flexWrap: "wrap", padding: "8px 0 4px" }}>
               <button onClick={() => startEditFriendly(f)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Modifica</button>
               <button onClick={() => removeFriendly(f.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Cancella</button>
             </div>
@@ -3482,7 +3477,6 @@ function GironeATracker() {
           </button>
         ))}
       </div>
-      </div>
 
       <div style={{ background: CREAM, borderBottom: `1px solid ${LINE}`, padding: "8px 12px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -3513,7 +3507,6 @@ function GironeATracker() {
             ["cimiano", "Partite"],
             ["giocatori", "Giocatori"],
             ["cannonieri", "Cannonieri"],
-            ["rosa", "Rosa"],
           ].map(([key, label]) => (
             <button key={key} onClick={() => setStagSub(key)} className="body-font"
               style={{ padding: "6px 12px", border: "none", borderRadius: 14, cursor: "pointer",
@@ -3523,6 +3516,7 @@ function GironeATracker() {
             </button>
           ))}
         </div>
+      </div>
       </div>
 
       <div style={{ padding: 18 }}>
@@ -3691,8 +3685,32 @@ function GironeATracker() {
               </div>
             )}
 
+            <div className="chrome-box" style={{ marginBottom: 16 }}>
+              <div className="chrome-box-inner" style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                <div className="body-font" style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>Aggiungi giocatore</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  <input placeholder="Nome giocatore" value={rosterDraft.nome} onChange={(e) => setRosterDraft((p) => ({ ...p, nome: e.target.value }))}
+                    style={{ flex: 1, minWidth: 140, padding: 6, border: `1px solid ${LINE}` }} />
+                  <input type="date" value={rosterDraft.dataNascita} onChange={(e) => setRosterDraft((p) => ({ ...p, dataNascita: e.target.value }))}
+                    style={{ padding: 6, border: `1px solid ${LINE}` }} />
+                  <input type="number" placeholder="N. maglia" value={rosterDraft.maglia} onChange={(e) => setRosterDraft((p) => ({ ...p, maglia: e.target.value }))}
+                    style={{ width: 90, padding: 6, border: `1px solid ${LINE}` }} />
+                </div>
+                {renderChipGroup("Ruolo", RUOLI, rosterDraft.ruolo, (fn) => setRosterDraft((p) => ({ ...p, ruolo: fn(p.ruolo) })))}
+                {renderChipGroup("Lato", LATI, rosterDraft.lato, (fn) => setRosterDraft((p) => ({ ...p, lato: fn(p.lato) })))}
+                {renderChipGroup("Piede", PIEDI, rosterDraft.piede, (fn) => setRosterDraft((p) => ({ ...p, piede: fn(p.piede) })))}
+                <label className="body-font" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                  <input type="checkbox" checked={rosterDraft.capitano} onChange={(e) => setRosterDraft((p) => ({ ...p, capitano: e.target.checked }))} />
+                  Capitano
+                </label>
+                <div>
+                  <button onClick={addRosterPlayer} style={{ background: RED, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Aggiungi</button>
+                </div>
+              </div>
+            </div>
+
             <div style={{ fontSize: 12, color: MUTED, marginBottom: 16 }}>
-              Storico voti, minutaggio e commenti per giocatore, dalla partita più recente alla più vecchia.
+              Anagrafica e rendimento in un unico posto: apri "Modifica" per l'anagrafica, il pulsante rosso per lo storico voti.
             </div>
             {renderFiltroOrdina({
               ruoloSel: giocFiltroRuolo, setRuoloSel: setGiocFiltroRuolo,
@@ -3701,11 +3719,19 @@ function GironeATracker() {
               sortBy: giocSortBy, setSortBy: setGiocSortBy, sortDir: giocSortDir, setSortDir: setGiocSortDir,
               sortOptions: [
                 { value: "nome", label: "Nome" },
+                { value: "maglia", label: "Numero maglia" },
+                { value: "dataNascita", label: "Data di nascita" },
                 { value: "media", label: "Media voto" },
                 { value: "minuti", label: "Minuti giocati" },
                 { value: "gol", label: "Gol segnati" },
                 ...SKILLS.map((s) => ({ value: s.key, label: s.label })),
               ],
+              extra: (
+                <label className="body-font" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                  <input type="checkbox" checked={giocSoloCapitano} onChange={(e) => setGiocSoloCapitano(e.target.checked)} />
+                  Solo capitano
+                </label>
+              ),
             })}
             {giocFilteredSorted.length === 0 ? (
               <div style={{ color: MUTED, fontSize: 13 }}>Nessun giocatore corrisponde al filtro.</div>
@@ -3713,28 +3739,66 @@ function GironeATracker() {
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {giocFilteredSorted.map((p) => {
                 const isOpen = !!expandedPlayer[p.name];
+                const rp = rosterByName[p.name];
+                const isEditingAnagrafica = rp && editingRosterId === rp.id;
+                const ruoliAttivi = rp ? RUOLI.filter((d) => isFlagTrue(rp[d.col])).map((d) => d.label) : [];
                 return (
                   <div key={p.name} className="chrome-box">
                     <div className="chrome-box-inner" style={{ fontSize: 13 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", flexWrap: "wrap", gap: 10 }}>
-                      {p.entries.length > 0 ? (
-                        <div className={`plus-btn ${isOpen ? "plus-open" : ""}`} onClick={() => setExpandedPlayer((prev) => ({ ...prev, [p.name]: !prev[p.name] }))}
-                          tabIndex={0} role="button" aria-label="Apri storico giocatore"
-                          style={{ borderColor: RED, color: RED, flexShrink: 0 }}>
-                          <span className="plus-shape"></span>
-                        </div>
-                      ) : <span style={{ width: 22, flexShrink: 0 }} />}
-                      <div style={{ flex: 1 }}>
-                        <strong style={{ fontSize: 15 }} className="title-font">{p.name}</strong>
-                        <div style={{ color: MUTED, fontSize: 12, marginTop: 2 }}>
-                          {p.presenze} {p.presenze === 1 ? "presenza" : "presenze"}
-                          {p.media !== null && <> · media voto <span className="mono-font" style={{ color: INK, fontWeight: 700 }}>{p.media.toFixed(1)}</span></>}
-                          {p.minutiTot !== null && <> · <span className="mono-font">{p.minutiTot}'</span> totali</>}
-                          {p.cartellini.gialli > 0 && ` · 🟨×${p.cartellini.gialli}`}
-                          {p.cartellini.rossi > 0 && ` · 🟥×${p.cartellini.rossi}`}
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                        {p.entries.length > 0 ? (
+                          <div className={`plus-btn ${isOpen ? "plus-open" : ""}`} onClick={() => setExpandedPlayer((prev) => ({ ...prev, [p.name]: !prev[p.name] }))}
+                            tabIndex={0} role="button" aria-label="Apri storico giocatore"
+                            style={{ borderColor: RED, color: RED, flexShrink: 0 }}>
+                            <span className="plus-shape"></span>
+                          </div>
+                        ) : <span style={{ width: 22, flexShrink: 0 }} />}
+                        <div>
+                          <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            {rp && rp.maglia && <span className="mono-font" style={{ fontSize: 11, color: MUTED, border: `1px solid ${LINE}`, borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{rp.maglia}</span>}
+                            <strong style={{ fontSize: 15 }} className="title-font">{p.name}</strong>
+                            {rp && isFlagTrue(rp.capitano) && <span title="Capitano" style={{ color: RED, fontWeight: 700, fontSize: 11 }}>C</span>}
+                            {ruoliAttivi.length > 0 && <span className="body-font" style={{ fontSize: 10, color: MUTED, letterSpacing: 0.5 }}>{ruoliAttivi.join(" · ")}</span>}
+                          </span>
+                          <div style={{ color: MUTED, fontSize: 12, marginTop: 2 }}>
+                            {p.presenze} {p.presenze === 1 ? "presenza" : "presenze"}
+                            {p.media !== null && <> · media voto <span className="mono-font" style={{ color: INK, fontWeight: 700 }}>{p.media.toFixed(1)}</span></>}
+                            {p.minutiTot !== null && <> · <span className="mono-font">{p.minutiTot}'</span> totali</>}
+                            {p.cartellini.gialli > 0 && ` · 🟨×${p.cartellini.gialli}`}
+                            {p.cartellini.rossi > 0 && ` · 🟥×${p.cartellini.rossi}`}
+                          </div>
                         </div>
                       </div>
+                      {rp && (
+                        <button onClick={() => (isEditingAnagrafica ? (setEditingRosterId(null), setRosterDraft({ nome: "", dataNascita: "", ruolo: [], lato: [], piede: [], maglia: "", capitano: false })) : startEditRoster(rp))}
+                          style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
+                          {isEditingAnagrafica ? "annulla" : "Modifica"}
+                        </button>
+                      )}
                     </div>
+
+                    {isEditingAnagrafica && (
+                      <div style={{ borderTop: `1px solid ${LINE}`, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          <input type="date" value={rosterDraft.dataNascita} onChange={(e) => setRosterDraft((p) => ({ ...p, dataNascita: e.target.value }))}
+                            style={{ padding: 6, border: `1px solid ${LINE}` }} />
+                          <input type="number" placeholder="N. maglia" value={rosterDraft.maglia} onChange={(e) => setRosterDraft((p) => ({ ...p, maglia: e.target.value }))}
+                            style={{ width: 90, padding: 6, border: `1px solid ${LINE}` }} />
+                        </div>
+                        {renderChipGroup("Ruolo", RUOLI, rosterDraft.ruolo, (fn) => setRosterDraft((p) => ({ ...p, ruolo: fn(p.ruolo) })))}
+                        {renderChipGroup("Lato", LATI, rosterDraft.lato, (fn) => setRosterDraft((p) => ({ ...p, lato: fn(p.lato) })))}
+                        {renderChipGroup("Piede", PIEDI, rosterDraft.piede, (fn) => setRosterDraft((p) => ({ ...p, piede: fn(p.piede) })))}
+                        <label className="body-font" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                          <input type="checkbox" checked={rosterDraft.capitano} onChange={(e) => setRosterDraft((p) => ({ ...p, capitano: e.target.checked }))} />
+                          Capitano
+                        </label>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                          <button onClick={() => saveEditRoster(rp.id)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
+                          <button onClick={() => removeRosterPlayer(rp.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>Rimuovi giocatore dalla rosa</button>
+                        </div>
+                      </div>
+                    )}
 
                     {isOpen && (
                       <div style={{ borderTop: `1px solid ${LINE}`, padding: "10px 12px" }}>
@@ -3855,91 +3919,6 @@ function GironeATracker() {
                   </table>
                 </div>
               </div>
-            )}
-          </div>
-        )}
-
-        {macroTab === "stagione" && stagSub === "rosa" && (
-          <div className="body-font">
-            <div className="chrome-box" style={{ marginBottom: 16 }}>
-              <div className="chrome-box-inner" style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  <input placeholder="Nome giocatore" value={rosterDraft.nome} onChange={(e) => setRosterDraft((p) => ({ ...p, nome: e.target.value }))}
-                    style={{ flex: 1, minWidth: 140, padding: 6, border: `1px solid ${LINE}` }} />
-                  <input type="date" value={rosterDraft.dataNascita} onChange={(e) => setRosterDraft((p) => ({ ...p, dataNascita: e.target.value }))}
-                    style={{ padding: 6, border: `1px solid ${LINE}` }} />
-                  <input type="number" placeholder="N. maglia" value={rosterDraft.maglia} onChange={(e) => setRosterDraft((p) => ({ ...p, maglia: e.target.value }))}
-                    style={{ width: 90, padding: 6, border: `1px solid ${LINE}` }} />
-                </div>
-                {renderChipGroup("Ruolo", RUOLI, rosterDraft.ruolo, (fn) => setRosterDraft((p) => ({ ...p, ruolo: fn(p.ruolo) })))}
-                {renderChipGroup("Lato", LATI, rosterDraft.lato, (fn) => setRosterDraft((p) => ({ ...p, lato: fn(p.lato) })))}
-                {renderChipGroup("Piede", PIEDI, rosterDraft.piede, (fn) => setRosterDraft((p) => ({ ...p, piede: fn(p.piede) })))}
-                <label className="body-font" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                  <input type="checkbox" checked={rosterDraft.capitano} onChange={(e) => setRosterDraft((p) => ({ ...p, capitano: e.target.checked }))} />
-                  Capitano
-                </label>
-                <div>
-                  {editingRosterId ? (
-                    <>
-                      <button onClick={() => saveEditRoster(editingRosterId)} style={{ background: RED, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
-                      <button onClick={() => { setEditingRosterId(null); setRosterDraft({ nome: "", dataNascita: "", ruolo: [], lato: [], piede: [], maglia: "", capitano: false }); }} style={{ marginLeft: 8, background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
-                    </>
-                  ) : (
-                    <button onClick={addRosterPlayer} style={{ background: RED, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Aggiungi</button>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div style={{ fontSize: 11, color: MUTED, marginBottom: 16 }}>
-              Tutto qui è condiviso: rosa, voti (con autore e media calcolata automaticamente), marcatori, presenze e formazioni. Chi usa questo tracker vede sempre gli stessi dati.
-            </div>
-            {roster.length === 0 ? (
-              <div style={{ color: MUTED, fontSize: 13 }}>Nessun giocatore in rosa.</div>
-            ) : (
-              <>
-                {renderFiltroOrdina({
-                  ruoloSel: rosaFiltroRuolo, setRuoloSel: setRosaFiltroRuolo,
-                  latoSel: rosaFiltroLato, setLatoSel: setRosaFiltroLato,
-                  piedeSel: rosaFiltroPiede, setPiedeSel: setRosaFiltroPiede,
-                  sortBy: rosaSortBy, setSortBy: setRosaSortBy, sortDir: rosaSortDir, setSortDir: setRosaSortDir,
-                  sortOptions: [
-                    { value: "nome", label: "Nome" },
-                    { value: "maglia", label: "Numero maglia" },
-                    { value: "dataNascita", label: "Data di nascita" },
-                  ],
-                  extra: (
-                    <label className="body-font" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                      <input type="checkbox" checked={rosaSoloCapitano} onChange={(e) => setRosaSoloCapitano(e.target.checked)} />
-                      Solo capitano
-                    </label>
-                  ),
-                })}
-                {rosaFilteredSorted.length === 0 ? (
-                  <div style={{ color: MUTED, fontSize: 13 }}>Nessun giocatore corrisponde al filtro.</div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {rosaFilteredSorted.map((rp) => {
-                      const ruoliAttivi = RUOLI.filter((d) => isFlagTrue(rp[d.col])).map((d) => d.label);
-                      return (
-                        <div key={rp.id} className="chrome-box" style={{ boxShadow: "none" }}>
-                          <div className="chrome-box-inner" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", fontSize: 13, gap: 8 }}>
-                            <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                              {rp.maglia && <span className="mono-font" style={{ fontSize: 11, color: MUTED, border: `1px solid ${LINE}`, borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{rp.maglia}</span>}
-                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rp.nome}</span>
-                              {isFlagTrue(rp.capitano) && <span title="Capitano" style={{ color: RED, fontWeight: 700, fontSize: 11 }}>C</span>}
-                              {ruoliAttivi.length > 0 && <span className="body-font" style={{ fontSize: 10, color: MUTED, letterSpacing: 0.5 }}>{ruoliAttivi.join(" · ")}</span>}
-                            </span>
-                            <span style={{ display: "flex", gap: 10, flexShrink: 0 }}>
-                              <button onClick={() => startEditRoster(rp)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12 }}>Modifica</button>
-                              <button onClick={() => removeRosterPlayer(rp.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 16 }}>×</button>
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
             )}
           </div>
         )}
