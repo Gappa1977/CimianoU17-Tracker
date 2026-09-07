@@ -589,8 +589,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.19";
-const TRACKER_VERSION_DATE = "06/09/2026@14.19";
+const TRACKER_VERSION = "3.20";
+const TRACKER_VERSION_DATE = "06/09/2026@14.45";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -733,6 +733,7 @@ function GironeATracker() {
   const [detailsShared, setDetailsShared] = useState({}); // { fixtureId: {marcatori, voti, votoSquadra, presenze, formazione, modulo} } — CONDIVISO, i voti sono etichettati con l'autore
   const [voterName, setVoterNameState] = useState(""); // identità di chi vota su questo dispositivo — LOCALE
   const [chartModal, setChartModal] = useState(null); // { type: 'line'|'radar', name, data } per lo zoom dei grafici
+  const [distintaModal, setDistintaModal] = useState(null); // { titolo, sottotitolo, modulo, formazione, convocatiIds }
   const [showBackToTop, setShowBackToTop] = useState(false);
   useEffect(() => {
     function onScroll() { setShowBackToTop(window.scrollY > 400); }
@@ -821,6 +822,7 @@ function GironeATracker() {
   // ma con stato separato: filtrare in una sezione non deve cambiare cosa vedi nell'altra.
   const [giocSoloCapitano, setGiocSoloCapitano] = useState(false);
   const [giocFiltroRuolo, setGiocFiltroRuolo] = useState([]);
+  const [giocRicerca, setGiocRicerca] = useState("");
   const [giocFiltroLato, setGiocFiltroLato] = useState([]);
   const [giocFiltroPiede, setGiocFiltroPiede] = useState([]);
   const [giocSortBy, setGiocSortBy] = useState("nome"); // "nome" | "media" | "minuti" | "gol" | chiave skill
@@ -1343,9 +1345,11 @@ function GironeATracker() {
   }
 
   const giocFilteredSorted = useMemo(() => {
+    const ricercaNorm = giocRicerca.trim().toLowerCase();
     let list = playerStats.filter((p) =>
       matchesIdentikit(rosterByName[p.name], giocFiltroRuolo, giocFiltroLato, giocFiltroPiede) &&
-      (!giocSoloCapitano || isFlagTrue((rosterByName[p.name] || {}).capitano))
+      (!giocSoloCapitano || isFlagTrue((rosterByName[p.name] || {}).capitano)) &&
+      (ricercaNorm === "" || p.name.toLowerCase().includes(ricercaNorm))
     );
     if (giocSortBy === "nome") {
       list = [...list].sort((a, b) => lastName(a.name).localeCompare(lastName(b.name), "it", { sensitivity: "base" }));
@@ -1377,7 +1381,7 @@ function GironeATracker() {
       }
     }
     return list;
-  }, [playerStats, rosterByName, golPerGiocatore, giocFiltroRuolo, giocFiltroLato, giocFiltroPiede, giocSoloCapitano, giocSortBy, giocSortDir]);
+  }, [playerStats, rosterByName, golPerGiocatore, giocFiltroRuolo, giocFiltroLato, giocFiltroPiede, giocSoloCapitano, giocRicerca, giocSortBy, giocSortDir]);
 
   // --- FORMA RECENTE (ultime 5 partite Cimiano, campionato + coppa + amichevoli) ---
   const formaRecente = useMemo(() => {
@@ -2598,6 +2602,13 @@ function GironeATracker() {
             <span style={{ fontWeight: fx.away === CIMIANO ? 700 : 400, color: fx.away === CIMIANO ? RED : INK }}>{fx.away}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 18, flexWrap: "wrap", padding: "8px 0 4px" }}>
+            {canOpenDetails && (
+              <span onClick={() => setDistintaModal({
+                titolo: `${fx.home} vs ${fx.away}`,
+                sottotitolo: metaLabel || "",
+                modulo: moduloIniziale, formazione: formazioneIniziale, convocatiIds,
+              })} style={{ cursor: "pointer", color: MUTED, fontSize: 12, fontWeight: 600 }}>Distinta</span>
+            )}
             <span onClick={() => startEditFixtureDate(fx)} title="Modifica data/ora" style={{ cursor: "pointer", color: MUTED, fontSize: 12, fontWeight: 600 }}>Modifica</span>
             {played ? (
               <button onClick={() => clearResult(fx.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>Azzera</button>
@@ -3016,6 +3027,13 @@ function GironeATracker() {
               {!hasScore && <span style={{ fontSize: 11, color: RED, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>in programma</span>}
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 18, flexWrap: "wrap", padding: "8px 0 4px" }}>
+              {canOpenDetails && (
+                <span onClick={() => setDistintaModal({
+                  titolo: `Cimiano vs ${f.avversario}`,
+                  sottotitolo: `Amichevole${f.data ? ` · ${fmtDate(f.data)}` : ""}${f.ora ? ` · ore ${f.ora}` : ""}`,
+                  modulo: moduloInizialeF, formazione: formazioneInizialeF, convocatiIds: convocatiIdsF,
+                })} style={{ cursor: "pointer", color: MUTED, fontSize: 12, fontWeight: 600 }}>Distinta</span>
+              )}
               <button onClick={() => startEditFriendly(f)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Modifica</button>
               <button onClick={() => removeFriendly(f.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Cancella</button>
             </div>
@@ -3397,6 +3415,12 @@ function GironeATracker() {
         @media (min-width: 700px) {
           .dual-pitch-wrapper { flex-direction: row; gap: 14px; }
         }
+        @media print {
+          body * { visibility: hidden; }
+          .distinta-print, .distinta-print * { visibility: visible; }
+          .distinta-print { position: fixed; top: 0; left: 0; width: 100% !important; max-width: 100% !important; max-height: none !important; overflow: visible !important; box-shadow: none !important; }
+          .no-print { display: none !important; }
+        }
       `}</style>
 
       <div style={{ position: "sticky", top: 0, zIndex: 50 }}>
@@ -3712,6 +3736,8 @@ function GironeATracker() {
             <div style={{ fontSize: 12, color: MUTED, marginBottom: 16 }}>
               Anagrafica e rendimento in un unico posto: apri "Modifica" per l'anagrafica, il pulsante rosso per lo storico voti.
             </div>
+            <input value={giocRicerca} onChange={(e) => setGiocRicerca(e.target.value)} placeholder="🔍 Cerca giocatore per nome…"
+              style={{ width: "100%", padding: "8px 10px", border: `1px solid ${LINE}`, borderRadius: 6, marginBottom: 12, boxSizing: "border-box" }} />
             {renderFiltroOrdina({
               ruoloSel: giocFiltroRuolo, setRuoloSel: setGiocFiltroRuolo,
               latoSel: giocFiltroLato, setLatoSel: setGiocFiltroLato,
@@ -4083,6 +4109,70 @@ function GironeATracker() {
           ↑
         </div>
       )}
+
+      {distintaModal && (() => {
+        const slots = FORMATIONS[distintaModal.modulo || DEFAULT_MODULO].slots;
+        const titolariIds = new Set();
+        const titolari = slots.map((slot) => {
+          const pid = distintaModal.formazione[slot.id] ? String(distintaModal.formazione[slot.id]) : "";
+          if (pid) titolariIds.add(pid);
+          return { slotLabel: slot.label, player: roster.find((r) => String(r.id) === pid) || null };
+        });
+        const panchina = distintaModal.convocatiIds
+          .filter((id) => !titolariIds.has(String(id)))
+          .map((id) => roster.find((r) => String(r.id) === String(id)))
+          .filter(Boolean)
+          .sort((a, b) => lastName(a.nome).localeCompare(lastName(b.nome), "it", { sensitivity: "base" }));
+        return (
+          <div onClick={() => setDistintaModal(null)} className="modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+            <div onClick={(e) => e.stopPropagation()} className="chrome-box distinta-print" style={{ maxWidth: 480, width: "100%", maxHeight: "85vh", overflow: "auto" }}>
+              <div className="chrome-box-inner body-font" style={{ padding: 20 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div className="title-font" style={{ fontSize: 18, fontWeight: 700, color: INK }}>{distintaModal.titolo}</div>
+                    <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 }}>{distintaModal.sottotitolo}</div>
+                  </div>
+                  <span onClick={() => setDistintaModal(null)} className="no-print" style={{ cursor: "pointer", fontSize: 22, color: MUTED, lineHeight: 1 }}>×</span>
+                </div>
+
+                <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 18, marginBottom: 6 }}>
+                  Titolari · {FORMATIONS[distintaModal.modulo || DEFAULT_MODULO].label}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  {titolari.map((t, i) => (
+                    <div key={i} style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13, padding: "5px 0", borderBottom: `1px solid ${LINE}` }}>
+                      <span style={{ width: 18, color: MUTED, fontSize: 11, flexShrink: 0 }}>{t.slotLabel}</span>
+                      {t.player && t.player.maglia ? (
+                        <span className="mono-font" style={{ width: 20, textAlign: "center", color: MUTED, fontSize: 12, flexShrink: 0 }}>{t.player.maglia}</span>
+                      ) : <span style={{ width: 20, flexShrink: 0 }} />}
+                      <span style={{ color: t.player ? INK : MUTED, fontStyle: t.player ? "normal" : "italic" }}>{t.player ? t.player.nome : "—"}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 18, marginBottom: 6 }}>Panchina</div>
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  {panchina.length === 0 ? (
+                    <div style={{ fontSize: 12, color: MUTED, fontStyle: "italic" }}>Nessuno</div>
+                  ) : panchina.map((p) => (
+                    <div key={p.id} style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13, padding: "5px 0", borderBottom: `1px solid ${LINE}` }}>
+                      {p.maglia ? (
+                        <span className="mono-font" style={{ width: 20, textAlign: "center", color: MUTED, fontSize: 12, flexShrink: 0 }}>{p.maglia}</span>
+                      ) : <span style={{ width: 20, flexShrink: 0 }} />}
+                      <span style={{ color: INK }}>{p.nome}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <button onClick={() => window.print()} className="no-print"
+                  style={{ marginTop: 20, background: RED, color: "#fff", border: "none", padding: "10px 16px", borderRadius: 4, fontWeight: 600, cursor: "pointer", width: "100%", fontSize: 14 }}>
+                  Stampa distinta
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {chartModal && (
         <div onClick={() => setChartModal(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
