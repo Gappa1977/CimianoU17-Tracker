@@ -389,6 +389,25 @@ const FORMATIONS = {
   },
 };
 const DEFAULT_MODULO = "352";
+// Impostazioni società (07/09/2026): valori di default del Cimiano, usati sia al primo avvio (nessuna
+// riga ancora salvata su Impostazioni) sia dal pulsante "Reset" nelle Impostazioni.
+const DEFAULT_TEAM_NOME = "Cimiano Calcio";
+const DEFAULT_TEAM_CATEGORIA = "Allievi U17 Élite";
+const DEFAULT_COLORE_1 = "#c8102e";
+const DEFAULT_COLORE_2 = "#f6f1e4";
+const DEFAULT_COLORE_3 = "#14181a";
+
+// Ritaglio foto giocatore (07/09/2026): dimensioni dell'anteprima trascinabile e dell'immagine
+// finale inviata al server. Stesse proporzioni (5:6, un ritratto), l'anteprima è solo più piccola
+// per stare comoda a schermo; il fattore di scala fra le due converte le coordinate dell'una nell'altra.
+const FOTO_PREVIEW_W = 200;
+const FOTO_PREVIEW_H = 240;
+const FOTO_OUTPUT_W = 300;
+const FOTO_OUTPUT_H = 360;
+// Sagoma a scudo della card giocatore (07/09/2026), concordata dopo diversi mockup: spazio 240x300.
+// Costante globale perché serve sia al modal React (clip-path CSS) sia al disegno su canvas per lo
+// scaricamento come immagine (Path2D del Canvas 2D accetta la stessa sintassi SVG).
+const SHIELD_PATH = "M0,45 C0,15 50,0 120,0 C190,0 240,15 240,45 L240,195 C240,232 218,253 190,266 C165,278 140,288 120,300 C100,288 75,278 50,266 C22,253 0,232 0,195 Z";
 
 // 5 skill per la valutazione dei giocatori (Vers. 2.4), uguali per tutti i ruoli. Il voto generale
 // che si vede ovunque nel Tracker è la media di queste 5. Chiave = nome colonna sul foglio Voti
@@ -607,8 +626,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.22";
-const TRACKER_VERSION_DATE = "07/09/2026@__:__";
+const TRACKER_VERSION = "3.26";
+const TRACKER_VERSION_DATE = "07/09/2026@23.10";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -722,32 +741,16 @@ function fmtDate(iso) {
 // default di Recharts, che altrimenti orienta il testo seguendo l'inclinazione del raggio a cui
 // appartiene. Qui il testo resta sempre dritto e leggibile, spostato leggermente verso l'esterno
 // rispetto al punto per non sovrapporsi alla linea del grafico.
-// Ridimensiona e comprime una foto scelta dall'utente (spesso diversi MB da uno smartphone) prima
-// di mandarla al server: la disegna su un canvas non più larga di maxW/alta di maxH (mantenendo le
-// proporzioni, tagliando l'eccesso per riempire un ritratto), la converte in JPEG di qualità 0.82.
-// Ritorna una Promise col solo base64 (senza il prefisso "data:image/jpeg;base64,").
-function ridimensionaFoto(file, maxW, maxH) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Lettura file fallita"));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error("Immagine non valida"));
-      img.onload = () => {
-        const scale = Math.max(maxW / img.width, maxH / img.height);
-        const srcW = maxW / scale, srcH = maxH / scale;
-        const srcX = (img.width - srcW) / 2, srcY = (img.height - srcH) / 2;
-        const canvas = document.createElement("canvas");
-        canvas.width = maxW; canvas.height = maxH;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, maxW, maxH);
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
-        resolve(dataUrl.split(",")[1]);
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
+
+// Tiene l'offset dentro i limiti che garantiscono che l'immagine copra sempre tutto il riquadro
+// di anteprima, qualunque sia lo zoom corrente: altrimenti trascinando troppo o rimpicciolendo lo
+// zoom comparirebbero strisce vuote ai bordi.
+function clampFotoOffset(m) {
+  const dispW = m.naturalW * m.scala0 * m.zoom;
+  const dispH = m.naturalH * m.scala0 * m.zoom;
+  const minX = Math.min(0, FOTO_PREVIEW_W - dispW);
+  const minY = Math.min(0, FOTO_PREVIEW_H - dispH);
+  return { ...m, offsetX: Math.max(minX, Math.min(0, m.offsetX)), offsetY: Math.max(minY, Math.min(0, m.offsetY)) };
 }
 
 function radarValueLabel(fontSize, color) {
@@ -781,7 +784,17 @@ function GironeATracker() {
   const [chartModal, setChartModal] = useState(null); // { type: 'line'|'radar', name, data } per lo zoom dei grafici
   const [distintaModal, setDistintaModal] = useState(null); // { titolo, sottotitolo, modulo, formazione, convocatiIds }
   const [playerCardModal, setPlayerCardModal] = useState(null); // { p, rp } — card stile figurina
+  const [cardFlipped, setCardFlipped] = useState(false); // false = fronte, true = retro
   const [fotoUploading, setFotoUploading] = useState(null); // id del giocatore la cui foto si sta caricando
+  const [fotoCropModal, setFotoCropModal] = useState(null); // { rp, objectUrl, naturalW, naturalH, scala0, zoom, offsetX, offsetY }
+  const [teamNome, setTeamNome] = useState(DEFAULT_TEAM_NOME);
+  const [teamCategoria, setTeamCategoria] = useState(DEFAULT_TEAM_CATEGORIA);
+  const [colore1, setColore1] = useState(DEFAULT_COLORE_1);
+  const [colore2, setColore2] = useState(DEFAULT_COLORE_2);
+  const [colore3, setColore3] = useState(DEFAULT_COLORE_3);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [settingsDraft, setSettingsDraft] = useState(null); // bozza modificabile mentre il popup è aperto
+  const fotoDragRef = useRef({ dragging: false, startX: 0, startY: 0, startOffsetX: 0, startOffsetY: 0 });
   const [fotoErrore, setFotoErrore] = useState(null); // { playerId, msg }
   const [showBackToTop, setShowBackToTop] = useState(false);
   useEffect(() => {
@@ -1055,9 +1068,11 @@ function GironeATracker() {
         });
       }
 
-      // --- IMPOSTAZIONI: votanti extra + flag "mappa 2 sganciata" (formazione2Touched) ---
+      // --- IMPOSTAZIONI: votanti extra + flag "mappa 2 sganciata" (formazione2Touched) + tema società ---
       const voterOptionsExtraFinal = [];
       const friendlyFormazione2TouchedFinal = {};
+      let teamNomeFinal = DEFAULT_TEAM_NOME, teamCategoriaFinal = DEFAULT_TEAM_CATEGORIA;
+      let colore1Final = DEFAULT_COLORE_1, colore2Final = DEFAULT_COLORE_2, colore3Final = DEFAULT_COLORE_3;
       if (impostazioniRows) {
         impostazioniRows.forEach((r) => {
           const chiave = String(r.chiave || "");
@@ -1069,6 +1084,16 @@ function GironeATracker() {
             // in entrambi i posti possibili, è innocuo perché ciascuno viene letto solo dal proprio contesto.
             friendlyFormazione2TouchedFinal[fixtureId] = true;
             detailEntry(fixtureId).formazione2Touched = true;
+          } else if (chiave === "teamNome" && r.valore) {
+            teamNomeFinal = r.valore;
+          } else if (chiave === "teamCategoria" && r.valore) {
+            teamCategoriaFinal = r.valore;
+          } else if (chiave === "colore1" && r.valore) {
+            colore1Final = r.valore;
+          } else if (chiave === "colore2" && r.valore) {
+            colore2Final = r.valore;
+          } else if (chiave === "colore3" && r.valore) {
+            colore3Final = r.valore;
           }
         });
       }
@@ -1092,6 +1117,11 @@ function GironeATracker() {
       if (impostazioniRows) {
         setVoterOptionsExtra(voterOptionsExtraFinal);
         setFriendlyFormazione2Touched(friendlyFormazione2TouchedFinal);
+        setTeamNome(teamNomeFinal);
+        setTeamCategoria(teamCategoriaFinal);
+        setColore1(colore1Final);
+        setColore2(colore2Final);
+        setColore3(colore3Final);
       }
 
       setLoaded(true);
@@ -2218,6 +2248,36 @@ function GironeATracker() {
   }
 
 
+// Adatta il cognome allo spazio dentro la maglietta stilizzata sulla mappa formazione (07/09/2026):
+// una riga se corto, spezzato a metà dei caratteri su due righe se serve, troncato con puntini come
+// ultima spiaggia per i cognomi davvero lunghi (es. "Mancagnello") dove nemmeno due righe bastano a
+// stare leggibili. "big" = mappa compatta più grande (maglia da 54px) rispetto a quella normale (46px).
+function formattaCognomeMaglia(cognome, big) {
+  const nome = (cognome || "").toUpperCase();
+  const L = nome.length;
+  if (L <= 6) return { righe: [nome], size: big ? 9 : 8 };
+  if (L <= 8) return { righe: [nome], size: big ? 7.5 : 6.5 };
+  const mid = Math.ceil(L / 2);
+  let r1 = nome.slice(0, mid), r2 = nome.slice(mid);
+  let size = big ? 7 : 6;
+  if (L > 14) {
+    r1 = r1.slice(0, 7);
+    r2 = r2.slice(0, 6) + "…";
+    size = big ? 6.5 : 5.5;
+  }
+  return { righe: [r1, r2], size };
+}
+
+// Sceglie testo bianco o quasi-nero a seconda di quanto è chiaro lo sfondo (luminanza percepita),
+// così una società che imposta un colore sociale chiaro (es. bianco) non si ritrova un testo bianco
+// su bianco illeggibile dentro la maglietta.
+function coloreTestoContrastante(hex) {
+  const c = (hex || "#c8102e").replace("#", "");
+  const r = parseInt(c.substr(0, 2), 16) || 0, g = parseInt(c.substr(2, 2), 16) || 0, b = parseInt(c.substr(4, 2), 16) || 0;
+  const luminanza = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminanza > 0.6 ? "#14181a" : "#ffffff";
+}
+
   function renderPitch(formazione, onChangeSlot, modulo, onChangeModulo, playerPool, opts) {
     opts = opts || {};
     const compact = !!opts.compact;
@@ -2249,7 +2309,7 @@ function GironeATracker() {
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
             {Object.entries(FORMATIONS).map(([key, f]) => (
               <button key={key} onClick={() => onChangeModulo(key)}
-                style={{ fontSize: 11, padding: "4px 10px", borderRadius: 10, border: `1px solid ${LINE}`, background: moduloKey === key ? RED : PANEL_BG, color: moduloKey === key ? "#fff" : INK, cursor: "pointer", fontWeight: 600 }}>
+                style={{ fontSize: 11, padding: "4px 10px", borderRadius: 10, border: `1px solid ${LINE}`, background: moduloKey === key ? colore1 : PANEL_BG, color: moduloKey === key ? "#fff" : INK, cursor: "pointer", fontWeight: 600 }}>
                 {f.label}
               </button>
             ))}
@@ -2266,6 +2326,13 @@ function GironeATracker() {
         {poolRoster.length === 0 && (
           <div style={{ fontSize: 11, color: MUTED, marginBottom: 8 }}>Nessun giocatore disponibile da piazzare qui al momento.</div>
         )}
+        {(() => {
+          // Colore sociale di questa mappa (07/09/2026): 1° colore per la mappa Inizio, 2° per Cambi/Fine.
+          const mapColor = opts.mappaNumero === 2 ? colore2 : colore1;
+          const jerseyTextColor = coloreTestoContrastante(mapColor);
+          const jerseySize = compact ? 54 : 46;
+          const jerseyClip = "polygon(35% 5%, 35% 0%, 45% 0%, 50% 5%, 55% 0%, 65% 0%, 65% 5%, 100% 20%, 85% 40%, 75% 30%, 75% 100%, 25% 100%, 25% 30%, 15% 40%, 0% 20%)";
+          return (
         <div style={{
           position: "relative", width: "100%", maxWidth: pitchMaxWidth, aspectRatio: "2 / 3", margin: "0 auto",
           background: "linear-gradient(180deg, #3f9142 0%, #368239 100%)", borderRadius: 8, border: `2px solid #2c6b2f`, overflow: "hidden",
@@ -2279,7 +2346,6 @@ function GironeATracker() {
             const playerId = effectiveBySlot[slot.id];
             const player = roster.find((r) => String(r.id) === playerId);
             const isSub = startersIds ? (!!playerId && !startersIds.has(playerId)) : false;
-            const circleColor = isSub ? SUB_COLOR : RED;
             // Punto 12: un giocatore già piazzato in UN ALTRO slot — di QUESTA mappa o dell'ALTRA — non
             // compare più tra le opzioni (resta comunque visibile/selezionabile nello slot dove è già
             // piazzato lui stesso, incluso il proprio slot.id nell'altra mappa: continuità dello stesso
@@ -2292,24 +2358,34 @@ function GironeATracker() {
             );
             const usedElsewhere = new Set([...usedElsewhereSameMap, ...usedElsewhereOtherMap]);
             const optionsForThisSlot = poolRoster.filter((rp) => String(rp.id) === playerId || !usedElsewhere.has(String(rp.id)));
+            const cognomeFmt = player ? formattaCognomeMaglia(lastName(player.nome), compact) : null;
             return (
               <div key={slot.id} style={{ position: "absolute",
-                left: `calc(${circleSize / 2}px + (100% - ${circleSize}px) * ${slot.x / 100})`,
-                top: `calc(${circleSize / 2}px + (100% - ${circleSize}px) * ${slot.y / 100})`,
+                left: `calc(${jerseySize / 2}px + (100% - ${jerseySize}px) * ${slot.x / 100})`,
+                top: `calc(${jerseySize / 2}px + (100% - ${jerseySize}px) * ${slot.y / 100})`,
                 transform: "translate(-50%,-50%)", textAlign: "center" }}>
-                <div style={{ position: "relative", width: circleSize, height: circleSize, margin: "0 auto" }}>
-                  {/* Cerchio visibile: invariato, mostra solo il nome (o l'etichetta slot se vuoto) */}
+                <div style={{ position: "relative", width: jerseySize, height: jerseySize, margin: "0 auto" }}>
+                  {/* Maglietta stilizzata: colore sociale della mappa, contorno tratteggiato per i subentrati */}
                   <div style={{
-                    width: circleSize, height: circleSize, borderRadius: "50%", border: `2px solid ${player ? "#fff" : "rgba(255,255,255,0.6)"}`,
-                    background: player ? circleColor : "rgba(255,255,255,0.15)", color: "#fff", fontSize: compact ? 8 : 10, fontWeight: 700,
+                    width: jerseySize, height: jerseySize, clipPath: jerseyClip,
+                    border: player ? `2px ${isSub ? "dashed" : "solid"} #fff` : "2px solid rgba(255,255,255,0.6)",
+                    background: player ? mapColor : "rgba(255,255,255,0.15)",
                     display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", pointerEvents: "none", overflow: "hidden",
                   }}>
-                    {player ? firstName(player.nome) : slot.label}
+                    {player ? (
+                      <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.05, padding: "0 2px" }}>
+                        {cognomeFmt.righe.map((riga, i) => (
+                          <span key={i} style={{ fontSize: cognomeFmt.size, fontWeight: 700, color: jerseyTextColor, whiteSpace: "nowrap" }}>{riga}</span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: compact ? 8 : 9, fontWeight: 700, color: "#fff" }}>{slot.label}</span>
+                    )}
                   </div>
                   {/* Select invisibile sovrapposto: gestisce il tap/click, mostra nome+cognome su una riga nella lista */}
                   <select value={playerId} onChange={(e) => onChangeSlot(slot.id, e.target.value)}
                     style={{
-                      position: "absolute", inset: 0, width: circleSize, height: circleSize, borderRadius: "50%",
+                      position: "absolute", inset: 0, width: jerseySize, height: jerseySize,
                       opacity: 0, cursor: "pointer", appearance: "none", border: "none", padding: 0,
                     }}>
                     <option value="" style={optionStyle}>{slot.label}</option>
@@ -2318,15 +2394,12 @@ function GironeATracker() {
                     ))}
                   </select>
                 </div>
-                {player && (
-                  <div style={{ fontSize: labelFont, color: "#fff", marginTop: 2, maxWidth: compact ? 62 : 62, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {lastName(player.nome)}
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
+          );
+        })()}
       </div>
     );
   }
@@ -2347,10 +2420,10 @@ function GironeATracker() {
       <div>
         <div style={{ display: "flex", gap: 14, marginBottom: 8, fontSize: 11, color: MUTED }}>
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ width: 10, height: 10, borderRadius: "50%", background: RED, display: "inline-block" }} /> Titolare
+            <span style={{ width: 12, height: 12, borderRadius: 2, background: colore1, border: "2px solid #fff", display: "inline-block" }} /> Titolare
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ width: 10, height: 10, borderRadius: "50%", background: SUB_COLOR, display: "inline-block" }} /> Subentrato
+            <span style={{ width: 12, height: 12, borderRadius: 2, background: colore2, border: "2px dashed #fff", display: "inline-block" }} /> Subentrato
           </span>
         </div>
         <div style={{ fontSize: 11, color: MUTED, marginBottom: 8, fontStyle: "italic" }}>
@@ -2361,11 +2434,11 @@ function GironeATracker() {
         <div className="dual-pitch-wrapper">
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 10, color: MUTED, marginBottom: 4, fontWeight: 700, textAlign: "center" }}>INIZIO</div>
-            {renderPitch(formazione1, onChangeSlot1, modulo1Key, onChangeModulo1, poolIniziale, { compact: true, otherMapEffective: eff2 })}
+            {renderPitch(formazione1, onChangeSlot1, modulo1Key, onChangeModulo1, poolIniziale, { compact: true, otherMapEffective: eff2, mappaNumero: 1 })}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 10, color: MUTED, marginBottom: 4, fontWeight: 700, textAlign: "center" }}>CAMBI / FINE</div>
-            {renderPitch(formazione2, onChangeSlot2, modulo2Key, onChangeModulo2, convocatiIds, { compact: true, startersIds, otherMapEffective: eff1 })}
+            {renderPitch(formazione2, onChangeSlot2, modulo2Key, onChangeModulo2, convocatiIds, { compact: true, startersIds, otherMapEffective: eff1, mappaNumero: 2 })}
           </div>
         </div>
       </div>
@@ -2471,12 +2544,212 @@ function GironeATracker() {
     window.rows.remove("Rosa", { id }).catch(() => {});
   }
 
-  async function handleFotoChange(rp, file) {
+  function handleFotoChange(rp, file) {
     if (!file) return;
+    setFotoErrore(null);
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      const scala0 = Math.max(FOTO_PREVIEW_W / img.width, FOTO_PREVIEW_H / img.height);
+      const dispW = img.width * scala0, dispH = img.height * scala0;
+      setFotoCropModal({
+        rp, objectUrl, naturalW: img.width, naturalH: img.height, scala0, zoom: 1,
+        offsetX: (FOTO_PREVIEW_W - dispW) / 2, offsetY: (FOTO_PREVIEW_H - dispH) / 2,
+      });
+    };
+    img.onerror = () => setFotoErrore({ playerId: rp.id, msg: "Immagine non valida, riprova con un'altra." });
+    img.src = objectUrl;
+  }
+
+  function fotoDragStart(e) {
+    const point = e.touches ? e.touches[0] : e;
+    fotoDragRef.current = { dragging: true, startX: point.clientX, startY: point.clientY, startOffsetX: fotoCropModal.offsetX, startOffsetY: fotoCropModal.offsetY };
+  }
+  function fotoDragMove(e) {
+    if (!fotoDragRef.current.dragging) return;
+    const point = e.touches ? e.touches[0] : e;
+    const dx = point.clientX - fotoDragRef.current.startX;
+    const dy = point.clientY - fotoDragRef.current.startY;
+    setFotoCropModal((m) => clampFotoOffset({ ...m, offsetX: fotoDragRef.current.startOffsetX + dx, offsetY: fotoDragRef.current.startOffsetY + dy }));
+  }
+  function fotoDragEnd() { fotoDragRef.current.dragging = false; }
+
+  function fotoZoomChange(nuovoZoom) {
+    setFotoCropModal((m) => clampFotoOffset({ ...m, zoom: nuovoZoom }));
+  }
+
+  function annullaCropFoto() {
+    if (fotoCropModal) URL.revokeObjectURL(fotoCropModal.objectUrl);
+    setFotoCropModal(null);
+  }
+
+  // Precarica un'immagine come Promise. crossOrigin=true serve per poter poi "leggere" l'immagine
+  // da un canvas (necessario per scaricarla): se il server che la ospita non lo permette esplicitamente,
+  // il caricamento fallisce pulito (except catturata da chi chiama) invece di rompere lo scaricamento
+  // a metà con un canvas "contaminato".
+  function apriImpostazioni() {
+    setSettingsDraft({ nome: teamNome, categoria: teamCategoria, c1: colore1, c2: colore2, c3: colore3 });
+    setSettingsModalOpen(true);
+  }
+
+  function salvaImpostazioni() {
+    const d = settingsDraft;
+    setTeamNome(d.nome);
+    setTeamCategoria(d.categoria);
+    setColore1(d.c1);
+    setColore2(d.c2);
+    setColore3(d.c3);
+    setSettingsModalOpen(false);
+    window.rows.upsert("Impostazioni", { chiave: "teamNome" }, { valore: d.nome }).catch(() => {});
+    window.rows.upsert("Impostazioni", { chiave: "teamCategoria" }, { valore: d.categoria }).catch(() => {});
+    window.rows.upsert("Impostazioni", { chiave: "colore1" }, { valore: d.c1 }).catch(() => {});
+    window.rows.upsert("Impostazioni", { chiave: "colore2" }, { valore: d.c2 }).catch(() => {});
+    window.rows.upsert("Impostazioni", { chiave: "colore3" }, { valore: d.c3 }).catch(() => {});
+  }
+
+  // Rete di sicurezza (07/09/2026): se qualcuno imposta colori illeggibili, un clic riporta tutto ai
+  // valori del Cimiano. Riporta indietro sia la bozza a video sia i dati salvati sul foglio.
+  function resettaImpostazioni() {
+    setSettingsDraft({ nome: DEFAULT_TEAM_NOME, categoria: DEFAULT_TEAM_CATEGORIA, c1: DEFAULT_COLORE_1, c2: DEFAULT_COLORE_2, c3: DEFAULT_COLORE_3 });
+  }
+
+  function caricaImmagine(src, crossOrigin) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      if (crossOrigin) img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+  }
+
+  // Ridisegna la card (il lato attualmente mostrato) su un canvas ad alta risoluzione e la scarica
+  // come PNG. Stessa sagoma (SHIELD_PATH, il Path2D del Canvas 2D accetta la sintassi SVG diretta)
+  // e stessi dati della card a schermo, solo ridisegnati a mano invece che in HTML/CSS.
+  async function scaricaCardComeImmagine() {
+    const { p, rp } = playerCardModal;
+    const anno = rp.dataNascita ? new Date(rp.dataNascita).getFullYear() : null;
+    const ruoloAttivo = RUOLI.find((d) => isFlagTrue(rp[d.col]));
+    const ruoloLabelLungo = { P: "Portiere", D: "Difensore", C: "Centrocampista", A: "Attaccante" };
+    const iniziali = p.name.split(" ").filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+    const skillValori = SKILLS.map((sk) => {
+      const entry = p.skillAvg && p.skillAvg.find((s) => s.skill === sk.label);
+      return { key: sk.key, val: entry ? entry.valore.toFixed(1) : "—" };
+    });
+
+    const K = 3; // scala per un'immagine ad alta risoluzione (240x300 -> 720x900)
+    const canvas = document.createElement("canvas");
+    canvas.width = 240 * K;
+    canvas.height = 300 * K;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(K, K);
+    const shield = new Path2D(SHIELD_PATH);
+
+    ctx.save();
+    ctx.clip(shield);
+    ctx.fillStyle = "#14181a";
+    ctx.fillRect(0, 0, 240, 300);
+    try {
+      const logoImg = await caricaImmagine(CIMIANO_LOGO, false);
+      ctx.globalAlpha = 0.16;
+      const logoW = 230, logoH = logoImg.height * (logoW / logoImg.width);
+      ctx.drawImage(logoImg, 5, 6, logoW, logoH);
+      ctx.globalAlpha = 1;
+    } catch (e) { /* stemma non essenziale, si prosegue senza */ }
+
+    if (!cardFlipped) {
+      ctx.fillStyle = "#c8102e";
+      ctx.fillRect(0, 0, 240, 42);
+      ctx.fillStyle = "#f6f1e4";
+      ctx.font = "700 15px 'Space Grotesk'";
+      ctx.textAlign = "center";
+      ctx.fillText("CIMIANO", 120, 26);
+      if (rp.foto) {
+        try {
+          const fotoImg = await caricaImmagine(rp.foto, true);
+          ctx.drawImage(fotoImg, 20, 24, 200, 190);
+        } catch (e) {
+          setFotoErrore({ playerId: rp.id, msg: "La foto non si può includere nello scaricamento (limite di Google Drive): la card scaricata avrà le iniziali al posto suo." });
+          ctx.fillStyle = "#f2f0ea";
+          ctx.font = "700 70px 'Space Grotesk'";
+          ctx.textAlign = "center";
+          ctx.fillText(iniziali, 120, 130);
+        }
+      } else {
+        ctx.fillStyle = "#f2f0ea";
+        ctx.font = "700 70px 'Space Grotesk'";
+        ctx.textAlign = "center";
+        ctx.fillText(iniziali, 120, 130);
+      }
+      ctx.fillStyle = "#c8102e";
+      ctx.font = "700 20px 'Space Grotesk'";
+      ctx.textAlign = "center";
+      ctx.fillText(p.name.toUpperCase(), 120, 235);
+      ctx.fillStyle = "#9fb5a5";
+      ctx.font = "400 12px Inter";
+      const riga2 = [anno, ruoloAttivo ? ruoloLabelLungo[ruoloAttivo.col.replace("ruolo", "")] : null].filter(Boolean).join(" · ");
+      ctx.fillText(riga2, 120, 255);
+    } else {
+      ctx.fillStyle = "#f2f0ea";
+      ctx.font = "700 17px 'Space Grotesk'";
+      ctx.textAlign = "center";
+      ctx.fillText(p.name.toUpperCase(), 120, 45);
+      skillValori.forEach((s, i) => {
+        const x = 40 + i * 40;
+        ctx.fillStyle = "#8a9088";
+        ctx.font = "400 9px Inter";
+        ctx.fillText(s.key.slice(0, 3).toUpperCase(), x, 100);
+        ctx.fillStyle = "#c8102e";
+        ctx.font = "700 15px 'JetBrains Mono'";
+        ctx.fillText(s.val, x, 118);
+      });
+      ctx.fillStyle = "#f2f0ea";
+      ctx.font = "700 46px 'JetBrains Mono'";
+      ctx.fillText(p.media !== null ? p.media.toFixed(1) : "—", 120, 200);
+      ctx.fillStyle = "#8a9088";
+      ctx.font = "700 10px Inter";
+      ctx.fillText("MEDIA VOTO" + (rp.maglia ? ` · #${rp.maglia}` : ""), 120, 220);
+    }
+    ctx.restore();
+
+    ctx.strokeStyle = "rgba(200,16,46,0.7)";
+    ctx.lineWidth = 1;
+    ctx.stroke(shield);
+
+    canvas.toBlob((blob) => {
+      if (!blob) { setFotoErrore({ playerId: rp.id, msg: "Scaricamento non riuscito, riprova." }); return; }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `card-${rp.nome.replace(/\s+/g, "_")}-${cardFlipped ? "retro" : "fronte"}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }, "image/png");
+  }
+
+  async function confermaCropFoto() {
+    const m = fotoCropModal;
+    const rp = m.rp;
+    setFotoCropModal(null);
     setFotoErrore(null);
     setFotoUploading(rp.id);
     try {
-      const base64 = await ridimensionaFoto(file, 300, 360);
+      const canvas = document.createElement("canvas");
+      canvas.width = FOTO_OUTPUT_W;
+      canvas.height = FOTO_OUTPUT_H;
+      const ctx = canvas.getContext("2d");
+      const fattore = FOTO_OUTPUT_W / FOTO_PREVIEW_W;
+      const img = new Image();
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = m.objectUrl;
+      });
+      const dispW = m.naturalW * m.scala0 * m.zoom * fattore;
+      const dispH = m.naturalH * m.scala0 * m.zoom * fattore;
+      ctx.drawImage(img, m.offsetX * fattore, m.offsetY * fattore, dispW, dispH);
+      URL.revokeObjectURL(m.objectUrl);
+      const base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
       const url = await window.rows.uploadFoto(rp.id, base64, "image/jpeg");
       if (url) {
         setRoster((prev) => prev.map((r) => (r.id === rp.id ? { ...r, foto: url } : r)));
@@ -3496,12 +3769,12 @@ function GironeATracker() {
       <div style={{ background: "linear-gradient(160deg, #16351f 0%, #0f2818 55%, #0a1c11 100%)", color: INK, padding: "22px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="body-font" style={{ fontSize: 11, letterSpacing: 2.5, color: "#9fb5a5", textTransform: "uppercase" }}>
-            Girone A · Allievi U17 Élite · Lombardia 2026/27
+            Girone A · {teamCategoria} · Lombardia 2026/27
           </div>
           <div className="title-font" style={{ fontSize: 28, fontWeight: 700, marginTop: 4, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-            Cimiano Calcio
+            {teamNome}
             {cimianoRow && cimianoRow.pg > 0 && (
-              <span className="body-font" style={{ fontSize: 14, fontWeight: 700, color: RED, background: CREAM, border: `1px solid ${RED}`, borderRadius: 4, padding: "2px 9px", letterSpacing: 0.5, boxShadow: "0 0 8px rgba(200,16,46,0.4)" }}>
+              <span className="body-font" style={{ fontSize: 14, fontWeight: 700, color: colore1, background: CREAM, border: `1px solid ${colore1}`, borderRadius: 4, padding: "2px 9px", letterSpacing: 0.5, boxShadow: `0 0 8px ${colore1}66` }}>
                 {cimianoPos}° POSTO · {cimianoRow.pt} PT
               </span>
             )}
@@ -3525,7 +3798,11 @@ function GironeATracker() {
             </div>
           )}
         </div>
-        <div className="chrome-box" style={{ flexShrink: 0 }}>
+        <div className="chrome-box" style={{ flexShrink: 0, position: "relative" }}>
+          <span onClick={apriImpostazioni} title="Impostazioni società" role="button"
+            style={{ position: "absolute", top: -8, right: -8, zIndex: 3, width: 22, height: 22, borderRadius: "50%",
+              background: PANEL_BG, border: `1px solid ${LINE}`, color: MUTED, display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 12, cursor: "pointer" }}>⚙</span>
           <div className="chrome-box-inner" style={{ padding: 8, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
           <img src={CIMIANO_LOGO} alt="Cimiano Calcio" width="80" height="80" onClick={handleLogoClick}
             style={{ display: "block", borderRadius: 4, objectFit: "cover", cursor: "pointer", userSelect: "none" }} />
@@ -3561,10 +3838,10 @@ function GironeATracker() {
         ].map(([key, num, label]) => (
           <button key={key} onClick={() => setMacroTab(key)}
             style={{ flex: 1, textAlign: "center", padding: "12px 6px", border: "none",
-              background: macroTab === key ? "rgba(200,16,46,0.08)" : "none", cursor: "pointer",
-              borderBottom: macroTab === key ? `4px solid ${RED}` : "4px solid transparent",
-              boxShadow: macroTab === key ? "0 3px 10px -2px rgba(200,16,46,0.7)" : "none" }}>
-            <span className="title-font" style={{ fontSize: 12, fontWeight: 700, marginRight: 5, color: macroTab === key ? RED : MUTED }}>{num}</span>
+              background: macroTab === key ? `${colore1}14` : "none", cursor: "pointer",
+              borderBottom: macroTab === key ? `4px solid ${colore1}` : "4px solid transparent",
+              boxShadow: macroTab === key ? `0 3px 10px -2px ${colore1}B3` : "none" }}>
+            <span className="title-font" style={{ fontSize: 12, fontWeight: 700, marginRight: 5, color: macroTab === key ? colore1 : MUTED }}>{num}</span>
             <span className="body-font" style={{ fontSize: 12, fontWeight: 600, letterSpacing: 0.5, color: macroTab === key ? INK : MUTED }}>{label}</span>
           </button>
         ))}
@@ -3866,7 +4143,7 @@ function GironeATracker() {
                       </div>
                       <div style={{ display: "flex", gap: 12, alignItems: "center", flexShrink: 0 }}>
                         {rp && (
-                          <span onClick={() => setPlayerCardModal({ p, rp })} style={{ cursor: "pointer", color: MUTED, fontSize: 12, fontWeight: 600 }}>Card</span>
+                          <span onClick={() => { setCardFlipped(false); setPlayerCardModal({ p, rp }); }} style={{ cursor: "pointer", color: MUTED, fontSize: 12, fontWeight: 600 }}>Card</span>
                         )}
                         {rp && (
                           <button onClick={() => (isEditingAnagrafica ? (setEditingRosterId(null), setRosterDraft({ nome: "", dataNascita: "", ruolo: [], lato: [], piede: [], maglia: "", capitano: false })) : startEditRoster(rp))}
@@ -4198,62 +4475,151 @@ function GironeATracker() {
         </div>
       )}
 
+      {settingsModalOpen && settingsDraft && (
+        <div className="modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div className="body-font" style={{ background: PANEL_BG, borderRadius: 8, padding: 20, maxWidth: 320, width: "100%" }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: INK, marginBottom: 14 }}>Impostazioni società</div>
+
+            <label style={{ fontSize: 11, color: MUTED, display: "block", marginBottom: 4 }}>Nome squadra</label>
+            <input value={settingsDraft.nome} onChange={(e) => setSettingsDraft((d) => ({ ...d, nome: e.target.value }))}
+              style={{ width: "100%", padding: 7, border: `1px solid ${LINE}`, borderRadius: 4, marginBottom: 12, boxSizing: "border-box" }} />
+
+            <label style={{ fontSize: 11, color: MUTED, display: "block", marginBottom: 4 }}>Categoria</label>
+            <input value={settingsDraft.categoria} onChange={(e) => setSettingsDraft((d) => ({ ...d, categoria: e.target.value }))}
+              style={{ width: "100%", padding: 7, border: `1px solid ${LINE}`, borderRadius: 4, marginBottom: 14, boxSizing: "border-box" }} />
+
+            <div style={{ fontSize: 11, color: MUTED, marginBottom: 6 }}>Colori sociali</div>
+            <div style={{ display: "flex", gap: 14, marginBottom: 6 }}>
+              {[["c1", "Primario"], ["c2", "Secondario"], ["c3", "Contrasto"]].map(([key, label]) => (
+                <div key={key} style={{ textAlign: "center" }}>
+                  <input type="color" value={settingsDraft[key]} onChange={(e) => setSettingsDraft((d) => ({ ...d, [key]: e.target.value }))}
+                    style={{ width: 44, height: 34, border: `1px solid ${LINE}`, borderRadius: 4, cursor: "pointer", padding: 0, background: "none" }} />
+                  <div style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 10, color: MUTED, marginBottom: 16 }}>
+              Primario: maglie Mappa Inizio, accenti principali. Secondario: maglie Mappa Cambi/Fine.
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span onClick={resettaImpostazioni} style={{ color: MUTED, fontSize: 12, cursor: "pointer" }}>Reset ai valori Cimiano</span>
+              <div>
+                <button onClick={() => setSettingsModalOpen(false)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 13, marginRight: 14 }}>Annulla</button>
+                <button onClick={salvaImpostazioni} style={{ background: settingsDraft.c1, color: "#fff", border: "none", padding: "7px 18px", borderRadius: 4, fontWeight: 600, cursor: "pointer" }}>Salva</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {fotoCropModal && (() => {
+        const m = fotoCropModal;
+        return (
+          <div className="modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+            <div className="body-font" style={{ background: PANEL_BG, borderRadius: 8, padding: 16, maxWidth: 280, width: "100%" }}>
+              <div style={{ fontSize: 13, color: INK, marginBottom: 10, textAlign: "center" }}>Trascina per posizionare, usa lo slider per lo zoom</div>
+              <div
+                style={{ width: FOTO_PREVIEW_W, height: FOTO_PREVIEW_H, margin: "0 auto", overflow: "hidden", position: "relative", borderRadius: 6, border: `1px solid ${LINE}`, cursor: "grab", touchAction: "none" }}
+                onPointerDown={fotoDragStart} onPointerMove={fotoDragMove} onPointerUp={fotoDragEnd} onPointerLeave={fotoDragEnd}
+              >
+                <img src={m.objectUrl} alt="" draggable={false}
+                  style={{ position: "absolute", left: m.offsetX, top: m.offsetY, width: m.naturalW * m.scala0 * m.zoom, height: m.naturalH * m.scala0 * m.zoom, maxWidth: "none", userSelect: "none", pointerEvents: "none" }} />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+                <span style={{ fontSize: 11, color: MUTED }}>−</span>
+                <input type="range" min="1" max="3" step="0.01" value={m.zoom} onChange={(e) => fotoZoomChange(parseFloat(e.target.value))} style={{ flex: 1 }} />
+                <span style={{ fontSize: 11, color: MUTED }}>+</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
+                <button onClick={annullaCropFoto} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 13 }}>Annulla</button>
+                <button onClick={confermaCropFoto} style={{ background: RED, color: "#fff", border: "none", padding: "8px 20px", borderRadius: 4, fontWeight: 600, cursor: "pointer" }}>Conferma</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {playerCardModal && (() => {
         const { p, rp } = playerCardModal;
         const anno = rp.dataNascita ? new Date(rp.dataNascita).getFullYear() : null;
         const ruoloAttivo = RUOLI.find((d) => isFlagTrue(rp[d.col]));
-        const piedeAttivo = PIEDI.filter((d) => isFlagTrue(rp[d.col])).map((d) => d.label);
         const ruoloLabelLungo = { P: "Portiere", D: "Difensore", C: "Centrocampista", A: "Attaccante" };
         const iniziali = p.name.split(" ").filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
         const skillValori = SKILLS.map((sk) => {
           const entry = p.skillAvg && p.skillAvg.find((s) => s.skill === sk.label);
           return { key: sk.key, val: entry ? entry.valore.toFixed(1) : "—" };
         });
+        const facciataStile = {
+          position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden",
+          clipPath: `path('${SHIELD_PATH}')`, background: "#14181a", overflow: "hidden",
+        };
         return (
           <div onClick={() => setPlayerCardModal(null)} className="modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-            <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 280, width: "100%" }}>
-              <div style={{
-                clipPath: "polygon(0 14px,14px 0,calc(100% - 14px) 0,100% 14px,100% calc(100% - 14px),calc(100% - 14px) 100%,14px 100%,0 calc(100% - 14px))",
-                background: "radial-gradient(ellipse at 50% 0%, #1c2220 0%, #121515 75%)", border: "2px solid #c8102e",
-                boxShadow: "0 0 22px rgba(200,16,46,0.45), 0 16px 30px -10px rgba(0,0,0,0.6)", padding: "16px 16px 0", position: "relative", overflow: "hidden",
-              }}>
-                <div style={{ textAlign: "center" }}>
-                  <span className="title-font" style={{ fontSize: 19, fontWeight: 700, color: "#f2f0ea" }}>{p.name}</span>
-                </div>
-                <div className="body-font" style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 4, fontSize: 10, color: "#9fb5a5", flexWrap: "wrap" }}>
-                  {anno && <span>{anno}</span>}
-                  {anno && ruoloAttivo && <span style={{ color: "#3a4140" }}>·</span>}
-                  {ruoloAttivo && <span>{ruoloLabelLungo[ruoloAttivo.col.replace("ruolo", "")]}</span>}
-                  {ruoloAttivo && piedeAttivo.length > 0 && <span style={{ color: "#3a4140" }}>·</span>}
-                  {piedeAttivo.length > 0 && <span>Piede {piedeAttivo.join("/")}</span>}
-                </div>
+            <div onClick={(e) => e.stopPropagation()} style={{ width: 240 }}>
+              <div style={{ width: 240, height: 300, perspective: 1200 }}>
+                <div onClick={() => setCardFlipped((f) => !f)} style={{ width: "100%", height: "100%", position: "relative",
+                  transformStyle: "preserve-3d", transition: "transform 0.6s", transform: cardFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
+                  cursor: "pointer", boxShadow: "0 16px 30px -10px rgba(0,0,0,0.6)" }}>
 
-                <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
-                  <div style={{ width: 130, height: 150, borderRadius: 8, background: "#181e1f", border: "2px solid #c8102e", boxShadow: "0 0 16px rgba(200,16,46,0.4)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                    {rp.foto ? <img src={rp.foto} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span className="title-font" style={{ fontSize: 38, fontWeight: 700, color: "#3a4140" }}>{iniziali}</span>}
+                  {/* FRONTE: foto, nome, squadra, ruolo, anno */}
+                  <div style={facciataStile}>
+                    <img src={CIMIANO_LOGO} alt="" style={{ position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)", width: 230, opacity: 0.16, pointerEvents: "none" }} />
+                    <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 20%, transparent 0%, #14181a 78%)" }} />
+                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 42, zIndex: 2,
+                      background: "linear-gradient(90deg,#c8102e 0%,#c8102e 50%,#f6f1e4 50%,#f6f1e4 100%)",
+                      display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span className="title-font" style={{ fontSize: 13, fontWeight: 700, letterSpacing: 1 }}>
+                        <span style={{ color: "#f6f1e4" }}>CIMI</span><span style={{ color: "#14181a" }}>ANO</span>
+                      </span>
+                    </div>
+                    <div style={{ width: "100%", height: 210, position: "relative",
+                      WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 100%)",
+                      maskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 100%)",
+                      display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: 6 }}>
+                      {rp.foto ? (
+                        <img src={rp.foto} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <span className="title-font" style={{ fontSize: 70, fontWeight: 700, color: "rgba(242,240,234,0.55)" }}>{iniziali}</span>
+                      )}
+                    </div>
+                    <div style={{ textAlign: "center", position: "relative" }}>
+                      <span className="title-font" style={{ fontSize: 20, fontWeight: 700, color: "#c8102e", letterSpacing: 0.5 }}>{p.name.toUpperCase()}</span>
+                    </div>
+                    <div className="body-font" style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 2, fontSize: 11, color: "#9fb5a5", position: "relative" }}>
+                      {anno && <span>{anno}</span>}
+                      {anno && ruoloAttivo && <span style={{ color: "#3a4140" }}>·</span>}
+                      {ruoloAttivo && <span>{ruoloLabelLungo[ruoloAttivo.col.replace("ruolo", "")]}</span>}
+                    </div>
+                  </div>
+
+                  {/* RETRO: le 5 skill e la media voto */}
+                  <div style={{ ...facciataStile, transform: "rotateY(180deg)" }}>
+                    <img src={CIMIANO_LOGO} alt="" style={{ position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)", width: 230, opacity: 0.16, pointerEvents: "none" }} />
+                    <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 20%, transparent 0%, #14181a 78%)" }} />
+                    <div style={{ textAlign: "center", marginTop: 30, position: "relative" }}>
+                      <span className="title-font" style={{ fontSize: 17, fontWeight: 700, color: "#f2f0ea" }}>{p.name.toUpperCase()}</span>
+                    </div>
+                    <div className="body-font" style={{ display: "flex", justifyContent: "center", gap: 9, marginTop: 30, position: "relative" }}>
+                      {skillValori.map((s) => (
+                        <div key={s.key} style={{ textAlign: "center" }}>
+                          <div style={{ fontSize: 8, color: "#8a9088" }}>{s.key.slice(0, 3).toUpperCase()}</div>
+                          <div className="mono-font" style={{ fontSize: 13, color: "#c8102e", fontWeight: 700 }}>{s.val}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ textAlign: "center", marginTop: 16, position: "relative" }}>
+                      <div className="mono-font" style={{ fontSize: 40, fontWeight: 700, color: "#f2f0ea", lineHeight: 1 }}>{p.media !== null ? p.media.toFixed(1) : "—"}</div>
+                      <div className="body-font" style={{ fontSize: 9, color: "#8a9088", letterSpacing: 1, marginTop: 2 }}>MEDIA VOTO{rp.maglia ? ` · #${rp.maglia}` : ""}</div>
+                    </div>
                   </div>
                 </div>
-
-                <div className="body-font" style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 14, flexWrap: "wrap" }}>
-                  {skillValori.map((s) => (
-                    <div key={s.key} style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: 9, color: "#8a9088" }}>{s.key.slice(0, 3).toUpperCase()}</div>
-                      <div className="mono-font" style={{ fontSize: 13, color: "#f2f0ea", fontWeight: 700 }}>{s.val}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div style={{ textAlign: "center", marginTop: 10 }}>
-                  <div className="mono-font" style={{ fontSize: 38, fontWeight: 700, color: "#c8102e", lineHeight: 1 }}>{p.media !== null ? p.media.toFixed(1) : "—"}</div>
-                  <div className="body-font" style={{ fontSize: 9, color: "#8a9088", letterSpacing: 1 }}>MEDIA VOTO</div>
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, padding: "9px 16px", background: "#f6f1e4", borderTop: "2px solid #14181a", marginLeft: -16, marginRight: -16 }}>
-                  <span className="title-font" style={{ fontSize: 12, color: "#c8102e", fontWeight: 700, letterSpacing: 0.5 }}>CIMIANO U17</span>
-                  <span className="mono-font" style={{ fontSize: 14, color: "#14181a", fontWeight: 700 }}>{rp.maglia ? `#${rp.maglia}` : ""}</span>
-                </div>
               </div>
-              <div onClick={() => setPlayerCardModal(null)} style={{ textAlign: "center", marginTop: 14, color: "#fff", fontSize: 13, cursor: "pointer" }}>Chiudi</div>
+              <div className="body-font" style={{ display: "flex", justifyContent: "center", gap: 20, marginTop: 14 }}>
+                <span onClick={() => setCardFlipped((f) => !f)} style={{ color: "#fff", fontSize: 13, cursor: "pointer" }}>Gira ↻</span>
+                <span onClick={scaricaCardComeImmagine} style={{ color: "#fff", fontSize: 13, cursor: "pointer" }}>Scarica</span>
+                <span onClick={() => setPlayerCardModal(null)} style={{ color: "#fff", fontSize: 13, cursor: "pointer" }}>Chiudi</span>
+              </div>
             </div>
           </div>
         );
