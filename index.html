@@ -626,8 +626,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.26";
-const TRACKER_VERSION_DATE = "07/09/2026@23.10";
+const TRACKER_VERSION = "3.27";
+const TRACKER_VERSION_DATE = "07/09/2026@23.25";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -2330,8 +2330,26 @@ function coloreTestoContrastante(hex) {
           // Colore sociale di questa mappa (07/09/2026): 1° colore per la mappa Inizio, 2° per Cambi/Fine.
           const mapColor = opts.mappaNumero === 2 ? colore2 : colore1;
           const jerseyTextColor = coloreTestoContrastante(mapColor);
-          const jerseySize = compact ? 54 : 46;
+          const jerseySize = compact ? 68 : 58;
           const jerseyClip = "polygon(35% 5%, 35% 0%, 45% 0%, 50% 5%, 55% 0%, 65% 0%, 65% 5%, 100% 20%, 85% 40%, 75% 30%, 75% 100%, 25% 100%, 25% 30%, 15% 40%, 0% 20%)";
+          // Sfalsamento (07/09/2026): con le maglie più larghe, una linea affollata (es. centrocampo a
+          // 5) rischia di sovrapporsi se tutti perfettamente allineati. Per le linee con più di 3
+          // giocatori, alterniamo un piccolo scarto verticale su/giù, ordinando per x.
+          const staggerOffsetById = {};
+          {
+            const byY = {};
+            slots.forEach((s) => {
+              const yKey = Math.round(s.y / 4) * 4;
+              if (!byY[yKey]) byY[yKey] = [];
+              byY[yKey].push(s);
+            });
+            Object.values(byY).forEach((linea) => {
+              if (linea.length > 3) {
+                const ordinata = [...linea].sort((a, b) => a.x - b.x);
+                ordinata.forEach((s, i) => { staggerOffsetById[s.id] = i % 2 === 0 ? -6 : 6; });
+              }
+            });
+          }
           return (
         <div style={{
           position: "relative", width: "100%", maxWidth: pitchMaxWidth, aspectRatio: "2 / 3", margin: "0 auto",
@@ -2359,10 +2377,11 @@ function coloreTestoContrastante(hex) {
             const usedElsewhere = new Set([...usedElsewhereSameMap, ...usedElsewhereOtherMap]);
             const optionsForThisSlot = poolRoster.filter((rp) => String(rp.id) === playerId || !usedElsewhere.has(String(rp.id)));
             const cognomeFmt = player ? formattaCognomeMaglia(lastName(player.nome), compact) : null;
+            const yEffettiva = slot.y + (staggerOffsetById[slot.id] || 0);
             return (
               <div key={slot.id} style={{ position: "absolute",
                 left: `calc(${jerseySize / 2}px + (100% - ${jerseySize}px) * ${slot.x / 100})`,
-                top: `calc(${jerseySize / 2}px + (100% - ${jerseySize}px) * ${slot.y / 100})`,
+                top: `calc(${jerseySize / 2}px + (100% - ${jerseySize}px) * ${yEffettiva / 100})`,
                 transform: "translate(-50%,-50%)", textAlign: "center" }}>
                 <div style={{ position: "relative", width: jerseySize, height: jerseySize, margin: "0 auto" }}>
                   {/* Maglietta stilizzata: colore sociale della mappa, contorno tratteggiato per i subentrati */}
@@ -2948,9 +2967,9 @@ function coloreTestoContrastante(hex) {
                 titolo: `${fx.home} vs ${fx.away}`,
                 sottotitolo: metaLabel || "",
                 modulo: moduloIniziale, formazione: formazioneIniziale, convocatiIds,
-              })} style={{ cursor: "pointer", color: MUTED, fontSize: 12, fontWeight: 600 }}>Distinta</span>
+              })} style={{ cursor: "pointer", color: colore1, fontSize: 12, fontWeight: 600 }}>Distinta</span>
             )}
-            <span onClick={() => startEditFixtureDate(fx)} title="Modifica data/ora" style={{ cursor: "pointer", color: MUTED, fontSize: 12, fontWeight: 600 }}>Modifica</span>
+            <span onClick={() => startEditFixtureDate(fx)} title="Modifica data/ora" style={{ cursor: "pointer", color: colore1, fontSize: 12, fontWeight: 600 }}>Modifica</span>
             {played ? (
               <button onClick={() => clearResult(fx.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>Azzera</button>
             ) : (
@@ -3373,10 +3392,10 @@ function coloreTestoContrastante(hex) {
                   titolo: `Cimiano vs ${f.avversario}`,
                   sottotitolo: `Amichevole${f.data ? ` · ${fmtDate(f.data)}` : ""}${f.ora ? ` · ore ${f.ora}` : ""}`,
                   modulo: moduloInizialeF, formazione: formazioneInizialeF, convocatiIds: convocatiIdsF,
-                })} style={{ cursor: "pointer", color: MUTED, fontSize: 12, fontWeight: 600 }}>Distinta</span>
+                })} style={{ cursor: "pointer", color: colore1, fontSize: 12, fontWeight: 600 }}>Distinta</span>
               )}
-              <button onClick={() => startEditFriendly(f)} style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Modifica</button>
-              <button onClick={() => removeFriendly(f.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Cancella</button>
+              <button onClick={() => startEditFriendly(f)} style={{ background: "none", border: "none", color: colore1, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Modifica</button>
+              <button onClick={() => removeFriendly(f.id)} style={{ background: "none", border: "none", color: colore1, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Cancella</button>
             </div>
           </div>
         )}
@@ -4143,11 +4162,11 @@ function coloreTestoContrastante(hex) {
                       </div>
                       <div style={{ display: "flex", gap: 12, alignItems: "center", flexShrink: 0 }}>
                         {rp && (
-                          <span onClick={() => { setCardFlipped(false); setPlayerCardModal({ p, rp }); }} style={{ cursor: "pointer", color: MUTED, fontSize: 12, fontWeight: 600 }}>Card</span>
+                          <span onClick={() => { setCardFlipped(false); setPlayerCardModal({ p, rp }); }} style={{ cursor: "pointer", color: colore1, fontSize: 12, fontWeight: 600 }}>Card</span>
                         )}
                         {rp && (
                           <button onClick={() => (isEditingAnagrafica ? (setEditingRosterId(null), setRosterDraft({ nome: "", dataNascita: "", ruolo: [], lato: [], piede: [], maglia: "", capitano: false })) : startEditRoster(rp))}
-                            style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                            style={{ background: "none", border: "none", color: colore1, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
                             {isEditingAnagrafica ? "annulla" : "Modifica"}
                           </button>
                         )}
