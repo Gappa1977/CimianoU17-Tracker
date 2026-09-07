@@ -239,6 +239,24 @@
         return false;
       }
     },
+    // Foto giocatore (06/09/2026): niente coda di salvataggi falliti qui, il payload (immagine in
+    // base64) è troppo grande per starci comodamente in localStorage insieme al resto. In caso di
+    // errore ritorna null e chi chiama mostra un messaggio, l'utente riprova manualmente scegliendo
+    // di nuovo il file.
+    uploadFoto: async function (playerId, base64, mimeType) {
+      const res = await fetchWithRetry(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "uploadFoto", playerId: playerId, base64: base64, mimeType: mimeType }),
+      }, 2);
+      if (!res) return null;
+      try {
+        const data = await res.json();
+        return (data && data.ok) ? data.url : null;
+      } catch (e) {
+        return null;
+      }
+    },
   };
 </script>
 
@@ -589,8 +607,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.20";
-const TRACKER_VERSION_DATE = "06/09/2026@14.45";
+const TRACKER_VERSION = "3.21";
+const TRACKER_VERSION_DATE = "06/09/2026@__:__";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -704,6 +722,34 @@ function fmtDate(iso) {
 // default di Recharts, che altrimenti orienta il testo seguendo l'inclinazione del raggio a cui
 // appartiene. Qui il testo resta sempre dritto e leggibile, spostato leggermente verso l'esterno
 // rispetto al punto per non sovrapporsi alla linea del grafico.
+// Ridimensiona e comprime una foto scelta dall'utente (spesso diversi MB da uno smartphone) prima
+// di mandarla al server: la disegna su un canvas non più larga di maxW/alta di maxH (mantenendo le
+// proporzioni, tagliando l'eccesso per riempire un ritratto), la converte in JPEG di qualità 0.82.
+// Ritorna una Promise col solo base64 (senza il prefisso "data:image/jpeg;base64,").
+function ridimensionaFoto(file, maxW, maxH) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Lettura file fallita"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Immagine non valida"));
+      img.onload = () => {
+        const scale = Math.max(maxW / img.width, maxH / img.height);
+        const srcW = maxW / scale, srcH = maxH / scale;
+        const srcX = (img.width - srcW) / 2, srcY = (img.height - srcH) / 2;
+        const canvas = document.createElement("canvas");
+        canvas.width = maxW; canvas.height = maxH;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, maxW, maxH);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+        resolve(dataUrl.split(",")[1]);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function radarValueLabel(fontSize, color) {
   return (props) => {
     const { x, y, cx, cy, value } = props;
@@ -734,6 +780,9 @@ function GironeATracker() {
   const [voterName, setVoterNameState] = useState(""); // identità di chi vota su questo dispositivo — LOCALE
   const [chartModal, setChartModal] = useState(null); // { type: 'line'|'radar', name, data } per lo zoom dei grafici
   const [distintaModal, setDistintaModal] = useState(null); // { titolo, sottotitolo, modulo, formazione, convocatiIds }
+  const [playerCardModal, setPlayerCardModal] = useState(null); // { p, rp } — card stile figurina
+  const [fotoUploading, setFotoUploading] = useState(null); // id del giocatore la cui foto si sta caricando
+  const [fotoErrore, setFotoErrore] = useState(null); // { playerId, msg }
   const [showBackToTop, setShowBackToTop] = useState(false);
   useEffect(() => {
     function onScroll() { setShowBackToTop(window.scrollY > 400); }
@@ -2422,6 +2471,25 @@ function GironeATracker() {
     window.rows.remove("Rosa", { id }).catch(() => {});
   }
 
+  async function handleFotoChange(rp, file) {
+    if (!file) return;
+    setFotoErrore(null);
+    setFotoUploading(rp.id);
+    try {
+      const base64 = await ridimensionaFoto(file, 300, 360);
+      const url = await window.rows.uploadFoto(rp.id, base64, "image/jpeg");
+      if (url) {
+        setRoster((prev) => prev.map((r) => (r.id === rp.id ? { ...r, foto: url } : r)));
+      } else {
+        setFotoErrore({ playerId: rp.id, msg: "Caricamento fallito, riprova." });
+      }
+    } catch (e) {
+      setFotoErrore({ playerId: rp.id, msg: "Foto non valida, riprova con un'altra." });
+    } finally {
+      setFotoUploading(null);
+    }
+  }
+
   function startEditRoster(p) {
     setEditingRosterId(p.id);
     setRosterDraft({
@@ -3796,16 +3864,36 @@ function GironeATracker() {
                           </div>
                         </div>
                       </div>
-                      {rp && (
-                        <button onClick={() => (isEditingAnagrafica ? (setEditingRosterId(null), setRosterDraft({ nome: "", dataNascita: "", ruolo: [], lato: [], piede: [], maglia: "", capitano: false })) : startEditRoster(rp))}
-                          style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
-                          {isEditingAnagrafica ? "annulla" : "Modifica"}
-                        </button>
-                      )}
+                      <div style={{ display: "flex", gap: 12, alignItems: "center", flexShrink: 0 }}>
+                        {rp && (
+                          <span onClick={() => setPlayerCardModal({ p, rp })} style={{ cursor: "pointer", color: MUTED, fontSize: 12, fontWeight: 600 }}>Card</span>
+                        )}
+                        {rp && (
+                          <button onClick={() => (isEditingAnagrafica ? (setEditingRosterId(null), setRosterDraft({ nome: "", dataNascita: "", ruolo: [], lato: [], piede: [], maglia: "", capitano: false })) : startEditRoster(rp))}
+                            style={{ background: "none", border: "none", color: RED, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                            {isEditingAnagrafica ? "annulla" : "Modifica"}
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {isEditingAnagrafica && (
                       <div style={{ borderTop: `1px solid ${LINE}`, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <div style={{ width: 56, height: 56, borderRadius: 8, background: PANEL_BG, border: `1px solid ${LINE}`, flexShrink: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            {rp.foto ? <img src={rp.foto} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ color: MUTED, fontSize: 10 }}>Nessuna foto</span>}
+                          </div>
+                          <div>
+                            <label className="body-font" style={{ fontSize: 12, color: RED, fontWeight: 600, cursor: "pointer" }}>
+                              {fotoUploading === rp.id ? "Caricamento…" : (rp.foto ? "Cambia foto" : "Carica foto")}
+                              <input type="file" accept="image/*" style={{ display: "none" }} disabled={fotoUploading === rp.id}
+                                onChange={(e) => handleFotoChange(rp, e.target.files[0])} />
+                            </label>
+                            {fotoErrore && fotoErrore.playerId === rp.id && (
+                              <div style={{ color: RED, fontSize: 11, marginTop: 2 }}>{fotoErrore.msg}</div>
+                            )}
+                          </div>
+                        </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                           <input type="date" value={rosterDraft.dataNascita} onChange={(e) => setRosterDraft((p) => ({ ...p, dataNascita: e.target.value }))}
                             style={{ padding: 6, border: `1px solid ${LINE}` }} />
@@ -4109,6 +4197,67 @@ function GironeATracker() {
           ↑
         </div>
       )}
+
+      {playerCardModal && (() => {
+        const { p, rp } = playerCardModal;
+        const anno = rp.dataNascita ? new Date(rp.dataNascita).getFullYear() : null;
+        const ruoloAttivo = RUOLI.find((d) => isFlagTrue(rp[d.col]));
+        const piedeAttivo = PIEDI.filter((d) => isFlagTrue(rp[d.col])).map((d) => d.label);
+        const ruoloLabelLungo = { P: "Portiere", D: "Difensore", C: "Centrocampista", A: "Attaccante" };
+        const iniziali = p.name.split(" ").filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+        const skillValori = SKILLS.map((sk) => {
+          const entry = p.skillAvg && p.skillAvg.find((s) => s.skill === sk.label);
+          return { key: sk.key, val: entry ? entry.valore.toFixed(1) : "—" };
+        });
+        return (
+          <div onClick={() => setPlayerCardModal(null)} className="modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 280, width: "100%" }}>
+              <div style={{
+                clipPath: "polygon(0 14px,14px 0,calc(100% - 14px) 0,100% 14px,100% calc(100% - 14px),calc(100% - 14px) 100%,14px 100%,0 calc(100% - 14px))",
+                background: "radial-gradient(ellipse at 50% 0%, #1c2220 0%, #121515 75%)", border: "2px solid #c8102e",
+                boxShadow: "0 0 22px rgba(200,16,46,0.45), 0 16px 30px -10px rgba(0,0,0,0.6)", padding: "16px 16px 0", position: "relative", overflow: "hidden",
+              }}>
+                <div style={{ textAlign: "center" }}>
+                  <span className="title-font" style={{ fontSize: 19, fontWeight: 700, color: "#f2f0ea" }}>{p.name}</span>
+                </div>
+                <div className="body-font" style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 4, fontSize: 10, color: "#9fb5a5", flexWrap: "wrap" }}>
+                  {anno && <span>{anno}</span>}
+                  {anno && ruoloAttivo && <span style={{ color: "#3a4140" }}>·</span>}
+                  {ruoloAttivo && <span>{ruoloLabelLungo[ruoloAttivo.col.replace("ruolo", "")]}</span>}
+                  {ruoloAttivo && piedeAttivo.length > 0 && <span style={{ color: "#3a4140" }}>·</span>}
+                  {piedeAttivo.length > 0 && <span>Piede {piedeAttivo.join("/")}</span>}
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+                  <div style={{ width: 130, height: 150, borderRadius: 8, background: "#181e1f", border: "2px solid #c8102e", boxShadow: "0 0 16px rgba(200,16,46,0.4)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                    {rp.foto ? <img src={rp.foto} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span className="title-font" style={{ fontSize: 38, fontWeight: 700, color: "#3a4140" }}>{iniziali}</span>}
+                  </div>
+                </div>
+
+                <div className="body-font" style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 14, flexWrap: "wrap" }}>
+                  {skillValori.map((s) => (
+                    <div key={s.key} style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 9, color: "#8a9088" }}>{s.key.slice(0, 3).toUpperCase()}</div>
+                      <div className="mono-font" style={{ fontSize: 13, color: "#f2f0ea", fontWeight: 700 }}>{s.val}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ textAlign: "center", marginTop: 10 }}>
+                  <div className="mono-font" style={{ fontSize: 38, fontWeight: 700, color: "#c8102e", lineHeight: 1 }}>{p.media !== null ? p.media.toFixed(1) : "—"}</div>
+                  <div className="body-font" style={{ fontSize: 9, color: "#8a9088", letterSpacing: 1 }}>MEDIA VOTO</div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, padding: "9px 16px", background: "#f6f1e4", borderTop: "2px solid #14181a", marginLeft: -16, marginRight: -16 }}>
+                  <span className="title-font" style={{ fontSize: 12, color: "#c8102e", fontWeight: 700, letterSpacing: 0.5 }}>CIMIANO U17</span>
+                  <span className="mono-font" style={{ fontSize: 14, color: "#14181a", fontWeight: 700 }}>{rp.maglia ? `#${rp.maglia}` : ""}</span>
+                </div>
+              </div>
+              <div onClick={() => setPlayerCardModal(null)} style={{ textAlign: "center", marginTop: 14, color: "#fff", fontSize: 13, cursor: "pointer" }}>Chiudi</div>
+            </div>
+          </div>
+        );
+      })()}
 
       {distintaModal && (() => {
         const slots = FORMATIONS[distintaModal.modulo || DEFAULT_MODULO].slots;
