@@ -397,18 +397,19 @@ const DEFAULT_COLORE_1 = "#c8102e";
 const DEFAULT_COLORE_2 = "#f6f1e4";
 const DEFAULT_COLORE_3 = "#14181a";
 
-// Ritaglio foto giocatore (07/09/2026): dimensioni dell'anteprima trascinabile e dell'immagine
-// finale inviata al server. Stesse proporzioni (5:6, un ritratto), l'anteprima è solo più piccola
-// per stare comoda a schermo; il fattore di scala fra le due converte le coordinate dell'una nell'altra.
-const FOTO_PREVIEW_W = 200;
-const FOTO_PREVIEW_H = 240;
+// Ritaglio foto giocatore (08/09/2026, v2): le proporzioni dell'anteprima e dell'immagine finale
+// ora corrispondono ESATTAMENTE allo spazio reale in cui la foto viene poi mostrata sulla card
+// (largo 240, alto 210 nello spazio foto del fronte: rapporto 8:7). Prima erano 5:6 (un ritratto
+// stretto e alto), diverse dallo spazio reale più tozzo: la card "schiacciava" il ritaglio in un
+// riquadro più basso, tagliando altro rispetto a quello che si vedeva nell'anteprima.
+const FOTO_PREVIEW_W = 224;
+const FOTO_PREVIEW_H = 196;
 const FOTO_OUTPUT_W = 300;
-const FOTO_OUTPUT_H = 360;
-// Punto 08/09/2026: il "perno" di partenza per zoom/trascinamento era perfettamente centrato (0.5),
-// ma per una foto a figura intera lascia troppo cielo/sfondo sopra la testa e taglia male sotto.
-// 0.7 sposta il punto di partenza più in basso (di default si vede più corpo, meno sfondo sopra la
-// testa): resta comunque un punto di partenza, il trascinamento libero regola il resto.
-const FOTO_BIAS_VERTICALE = 0.7;
+const FOTO_OUTPUT_H = 263;
+// Punto 08/09/2026 (v2): con le proporzioni ora corrette (vedi sopra), il vero problema era quello,
+// non il perno — resta centrato neutro (0.5). Il trascinamento libero permette comunque di spostarlo
+// dove serve caso per caso.
+const FOTO_BIAS_VERTICALE = 0.5;
 // Sagoma a scudo della card giocatore (07/09/2026), concordata dopo diversi mockup: spazio 240x300.
 // Costante globale perché serve sia al modal React (clip-path CSS) sia al disegno su canvas per lo
 // scaricamento come immagine (Path2D del Canvas 2D accetta la stessa sintassi SVG).
@@ -631,8 +632,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.38";
-const TRACKER_VERSION_DATE = "08/09/2026@14.36";
+const TRACKER_VERSION = "3.39";
+const TRACKER_VERSION_DATE = "08/09/2026@__:__";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -2733,8 +2734,12 @@ function coloreTestoContrastante(hex) {
         const canvas = document.createElement("canvas");
         canvas.width = size; canvas.height = size;
         const ctx = canvas.getContext("2d");
-        const scala = Math.max(size / img.width, size / img.height);
+        // "A contenere" (non "a coprire"): mostra il logo per intero, con un margine trasparente
+        // sopra/sotto o ai lati se le proporzioni non sono quadrate — uno stemma alto e stretto come
+        // quello del Cimiano andrebbe altrimenti tagliato in cima e in fondo.
+        const scala = Math.min(size / img.width, size / img.height);
         const dispW = img.width * scala, dispH = img.height * scala;
+        ctx.clearRect(0, 0, size, size);
         ctx.drawImage(img, (size - dispW) / 2, (size - dispH) / 2, dispW, dispH);
         URL.revokeObjectURL(objectUrl);
         const base64 = canvas.toDataURL("image/png").split(",")[1];
@@ -2810,7 +2815,7 @@ function coloreTestoContrastante(hex) {
       if (rp.foto) {
         try {
           const fotoImg = await caricaImmagine(rp.foto, true);
-          ctx.drawImage(fotoImg, 20, 24, 200, 190);
+          ctx.drawImage(fotoImg, 0, 42, 240, 210);
         } catch (e) {
           setFotoErrore({ playerId: rp.id, msg: "La foto non si può includere nello scaricamento (limite di Google Drive): la card scaricata avrà le iniziali al posto suo." });
           ctx.fillStyle = "#f2f0ea";
