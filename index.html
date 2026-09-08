@@ -626,8 +626,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.35";
-const TRACKER_VERSION_DATE = "08/09/2026@12.20";
+const TRACKER_VERSION = "3.37";
+const TRACKER_VERSION_DATE = "08/09/2026@__:__";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -1088,15 +1088,15 @@ function GironeATracker() {
             voterOptionsExtraFinal.push(r.valore);
           } else if (chiave.indexOf("formazione2Touched:") === 0) {
             const fixtureId = chiave.slice("formazione2Touched:".length);
-            // Punto 08/09/2026: il flag conta solo se valore è "1" (non la sola presenza della riga),
-            // così "Riavvia formazione" può azzerarlo con una scrittura esplicita (upsert, già affidabile)
-            // invece di una remove che se fallisce o arriva in ritardo lascia il flag bloccato a vero.
-            if (r.valore === "1") {
-              // Non sappiamo qui se l'id appartiene a una partita ufficiale o a un'amichevole: lo segniamo
-              // in entrambi i posti possibili, è innocuo perché ciascuno viene letto solo dal proprio contesto.
-              friendlyFormazione2TouchedFinal[fixtureId] = true;
-              detailEntry(fixtureId).formazione2Touched = true;
-            }
+            // Punto 08/09/2026 (v2): ogni riga impone il PROPRIO valore, true o false — non solo
+            // "attiva se true". Prima una riga con valore "0" veniva ignorata invece di azzerare
+            // esplicitamente il flag, quindi una vecchia riga rimasta con valore "1" (es. da una
+            // scrittura duplicata) vinceva per sempre su "Riavvia formazione".
+            const valoreVero = r.valore === "1";
+            // Non sappiamo qui se l'id appartiene a una partita ufficiale o a un'amichevole: lo segniamo
+            // in entrambi i posti possibili, è innocuo perché ciascuno viene letto solo dal proprio contesto.
+            friendlyFormazione2TouchedFinal[fixtureId] = valoreVero;
+            detailEntry(fixtureId).formazione2Touched = valoreVero;
           } else if (chiave === "teamNome" && r.valore) {
             teamNomeFinal = r.valore;
           } else if (chiave === "teamCategoria" && r.valore) {
@@ -1816,6 +1816,10 @@ function GironeATracker() {
       await window.rows.remove("Convocati", { fixtureId }).catch(() => {});
       await window.rows.remove("Formazioni", { fixtureId }).catch(() => {});
       await window.rows.remove("Moduli", { fixtureId }).catch(() => {});
+      // Doppia sicurezza sul flag: prima si tenta di ripulire eventuali righe vecchie/duplicate,
+      // poi si scrive comunque un valore "0" esplicito — così il risultato finale è garantito a
+      // prescindere da cosa fosse rimasto sul foglio.
+      await window.rows.remove("Impostazioni", { chiave: "formazione2Touched:" + fixtureId }).catch(() => {});
       await window.rows.upsert("Impostazioni", { chiave: "formazione2Touched:" + fixtureId }, { valore: "0" }).catch(() => {});
     })();
   }
@@ -2078,18 +2082,20 @@ function GironeATracker() {
     if (eraConvocato) delete convocatiVeri[playerId]; else convocatiVeri[playerId] = true;
 
     setFriendlyConvocati((prev) => ({ ...prev, [friendlyId]: { ...convocatiVeri } }));
-    setFriendlyFormazione((prev) => {
-      const cur = { ...(prev[friendlyId] || {}) };
-      let changed = false;
-      Object.keys(cur).forEach((slotId) => { if (String(cur[slotId]) === playerId) { delete cur[slotId]; changed = true; } });
-      return changed ? { ...prev, [friendlyId]: cur } : prev;
-    });
-    setFriendlyFormazione2((prev) => {
-      const cur = { ...(prev[friendlyId] || {}) };
-      let changed = false;
-      Object.keys(cur).forEach((slotId) => { if (String(cur[slotId]) === playerId) { delete cur[slotId]; changed = true; } });
-      return changed ? { ...prev, [friendlyId]: cur } : prev;
-    });
+    if (eraConvocato) {
+      setFriendlyFormazione((prev) => {
+        const cur = { ...(prev[friendlyId] || {}) };
+        let changed = false;
+        Object.keys(cur).forEach((slotId) => { if (String(cur[slotId]) === playerId) { delete cur[slotId]; changed = true; } });
+        return changed ? { ...prev, [friendlyId]: cur } : prev;
+      });
+      setFriendlyFormazione2((prev) => {
+        const cur = { ...(prev[friendlyId] || {}) };
+        let changed = false;
+        Object.keys(cur).forEach((slotId) => { if (String(cur[slotId]) === playerId) { delete cur[slotId]; changed = true; } });
+        return changed ? { ...prev, [friendlyId]: cur } : prev;
+      });
+    }
     if (eraConvocato) {
       (async () => {
         for (const slotId of Object.keys(formazioneCorrente)) {
