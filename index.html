@@ -406,10 +406,10 @@ const FOTO_PREVIEW_W = 224;
 const FOTO_PREVIEW_H = 196;
 const FOTO_OUTPUT_W = 300;
 const FOTO_OUTPUT_H = 263;
-// Punto 08/09/2026 (v2): con le proporzioni ora corrette (vedi sopra), il vero problema era quello,
-// non il perno — resta centrato neutro (0.5). Il trascinamento libero permette comunque di spostarlo
-// dove serve caso per caso.
-const FOTO_BIAS_VERTICALE = 0.5;
+// Punto 08/09/2026 (v3): con le proporzioni corrette, resta comunque utile un perno di partenza
+// leggermente più basso del centro puro per la maggior parte delle foto (meno sfondo sopra la testa
+// di default). Il trascinamento libero permette comunque di spostarlo dove serve caso per caso.
+const FOTO_BIAS_VERTICALE = 0.68;
 // Sagoma a scudo della card giocatore (07/09/2026), concordata dopo diversi mockup: spazio 240x300.
 // Costante globale perché serve sia al modal React (clip-path CSS) sia al disegno su canvas per lo
 // scaricamento come immagine (Path2D del Canvas 2D accetta la stessa sintassi SVG).
@@ -632,8 +632,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.39";
-const TRACKER_VERSION_DATE = "08/09/2026@__:__";
+const TRACKER_VERSION = "3.40";
+const TRACKER_VERSION_DATE = "08/09/2026@15.56";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -867,14 +867,15 @@ function GironeATracker() {
   });
   const [draft, setDraft] = useState({});
 
-  const [fForm, setFForm] = useState({ avversario: "", golCimiano: "", golAvv: "", data: "", ora: "", note: "" });
+  const [mostraFormPartita, setMostraFormPartita] = useState(false);
+  const [nuovaPartitaForm, setNuovaPartitaForm] = useState({ tipo: "amichevole", avversario: "", casa: true, data: "", ora: "", golCimiano: "", golAvv: "", giornata: "", half: "andata" });
   const [expandedFriendly, setExpandedFriendly] = useState({});
   const [ratingDraftF, setRatingDraftF] = useState({});
   const [editingRatingF, setEditingRatingF] = useState(null); // `${friendlyId}:${voteId}`
   const [editingFriendly, setEditingFriendly] = useState(null); // friendlyId
   const [friendlyEditDraft, setFriendlyEditDraft] = useState({});
   const [editingFixtureDate, setEditingFixtureDate] = useState(null); // fixtureId (campionato o coppa)
-  const [fixtureDateDraft, setFixtureDateDraft] = useState({});
+  const [fixtureDateDraft, setFixtureDateDraft] = useState({}); // { data, ora, avversario, casa, giornata, half }
   const [expanded, setExpanded] = useState({});
   const [scorerDraft, setScorerDraft] = useState({});
   const [ratingDraft, setRatingDraft] = useState({});
@@ -1780,21 +1781,48 @@ function GironeATracker() {
     window.rows.upsert("Voti", { id }, { fixtureId, tipo: tipoDaFixtureId(fixtureId), giocatore: d.giocatore, voto: String(voto), minutaggio: d.minutaggio || "", nota: d.nota || "", autore: autoreRiga, ...skillColsFromDraft(d) }).catch(() => {});
   }
 
-  function addFriendly() {
-    if (!fForm.avversario) return;
-    // Id leggibile nel foglio Google (schema 04/09/2026): Amic-YYYYMMDD-Avversario, con l'avversario
-    // codificato con le prime 6 consonanti (prima maiuscola, resto minuscolo). Es. "Amic-20260904-Vrneoa".
-    // Se manca la data (partita non ancora programmata con precisione) usa "SD" al suo posto.
-    const dataPart = fForm.data ? fForm.data.replace(/-/g, "") : "SD";
-    const base = `Amic-${dataPart}-${codificaSquadra(fForm.avversario)}`;
-    const existingIds = new Set(friendlies.map((f) => f.id));
-    let id = base, suffix = 2;
-    while (existingIds.has(id)) { id = `${base}-${suffix}`; suffix++; }
-    const nuova = { id, avversario: fForm.avversario, golCimiano: fForm.golCimiano, golAvv: fForm.golAvv, data: fForm.data, ora: fForm.ora };
-    setFriendlies((prev) => [...prev, nuova]);
-    // Nota: il foglio "Amichevoli" (Fase 3) non ha più il campo "note" (spostato da tempo nel Voto Squadra).
-    window.rows.insert("Amichevoli", nuova).catch(() => {});
-    setFForm({ avversario: "", golCimiano: "", golAvv: "", data: "", ora: "", note: "" });
+  // "Aggiungi Partita" (08/09/2026): unifica la creazione di amichevoli, campionato e coppa dietro
+  // un solo form con scelta del tipo. Per campionato/coppa genera un id chiaramente distinto da quelli
+  // del calendario ufficiale importato (che usa lo schema breve tipo "1A-4"), così non c'è rischio di
+  // collisione né di sovrascrivere per sbaglio una partita già esistente.
+  function aggiungiPartita() {
+    const d = nuovaPartitaForm;
+    if (!d.avversario) return;
+    if (d.tipo === "amichevole") {
+      const dataPart = d.data ? d.data.replace(/-/g, "") : "SD";
+      const base = `Amic-${dataPart}-${codificaSquadra(d.avversario)}`;
+      const existingIds = new Set(friendlies.map((f) => f.id));
+      let id = base, suffix = 2;
+      while (existingIds.has(id)) { id = `${base}-${suffix}`; suffix++; }
+      const nuova = { id, avversario: d.avversario, golCimiano: d.golCimiano, golAvv: d.golAvv, data: d.data, ora: d.ora };
+      setFriendlies((prev) => [...prev, nuova]);
+      window.rows.insert("Amichevoli", nuova).catch(() => {});
+    } else if (d.tipo === "coppa") {
+      const home = d.casa ? "Cimiano" : d.avversario;
+      const away = d.casa ? d.avversario : "Cimiano";
+      const id = `Copp-manual-${Date.now()}`;
+      const nuova = { id, home, away, data: d.data, ora: d.ora };
+      setCOPPA_FIXTURES((prev) => [...prev, nuova].sort((a, b) => a.data.localeCompare(b.data)));
+      window.rows.insert("CalendarioCoppa", nuova).catch(() => {});
+    } else {
+      const home = d.casa ? "Cimiano" : d.avversario;
+      const away = d.casa ? d.avversario : "Cimiano";
+      const giornataNum = Number(d.giornata) || 1;
+      const half = d.half === "ritorno" ? "ritorno" : "andata";
+      const id = `manual-${giornataNum}${half === "ritorno" ? "R" : "A"}-${Date.now()}`;
+      const key = String(giornataNum) + (half === "ritorno" ? "R" : "A");
+      const match = { id, home, away, dataOverride: "", oraOverride: "" };
+      setROUNDS((prev) => {
+        const esiste = prev.some((r) => r.key === key);
+        const next = esiste
+          ? prev.map((r) => (r.key === key ? { ...r, matches: [...r.matches, match] } : r))
+          : [...prev, { key, giornata: giornataNum, half, data: d.data || todayISO(), matches: [match] }];
+        return next.sort((x, y) => x.data.localeCompare(y.data));
+      });
+      window.rows.insert("CalendarioCampionato", { id, giornata: giornataNum, half, data: d.data || todayISO(), home, away, dataOverride: d.ora ? d.data : "", oraOverride: d.ora }).catch(() => {});
+    }
+    setNuovaPartitaForm({ tipo: d.tipo, avversario: "", casa: true, data: "", ora: "", golCimiano: "", golAvv: "", giornata: "", half: "andata" });
+    setMostraFormPartita(false);
   }
 
   // Riavvia formazione (08/09/2026): pensata per le partite con dati di test lasciati da PRIMA del
@@ -1885,21 +1913,46 @@ function GironeATracker() {
   // le altre 7 partite dello stesso turno.
   function startEditFixtureDate(fx) {
     setEditingFixtureDate(fx.id);
-    setFixtureDateDraft({ data: fx.data || "", ora: fx.ora || "" });
+    const tipo = tipoDaFixtureId(fx.id);
+    const casaCimiano = fx.home === "Cimiano";
+    const avversario = casaCimiano ? fx.away : fx.home;
+    if (tipo === "coppa") {
+      setFixtureDateDraft({ data: fx.data || "", ora: fx.ora || "", avversario, casa: casaCimiano });
+    } else {
+      // Per il campionato serve anche sapere in quale giornata/girone si trova oggi, per poterla
+      // eventualmente cambiare (sposta la partita in un altro round, creandolo se non esiste ancora).
+      const round = ROUNDS.find((r) => r.matches.some((m) => m.id === fx.id));
+      setFixtureDateDraft({
+        data: fx.data || "", ora: fx.ora || "", avversario, casa: casaCimiano,
+        giornata: round ? round.giornata : "", half: round ? round.half : "andata",
+      });
+    }
   }
 
   function saveEditFixtureDate(fx) {
     const tipo = tipoDaFixtureId(fx.id);
-    const { data, ora } = fixtureDateDraft;
+    const d = fixtureDateDraft;
+    const home = d.casa ? "Cimiano" : d.avversario;
+    const away = d.casa ? d.avversario : "Cimiano";
     if (tipo === "coppa") {
-      setCOPPA_FIXTURES((prev) => prev.map((f) => (f.id === fx.id ? { ...f, data, ora } : f)));
-      window.rows.upsert("CalendarioCoppa", { id: fx.id }, { data, ora }).catch(() => {});
+      setCOPPA_FIXTURES((prev) => prev.map((f) => (f.id === fx.id ? { ...f, home, away, data: d.data, ora: d.ora } : f)));
+      window.rows.upsert("CalendarioCoppa", { id: fx.id }, { home, away, data: d.data, ora: d.ora }).catch(() => {});
     } else {
-      setROUNDS((prev) => prev.map((r) => ({
-        ...r,
-        matches: r.matches.map((m) => (m.id === fx.id ? { ...m, dataOverride: data, oraOverride: ora } : m)),
-      })));
-      window.rows.upsert("CalendarioCampionato", { id: fx.id }, { dataOverride: data, oraOverride: ora }).catch(() => {});
+      const giornataNum = Number(d.giornata) || 1;
+      const half = d.half === "ritorno" ? "ritorno" : "andata";
+      setROUNDS((prev) => {
+        // Toglie la partita da qualunque round la contenga oggi (di solito uno solo).
+        const senzaPartita = prev.map((r) => ({ ...r, matches: r.matches.filter((m) => m.id !== fx.id) }));
+        const matchAggiornato = { id: fx.id, home, away, dataOverride: d.data, oraOverride: d.ora };
+        const key = String(giornataNum) + (half === "ritorno" ? "R" : "A");
+        const esiste = senzaPartita.some((r) => r.key === key);
+        const conPartita = esiste
+          ? senzaPartita.map((r) => (r.key === key ? { ...r, matches: [...r.matches, matchAggiornato] } : r))
+          : [...senzaPartita, { key, giornata: giornataNum, half, data: d.data || todayISO(), matches: [matchAggiornato] }];
+        // Tolgo i round rimasti vuoti (successo solo spostando l'ultima partita di un round altrove).
+        return conPartita.filter((r) => r.matches.length > 0).sort((x, y) => x.data.localeCompare(y.data));
+      });
+      window.rows.upsert("CalendarioCampionato", { id: fx.id }, { giornata: giornataNum, half, home, away, dataOverride: d.data, oraOverride: d.ora }).catch(() => {});
     }
     setEditingFixtureDate(null);
   }
@@ -3079,6 +3132,24 @@ function coloreTestoContrastante(hex) {
         )}
         {isEditingDate ? (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "10px 12px", alignItems: "center" }}>
+            <input placeholder="Avversario" value={fixtureDateDraft.avversario || ""} onChange={(e) => setFixtureDateDraft((p) => ({ ...p, avversario: e.target.value }))}
+              style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 3, minWidth: 140, flex: 1 }} />
+            <select value={fixtureDateDraft.casa ? "casa" : "trasferta"} onChange={(e) => setFixtureDateDraft((p) => ({ ...p, casa: e.target.value === "casa" }))}
+              style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }}>
+              <option value="casa">Casa</option>
+              <option value="trasferta">Trasferta</option>
+            </select>
+            {fixtureDateDraft.half !== undefined && (
+              <>
+                <input type="number" min="1" placeholder="Giornata" value={fixtureDateDraft.giornata || ""} onChange={(e) => setFixtureDateDraft((p) => ({ ...p, giornata: e.target.value }))}
+                  style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 3, width: 90 }} />
+                <select value={fixtureDateDraft.half} onChange={(e) => setFixtureDateDraft((p) => ({ ...p, half: e.target.value }))}
+                  style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }}>
+                  <option value="andata">Andata</option>
+                  <option value="ritorno">Ritorno</option>
+                </select>
+              </>
+            )}
             <input type="date" value={fixtureDateDraft.data || ""} onChange={(e) => setFixtureDateDraft((p) => ({ ...p, data: e.target.value }))}
               style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
             <input type="time" value={fixtureDateDraft.ora || ""} onChange={(e) => setFixtureDateDraft((p) => ({ ...p, ora: e.target.value }))}
@@ -3938,23 +4009,26 @@ function coloreTestoContrastante(hex) {
             </div>
           )}
         </div>
-        <div className="chrome-box" style={{ flexShrink: 0, position: "relative" }}>
-          <span onClick={apriImpostazioni} title="Impostazioni società" role="button"
-            style={{ position: "absolute", top: -8, right: -8, zIndex: 3, width: 22, height: 22, borderRadius: "50%",
-              background: PANEL_BG, border: `1px solid ${LINE}`, color: MUTED, display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 12, cursor: "pointer" }}>⚙</span>
-          <div className="chrome-box-inner" style={{ padding: 8, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-          <img src={LOGO_ATTUALE} alt="Cimiano Calcio" width="80" height="80" onClick={handleLogoClick}
-            style={{ display: "block", borderRadius: 4, objectFit: "cover", cursor: "pointer", userSelect: "none" }} />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          <div className="chrome-box" style={{ position: "relative" }}>
+            <span onClick={apriImpostazioni} title="Impostazioni società" role="button"
+              style={{ position: "absolute", top: -8, right: -8, zIndex: 3, width: 22, height: 22, borderRadius: "50%",
+                background: PANEL_BG, border: `1px solid ${LINE}`, color: MUTED, display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 12, cursor: "pointer" }}>⚙</span>
+            <div className="chrome-box-inner" style={{ padding: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <img src={LOGO_ATTUALE} alt="Cimiano Calcio" width="100" height="100" onClick={handleLogoClick}
+              style={{ display: "block", borderRadius: 4, objectFit: "cover", cursor: "pointer", userSelect: "none" }} />
+            </div>
+          </div>
           <select value={voterName} onChange={(e) => setVoterNameState(e.target.value)} className="body-font"
-            style={{ width: "100%", fontSize: 11, padding: "3px 4px", borderRadius: 4, border: `1px solid ${TEAM_BOX_BORDER}`, background: PANEL_BG, color: INK, fontWeight: 600, textAlign: "center" }}>
+            style={{ width: 100, fontSize: 11, padding: "3px 4px", borderRadius: 4, border: `1px solid ${TEAM_BOX_BORDER}`, background: PANEL_BG, color: INK, fontWeight: 600, textAlign: "center" }}>
             <option value="">Chi vota?</option>
             {[...VOTER_OPTIONS, ...voterOptionsExtra].map((name) => (
               <option key={name} value={name}>{name}</option>
             ))}
           </select>
           {showAddVoter && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, width: 100 }}>
               <div style={{ display: "flex", gap: 4 }}>
                 <input value={newVoterDraft} onChange={(e) => setNewVoterDraft(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") addVoterOption(); }}
@@ -3965,7 +4039,6 @@ function coloreTestoContrastante(hex) {
               <button onClick={() => { setShowAddVoter(false); setNewVoterDraft(""); }} style={{ fontSize: 10, background: "none", border: "none", color: MUTED, cursor: "pointer" }}>chiudi</button>
             </div>
           )}
-          </div>
         </div>
       </div>
       </div>
@@ -4093,29 +4166,67 @@ function coloreTestoContrastante(hex) {
 
         {macroTab === "stagione" && stagSub === "cimiano" && (
           <div className="body-font">
-            <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
-              Aggiungi amichevole
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6, background: PANEL_BG, padding: 12, borderRadius: 4, border: `1px solid ${LINE}` }}>
-              <input placeholder="Avversario" value={fForm.avversario} onChange={(e) => setFForm({ ...fForm, avversario: e.target.value })}
-                style={{ flex: 1, minWidth: 140, padding: 6, border: `1px solid ${LINE}` }} />
-              <input type="date" value={fForm.data} onChange={(e) => setFForm({ ...fForm, data: e.target.value })}
-                style={{ padding: 6, border: `1px solid ${LINE}` }} />
-              <input type="time" value={fForm.ora} onChange={(e) => setFForm({ ...fForm, ora: e.target.value })}
-                style={{ padding: 6, border: `1px solid ${LINE}` }} />
-              <input type="number" placeholder="Gol Cimiano" value={fForm.golCimiano} onChange={(e) => setFForm({ ...fForm, golCimiano: e.target.value })}
-                style={{ width: 100, padding: 6, border: `1px solid ${LINE}` }} />
-              <span style={{ alignSelf: "center", color: MUTED }}>–</span>
-              <input type="number" placeholder="Gol avv." value={fForm.golAvv} onChange={(e) => setFForm({ ...fForm, golAvv: e.target.value })}
-                style={{ width: 90, padding: 6, border: `1px solid ${LINE}` }} />
-              <button onClick={addFriendly} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>
-                Aggiungi
+            {!mostraFormPartita ? (
+              <button onClick={() => setMostraFormPartita(true)} style={{ background: colore1, color: "#fff", border: "none", padding: "8px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer", marginBottom: 20 }}>
+                + Aggiungi Partita
               </button>
+            ) : (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+                Aggiungi Partita
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6, background: PANEL_BG, padding: 12, borderRadius: 4, border: `1px solid ${LINE}` }}>
+                <select value={nuovaPartitaForm.tipo} onChange={(e) => setNuovaPartitaForm((p) => ({ ...p, tipo: e.target.value }))}
+                  style={{ padding: 6, border: `1px solid ${LINE}`, fontWeight: 600 }}>
+                  <option value="amichevole">Amichevole</option>
+                  <option value="campionato">Campionato</option>
+                  <option value="coppa">Coppa</option>
+                </select>
+                <input placeholder="Avversario" value={nuovaPartitaForm.avversario} onChange={(e) => setNuovaPartitaForm((p) => ({ ...p, avversario: e.target.value }))}
+                  style={{ flex: 1, minWidth: 140, padding: 6, border: `1px solid ${LINE}` }} />
+                {nuovaPartitaForm.tipo !== "amichevole" && (
+                  <select value={nuovaPartitaForm.casa ? "casa" : "trasferta"} onChange={(e) => setNuovaPartitaForm((p) => ({ ...p, casa: e.target.value === "casa" }))}
+                    style={{ padding: 6, border: `1px solid ${LINE}` }}>
+                    <option value="casa">Casa</option>
+                    <option value="trasferta">Trasferta</option>
+                  </select>
+                )}
+                {nuovaPartitaForm.tipo === "campionato" && (
+                  <>
+                    <input type="number" min="1" placeholder="Giornata" value={nuovaPartitaForm.giornata} onChange={(e) => setNuovaPartitaForm((p) => ({ ...p, giornata: e.target.value }))}
+                      style={{ padding: 6, border: `1px solid ${LINE}`, width: 90 }} />
+                    <select value={nuovaPartitaForm.half} onChange={(e) => setNuovaPartitaForm((p) => ({ ...p, half: e.target.value }))}
+                      style={{ padding: 6, border: `1px solid ${LINE}` }}>
+                      <option value="andata">Andata</option>
+                      <option value="ritorno">Ritorno</option>
+                    </select>
+                  </>
+                )}
+                <input type="date" value={nuovaPartitaForm.data} onChange={(e) => setNuovaPartitaForm((p) => ({ ...p, data: e.target.value }))}
+                  style={{ padding: 6, border: `1px solid ${LINE}` }} />
+                <input type="time" value={nuovaPartitaForm.ora} onChange={(e) => setNuovaPartitaForm((p) => ({ ...p, ora: e.target.value }))}
+                  style={{ padding: 6, border: `1px solid ${LINE}` }} />
+                {nuovaPartitaForm.tipo === "amichevole" && (
+                  <>
+                    <input type="number" placeholder="Gol Cimiano" value={nuovaPartitaForm.golCimiano} onChange={(e) => setNuovaPartitaForm((p) => ({ ...p, golCimiano: e.target.value }))}
+                      style={{ width: 100, padding: 6, border: `1px solid ${LINE}` }} />
+                    <span style={{ alignSelf: "center", color: MUTED }}>–</span>
+                    <input type="number" placeholder="Gol avv." value={nuovaPartitaForm.golAvv} onChange={(e) => setNuovaPartitaForm((p) => ({ ...p, golAvv: e.target.value }))}
+                      style={{ width: 90, padding: 6, border: `1px solid ${LINE}` }} />
+                  </>
+                )}
+                <button onClick={aggiungiPartita} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>
+                  Aggiungi
+                </button>
+                <span onClick={() => setMostraFormPartita(false)} style={{ alignSelf: "center", color: MUTED, fontSize: 12, cursor: "pointer" }}>annulla</span>
+              </div>
+              <div style={{ fontSize: 11, color: MUTED }}>
+                {nuovaPartitaForm.tipo === "amichevole"
+                  ? "Se la partita non si è ancora giocata, lascia vuoti i gol: comparirà come \"in programma\" e potrai aggiungere il risultato dopo."
+                  : "Per Campionato/Coppa il risultato si inserisce dopo, dalla partita stessa una volta creata."}
+              </div>
             </div>
-            <div style={{ fontSize: 11, color: MUTED, marginBottom: 20 }}>
-              Se la partita non si è ancora giocata, lascia vuoti i gol: comparirà come "in programma" e potrai aggiungere il risultato dopo.
-            </div>
-
+            )}
             <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
               Tutte le partite
             </div>
