@@ -626,8 +626,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.33";
-const TRACKER_VERSION_DATE = "08/09/2026@11.55";
+const TRACKER_VERSION = "3.34";
+const TRACKER_VERSION_DATE = "08/09/2026@12.05";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -1793,6 +1793,7 @@ function GironeATracker() {
     const ok = window.confirm("Riavviare la formazione di questa partita? Titolari, panchina, modulo e sostituzioni verranno cancellati (voti, marcatori e cartellini restano).");
     if (!ok) return;
     if (isFriendly) {
+      delete convocatiSyncRefF.current[fixtureId];
       setFriendlyConvocati((prev) => { const next = { ...prev }; delete next[fixtureId]; return next; });
       setFriendlyFormazione((prev) => { const next = { ...prev }; delete next[fixtureId]; return next; });
       setFriendlyFormazione2((prev) => { const next = { ...prev }; delete next[fixtureId]; return next; });
@@ -1800,6 +1801,7 @@ function GironeATracker() {
       setFriendlyModulo2State((prev) => { const next = { ...prev }; delete next[fixtureId]; return next; });
       setFriendlyFormazione2Touched((prev) => { const next = { ...prev }; delete next[fixtureId]; return next; });
     } else {
+      delete convocatiSyncRef.current[fixtureId];
       setDetailsShared((prev) => {
         if (!prev[fixtureId]) return prev;
         return { ...prev, [fixtureId]: { ...prev[fixtureId], convocati: {}, formazione: {}, formazione2: {}, modulo: undefined, modulo2: undefined, formazione2Touched: false } };
