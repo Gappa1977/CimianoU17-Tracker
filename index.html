@@ -404,6 +404,11 @@ const FOTO_PREVIEW_W = 200;
 const FOTO_PREVIEW_H = 240;
 const FOTO_OUTPUT_W = 300;
 const FOTO_OUTPUT_H = 360;
+// Punto 08/09/2026: il "perno" di partenza per zoom/trascinamento era perfettamente centrato (0.5),
+// ma per una foto a figura intera lascia troppo cielo/sfondo sopra la testa e taglia male sotto.
+// 0.7 sposta il punto di partenza più in basso (di default si vede più corpo, meno sfondo sopra la
+// testa): resta comunque un punto di partenza, il trascinamento libero regola il resto.
+const FOTO_BIAS_VERTICALE = 0.7;
 // Sagoma a scudo della card giocatore (07/09/2026), concordata dopo diversi mockup: spazio 240x300.
 // Costante globale perché serve sia al modal React (clip-path CSS) sia al disegno su canvas per lo
 // scaricamento come immagine (Path2D del Canvas 2D accetta la stessa sintassi SVG).
@@ -626,8 +631,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.37";
-const TRACKER_VERSION_DATE = "08/09/2026@__:__";
+const TRACKER_VERSION = "3.38";
+const TRACKER_VERSION_DATE = "08/09/2026@14.36";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -789,6 +794,7 @@ function GironeATracker() {
   const [colPanchinaAperta, setColPanchinaAperta] = useState(true);
   const [panchinaArmato, setPanchinaArmato] = useState(null); // playerId del panchinaro selezionato, in attesa di toccare il titolare da sostituire
   const [mostraFormAggiungi, setMostraFormAggiungi] = useState(false);
+  const [riavviandoId, setRiavviandoId] = useState(null);
   const [fotoUploading, setFotoUploading] = useState(null); // id del giocatore la cui foto si sta caricando
   const [fotoCropModal, setFotoCropModal] = useState(null); // { rp, objectUrl, naturalW, naturalH, scala0, zoom, offsetX, offsetY }
   const [teamNome, setTeamNome] = useState(DEFAULT_TEAM_NOME);
@@ -1812,16 +1818,24 @@ function GironeATracker() {
         return { ...prev, [fixtureId]: { ...prev[fixtureId], convocati: {}, formazione: {}, formazione2: {}, modulo: undefined, modulo2: undefined, formazione2Touched: false } };
       });
     }
-    (async () => {
-      await window.rows.remove("Convocati", { fixtureId }).catch(() => {});
-      await window.rows.remove("Formazioni", { fixtureId }).catch(() => {});
-      await window.rows.remove("Moduli", { fixtureId }).catch(() => {});
-      // Doppia sicurezza sul flag: prima si tenta di ripulire eventuali righe vecchie/duplicate,
-      // poi si scrive comunque un valore "0" esplicito — così il risultato finale è garantito a
-      // prescindere da cosa fosse rimasto sul foglio.
-      await window.rows.remove("Impostazioni", { chiave: "formazione2Touched:" + fixtureId }).catch(() => {});
-      await window.rows.upsert("Impostazioni", { chiave: "formazione2Touched:" + fixtureId }, { valore: "0" }).catch(() => {});
-    })();
+    // Punto 08/09/2026 (v2): richieste in parallelo invece che una dopo l'altra (molto più veloce),
+    // e uno stato "in corso" che l'interfaccia mostra finché il salvataggio non è DAVVERO finito —
+    // prima non c'era nessun segnale, e ricaricare la pagina troppo presto poteva mostrare ancora
+    // dati vecchi non ancora arrivati al foglio.
+    setRiavviandoId(fixtureId);
+    Promise.all([
+      window.rows.remove("Convocati", { fixtureId }).catch(() => {}),
+      window.rows.remove("Formazioni", { fixtureId }).catch(() => {}),
+      window.rows.remove("Moduli", { fixtureId }).catch(() => {}),
+      (async () => {
+        // Doppia sicurezza sul flag: prima si tenta di ripulire eventuali righe vecchie/duplicate,
+        // poi si scrive comunque un valore "0" esplicito — così il risultato finale è garantito a
+        // prescindere da cosa fosse rimasto sul foglio. Questi due restano in sequenza fra loro
+        // (stessa chiave), ma corrono in parallelo rispetto alle altre tre cancellazioni sopra.
+        await window.rows.remove("Impostazioni", { chiave: "formazione2Touched:" + fixtureId }).catch(() => {});
+        await window.rows.upsert("Impostazioni", { chiave: "formazione2Touched:" + fixtureId }, { valore: "0" }).catch(() => {});
+      })(),
+    ]).finally(() => setRiavviandoId((cur) => (cur === fixtureId ? null : cur)));
   }
 
   function removeFriendly(id) {
@@ -2306,6 +2320,21 @@ function GironeATracker() {
 // stare leggibili. "big" = mappa compatta più grande (maglia da 54px) rispetto a quella normale (46px).
 // Adatta il cognome a UNA sola riga (07/09/2026, sistema formazione v2): il font si restringe in
 // base alla lunghezza, con troncamento come ultima spiaggia per i cognomi davvero lunghi.
+// Banner nome squadra nella Card (08/09/2026): il font si adatta alla lunghezza del nome, pensato
+// per occupare quasi tutta la larghezza disponibile del banner (~220px) qualunque sia il nome scelto
+// nelle Impostazioni società, da "Cimiano Calcio" a nomi più lunghi.
+function formattaBannerSquadra(nome) {
+  const testo = (nome || "").toUpperCase();
+  const L = testo.length;
+  let size;
+  if (L <= 8) size = 20;
+  else if (L <= 12) size = 16;
+  else if (L <= 16) size = 13;
+  else if (L <= 20) size = 11;
+  else size = 9;
+  return { testo, size };
+}
+
 function formattaCognomeUnaRiga(cognome) {
   const nome = (cognome || "").toUpperCase();
   const L = nome.length;
@@ -2603,7 +2632,7 @@ function coloreTestoContrastante(hex) {
       const dispW = img.width * scala0, dispH = img.height * scala0;
       setFotoCropModal({
         rp, objectUrl, naturalW: img.width, naturalH: img.height, scala0, zoom: 1,
-        offsetX: (FOTO_PREVIEW_W - dispW) / 2, offsetY: (FOTO_PREVIEW_H - dispH) / 2,
+        offsetX: (FOTO_PREVIEW_W - dispW) / 2, offsetY: (FOTO_PREVIEW_H - dispH) * FOTO_BIAS_VERTICALE,
       });
     };
     img.onerror = () => setFotoErrore({ playerId: rp.id, msg: "Immagine non valida, riprova con un'altra." });
@@ -2625,7 +2654,7 @@ function coloreTestoContrastante(hex) {
       const dispW = img.width * scala0, dispH = img.height * scala0;
       setFotoCropModal({
         rp, objectUrl: rp.foto, naturalW: img.width, naturalH: img.height, scala0, zoom: 1,
-        offsetX: (FOTO_PREVIEW_W - dispW) / 2, offsetY: (FOTO_PREVIEW_H - dispH) / 2,
+        offsetX: (FOTO_PREVIEW_W - dispW) / 2, offsetY: (FOTO_PREVIEW_H - dispH) * FOTO_BIAS_VERTICALE,
       });
     };
     img.onerror = () => setFotoErrore({ playerId: rp.id, msg: "Non riesco a ricaricare la foto attuale per ritagliarla di nuovo, riprova." });
@@ -2774,9 +2803,10 @@ function coloreTestoContrastante(hex) {
       ctx.fillStyle = colore1;
       ctx.fillRect(0, 0, 240, 42);
       ctx.fillStyle = colore2;
-      ctx.font = "700 15px 'Space Grotesk'";
+      const bannerFmt = formattaBannerSquadra(teamNome);
+      ctx.font = `700 ${bannerFmt.size}px 'Space Grotesk'`;
       ctx.textAlign = "center";
-      ctx.fillText(teamNome.split(" ")[0].toUpperCase(), 120, 26);
+      ctx.fillText(bannerFmt.testo, 120, 26);
       if (rp.foto) {
         try {
           const fotoImg = await caricaImmagine(rp.foto, true);
@@ -2794,6 +2824,24 @@ function coloreTestoContrastante(hex) {
         ctx.textAlign = "center";
         ctx.fillText(iniziali, 120, 130);
       }
+      try {
+        const logoBadge = await caricaImmagine(LOGO_ATTUALE, false);
+        ctx.save();
+        ctx.beginPath();
+        const bx = 8, by = 49, bs = 36, br = 5;
+        ctx.moveTo(bx + br, by);
+        ctx.arcTo(bx + bs, by, bx + bs, by + bs, br);
+        ctx.arcTo(bx + bs, by + bs, bx, by + bs, br);
+        ctx.arcTo(bx, by + bs, bx, by, br);
+        ctx.arcTo(bx, by, bx + bs, by, br);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(logoBadge, bx, by, bs, bs);
+        ctx.restore();
+        ctx.strokeStyle = "rgba(255,255,255,0.65)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      } catch (e) { /* logo in primo piano non essenziale, si prosegue senza */ }
       ctx.fillStyle = colore1;
       ctx.font = "700 20px 'Space Grotesk'";
       ctx.textAlign = "center";
@@ -3084,12 +3132,17 @@ function coloreTestoContrastante(hex) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>1. Formazione</div>
-                    <span onClick={() => riavviaFormazione(fx.id, false)} style={{ fontSize: 10, color: MUTED, cursor: "pointer", textDecoration: "underline" }}>Riavvia</span>
+                    <span onClick={() => riavviandoId !== fx.id && riavviaFormazione(fx.id, false)} style={{ fontSize: 10, color: riavviandoId === fx.id ? colore1 : MUTED, cursor: riavviandoId === fx.id ? "default" : "pointer", textDecoration: riavviandoId === fx.id ? "none" : "underline", fontWeight: riavviandoId === fx.id ? 700 : 400 }}>
+                      {riavviandoId === fx.id ? "Riavviando…" : "Riavvia"}
+                    </span>
                   </div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: subCount > 7 ? RED : MUTED }}>
                     {subCount}/7 sostituzioni{subCount > 7 ? " — oltre il limite FIGC" : ""}
                   </div>
                 </div>
+                {riavviandoId === fx.id && (
+                  <div style={{ fontSize: 11, color: colore1, marginBottom: 8 }}>Riavvio in corso, attendi qualche secondo prima di ricaricare la pagina…</div>
+                )}
                 <div style={{ fontSize: 11, color: MUTED, marginBottom: 8, fontStyle: "italic" }}>
                   Assegna direttamente titolari e panchina: chi schieri diventa convocato in automatico, niente passaggio separato.
                 </div>
@@ -3482,12 +3535,17 @@ function coloreTestoContrastante(hex) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>1. Formazione</div>
-                    <span onClick={() => riavviaFormazione(f.id, true)} style={{ fontSize: 10, color: MUTED, cursor: "pointer", textDecoration: "underline" }}>Riavvia</span>
+                    <span onClick={() => riavviandoId !== f.id && riavviaFormazione(f.id, true)} style={{ fontSize: 10, color: riavviandoId === f.id ? colore1 : MUTED, cursor: riavviandoId === f.id ? "default" : "pointer", textDecoration: riavviandoId === f.id ? "none" : "underline", fontWeight: riavviandoId === f.id ? 700 : 400 }}>
+                      {riavviandoId === f.id ? "Riavviando…" : "Riavvia"}
+                    </span>
                   </div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: subCountF > 7 ? RED : MUTED }}>
                     {subCountF}/7 sostituzioni{subCountF > 7 ? " — oltre il limite FIGC" : ""}
                   </div>
                 </div>
+                {riavviandoId === f.id && (
+                  <div style={{ fontSize: 11, color: colore1, marginBottom: 8 }}>Riavvio in corso, attendi qualche secondo prima di ricaricare la pagina…</div>
+                )}
                 <div style={{ fontSize: 11, color: MUTED, marginBottom: 8, fontStyle: "italic" }}>
                   Assegna direttamente titolari e panchina: chi schieri diventa convocato in automatico, niente passaggio separato.
                 </div>
@@ -4661,11 +4719,11 @@ function coloreTestoContrastante(hex) {
                   <div style={facciataStile}>
                     <img src={LOGO_ATTUALE} alt="" style={{ position: "absolute", bottom: -10, left: "50%", transform: "translateX(-50%)", width: 230, opacity: 0.16, pointerEvents: "none" }} />
                     <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 20%, transparent 0%, #14181a 78%)" }} />
-                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 42, zIndex: 2,
+                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 42, zIndex: 2, padding: "0 6px", boxSizing: "border-box",
                       background: colore1,
-                      display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span className="title-font" style={{ fontSize: 13, fontWeight: 700, letterSpacing: 1, color: colore2 }}>
-                        {teamNome.split(" ")[0].toUpperCase()}
+                      display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                      <span className="title-font" style={{ fontSize: formattaBannerSquadra(teamNome).size, fontWeight: 700, letterSpacing: 0.5, color: colore2, whiteSpace: "nowrap" }}>
+                        {formattaBannerSquadra(teamNome).testo}
                       </span>
                     </div>
                     <div style={{ width: "100%", height: 210, position: "relative",
@@ -4678,6 +4736,7 @@ function coloreTestoContrastante(hex) {
                         <span className="title-font" style={{ fontSize: 70, fontWeight: 700, color: "rgba(242,240,234,0.55)" }}>{iniziali}</span>
                       )}
                     </div>
+                    <img src={LOGO_ATTUALE} alt="" style={{ position: "absolute", top: 49, left: 8, width: 36, height: 36, objectFit: "cover", borderRadius: 5, border: "1.5px solid rgba(255,255,255,0.65)", boxShadow: "0 2px 5px rgba(0,0,0,0.5)", zIndex: 4 }} />
                     <div style={{ textAlign: "center", position: "relative" }}>
                       <span className="title-font" style={{ fontSize: 20, fontWeight: 700, color: colore1, letterSpacing: 0.5 }}>{p.name.toUpperCase()}</span>
                     </div>
