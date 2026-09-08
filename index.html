@@ -626,8 +626,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.27";
-const TRACKER_VERSION_DATE = "07/09/2026@23.25";
+const TRACKER_VERSION = "3.28";
+const TRACKER_VERSION_DATE = "07/09/2026@23.50";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -2330,26 +2330,11 @@ function coloreTestoContrastante(hex) {
           // Colore sociale di questa mappa (07/09/2026): 1° colore per la mappa Inizio, 2° per Cambi/Fine.
           const mapColor = opts.mappaNumero === 2 ? colore2 : colore1;
           const jerseyTextColor = coloreTestoContrastante(mapColor);
-          const jerseySize = compact ? 68 : 58;
-          const jerseyClip = "polygon(35% 5%, 35% 0%, 45% 0%, 50% 5%, 55% 0%, 65% 0%, 65% 5%, 100% 20%, 85% 40%, 75% 30%, 75% 100%, 25% 100%, 25% 30%, 15% 40%, 0% 20%)";
-          // Sfalsamento (07/09/2026): con le maglie più larghe, una linea affollata (es. centrocampo a
-          // 5) rischia di sovrapporsi se tutti perfettamente allineati. Per le linee con più di 3
-          // giocatori, alterniamo un piccolo scarto verticale su/giù, ordinando per x.
-          const staggerOffsetById = {};
-          {
-            const byY = {};
-            slots.forEach((s) => {
-              const yKey = Math.round(s.y / 4) * 4;
-              if (!byY[yKey]) byY[yKey] = [];
-              byY[yKey].push(s);
-            });
-            Object.values(byY).forEach((linea) => {
-              if (linea.length > 3) {
-                const ordinata = [...linea].sort((a, b) => a.x - b.x);
-                ordinata.forEach((s, i) => { staggerOffsetById[s.id] = i % 2 === 0 ? -6 : 6; });
-              }
-            });
-          }
+          const jerseySize = compact ? 56 : 48;
+          // Punto 07/09/2026 (rivisto): quadrato arrotondato invece della maglietta con maniche. Più
+          // compatto e senza spazio sprecato ai lati, così una linea affollata (5 a centrocampo) ci
+          // sta senza sovrapporsi, senza bisogno di sfalsare le posizioni (tolto: rendeva la mappa
+          // disordinata invece di più leggibile).
           return (
         <div style={{
           position: "relative", width: "100%", maxWidth: pitchMaxWidth, aspectRatio: "2 / 3", margin: "0 auto",
@@ -2377,16 +2362,15 @@ function coloreTestoContrastante(hex) {
             const usedElsewhere = new Set([...usedElsewhereSameMap, ...usedElsewhereOtherMap]);
             const optionsForThisSlot = poolRoster.filter((rp) => String(rp.id) === playerId || !usedElsewhere.has(String(rp.id)));
             const cognomeFmt = player ? formattaCognomeMaglia(lastName(player.nome), compact) : null;
-            const yEffettiva = slot.y + (staggerOffsetById[slot.id] || 0);
             return (
               <div key={slot.id} style={{ position: "absolute",
                 left: `calc(${jerseySize / 2}px + (100% - ${jerseySize}px) * ${slot.x / 100})`,
-                top: `calc(${jerseySize / 2}px + (100% - ${jerseySize}px) * ${yEffettiva / 100})`,
+                top: `calc(${jerseySize / 2}px + (100% - ${jerseySize}px) * ${slot.y / 100})`,
                 transform: "translate(-50%,-50%)", textAlign: "center" }}>
                 <div style={{ position: "relative", width: jerseySize, height: jerseySize, margin: "0 auto" }}>
                   {/* Maglietta stilizzata: colore sociale della mappa, contorno tratteggiato per i subentrati */}
                   <div style={{
-                    width: jerseySize, height: jerseySize, clipPath: jerseyClip,
+                    width: jerseySize, height: jerseySize, borderRadius: 8,
                     border: player ? `2px ${isSub ? "dashed" : "solid"} #fff` : "2px solid rgba(255,255,255,0.6)",
                     background: player ? mapColor : "rgba(255,255,255,0.15)",
                     display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", pointerEvents: "none", overflow: "hidden",
@@ -2672,17 +2656,17 @@ function coloreTestoContrastante(hex) {
       const logoImg = await caricaImmagine(CIMIANO_LOGO, false);
       ctx.globalAlpha = 0.16;
       const logoW = 230, logoH = logoImg.height * (logoW / logoImg.width);
-      ctx.drawImage(logoImg, 5, 6, logoW, logoH);
+      ctx.drawImage(logoImg, 5, 300 - logoH + 10, logoW, logoH);
       ctx.globalAlpha = 1;
     } catch (e) { /* stemma non essenziale, si prosegue senza */ }
 
     if (!cardFlipped) {
-      ctx.fillStyle = "#c8102e";
+      ctx.fillStyle = colore1;
       ctx.fillRect(0, 0, 240, 42);
-      ctx.fillStyle = "#f6f1e4";
+      ctx.fillStyle = colore2;
       ctx.font = "700 15px 'Space Grotesk'";
       ctx.textAlign = "center";
-      ctx.fillText("CIMIANO", 120, 26);
+      ctx.fillText(teamNome.split(" ")[0].toUpperCase(), 120, 26);
       if (rp.foto) {
         try {
           const fotoImg = await caricaImmagine(rp.foto, true);
@@ -2700,7 +2684,7 @@ function coloreTestoContrastante(hex) {
         ctx.textAlign = "center";
         ctx.fillText(iniziali, 120, 130);
       }
-      ctx.fillStyle = "#c8102e";
+      ctx.fillStyle = colore1;
       ctx.font = "700 20px 'Space Grotesk'";
       ctx.textAlign = "center";
       ctx.fillText(p.name.toUpperCase(), 120, 235);
@@ -2718,7 +2702,7 @@ function coloreTestoContrastante(hex) {
         ctx.fillStyle = "#8a9088";
         ctx.font = "400 9px Inter";
         ctx.fillText(s.key.slice(0, 3).toUpperCase(), x, 100);
-        ctx.fillStyle = "#c8102e";
+        ctx.fillStyle = colore1;
         ctx.font = "700 15px 'JetBrains Mono'";
         ctx.fillText(s.val, x, 118);
       });
@@ -4583,13 +4567,13 @@ function coloreTestoContrastante(hex) {
 
                   {/* FRONTE: foto, nome, squadra, ruolo, anno */}
                   <div style={facciataStile}>
-                    <img src={CIMIANO_LOGO} alt="" style={{ position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)", width: 230, opacity: 0.16, pointerEvents: "none" }} />
+                    <img src={CIMIANO_LOGO} alt="" style={{ position: "absolute", bottom: -10, left: "50%", transform: "translateX(-50%)", width: 230, opacity: 0.16, pointerEvents: "none" }} />
                     <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 20%, transparent 0%, #14181a 78%)" }} />
                     <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 42, zIndex: 2,
-                      background: "linear-gradient(90deg,#c8102e 0%,#c8102e 50%,#f6f1e4 50%,#f6f1e4 100%)",
+                      background: colore1,
                       display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span className="title-font" style={{ fontSize: 13, fontWeight: 700, letterSpacing: 1 }}>
-                        <span style={{ color: "#f6f1e4" }}>CIMI</span><span style={{ color: "#14181a" }}>ANO</span>
+                      <span className="title-font" style={{ fontSize: 13, fontWeight: 700, letterSpacing: 1, color: colore2 }}>
+                        {teamNome.split(" ")[0].toUpperCase()}
                       </span>
                     </div>
                     <div style={{ width: "100%", height: 210, position: "relative",
@@ -4603,18 +4587,21 @@ function coloreTestoContrastante(hex) {
                       )}
                     </div>
                     <div style={{ textAlign: "center", position: "relative" }}>
-                      <span className="title-font" style={{ fontSize: 20, fontWeight: 700, color: "#c8102e", letterSpacing: 0.5 }}>{p.name.toUpperCase()}</span>
+                      <span className="title-font" style={{ fontSize: 20, fontWeight: 700, color: colore1, letterSpacing: 0.5 }}>{p.name.toUpperCase()}</span>
                     </div>
                     <div className="body-font" style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 2, fontSize: 11, color: "#9fb5a5", position: "relative" }}>
                       {anno && <span>{anno}</span>}
                       {anno && ruoloAttivo && <span style={{ color: "#3a4140" }}>·</span>}
                       {ruoloAttivo && <span>{ruoloLabelLungo[ruoloAttivo.col.replace("ruolo", "")]}</span>}
+                      {!anno && !ruoloAttivo && <span style={{ fontStyle: "italic" }}>Anno e ruolo non ancora inseriti</span>}
                     </div>
+                    <div style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none",
+                      background: "linear-gradient(125deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.04) 18%, transparent 32%, transparent 62%, rgba(255,255,255,0.05) 78%, rgba(255,255,255,0.18) 100%)" }} />
                   </div>
 
                   {/* RETRO: le 5 skill e la media voto */}
                   <div style={{ ...facciataStile, transform: "rotateY(180deg)" }}>
-                    <img src={CIMIANO_LOGO} alt="" style={{ position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)", width: 230, opacity: 0.16, pointerEvents: "none" }} />
+                    <img src={CIMIANO_LOGO} alt="" style={{ position: "absolute", bottom: -10, left: "50%", transform: "translateX(-50%)", width: 230, opacity: 0.16, pointerEvents: "none" }} />
                     <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 20%, transparent 0%, #14181a 78%)" }} />
                     <div style={{ textAlign: "center", marginTop: 30, position: "relative" }}>
                       <span className="title-font" style={{ fontSize: 17, fontWeight: 700, color: "#f2f0ea" }}>{p.name.toUpperCase()}</span>
@@ -4623,10 +4610,12 @@ function coloreTestoContrastante(hex) {
                       {skillValori.map((s) => (
                         <div key={s.key} style={{ textAlign: "center" }}>
                           <div style={{ fontSize: 8, color: "#8a9088" }}>{s.key.slice(0, 3).toUpperCase()}</div>
-                          <div className="mono-font" style={{ fontSize: 13, color: "#c8102e", fontWeight: 700 }}>{s.val}</div>
+                          <div className="mono-font" style={{ fontSize: 13, color: colore1, fontWeight: 700 }}>{s.val}</div>
                         </div>
                       ))}
                     </div>
+                    <div style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none",
+                      background: "linear-gradient(125deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.04) 18%, transparent 32%, transparent 62%, rgba(255,255,255,0.05) 78%, rgba(255,255,255,0.18) 100%)" }} />
                     <div style={{ textAlign: "center", marginTop: 16, position: "relative" }}>
                       <div className="mono-font" style={{ fontSize: 40, fontWeight: 700, color: "#f2f0ea", lineHeight: 1 }}>{p.media !== null ? p.media.toFixed(1) : "—"}</div>
                       <div className="body-font" style={{ fontSize: 9, color: "#8a9088", letterSpacing: 1, marginTop: 2 }}>MEDIA VOTO{rp.maglia ? ` · #${rp.maglia}` : ""}</div>
