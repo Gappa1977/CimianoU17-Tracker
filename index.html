@@ -626,7 +626,7 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.29";
+const TRACKER_VERSION = "3.30";
 const TRACKER_VERSION_DATE = "08/09/2026@__:__";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
@@ -2282,7 +2282,7 @@ function coloreTestoContrastante(hex) {
   // cofano usa ESATTAMENTE lo stesso dato di prima (formazione1 = titolari, formazione2 = effettivo
   // in campo, aggiornato dalle sostituzioni) — nessuna migrazione di dati necessaria, tutto il resto
   // dell'app che legge formazione1/formazione2 (voti, convocati, Distinta) continua a funzionare invariato.
-  function renderFormazioneUnica(formazione1, onChangeSlot1, modulo1, onChangeModulo1, poolIniziale, formazione2, onChangeSlot2, modulo2, onChangeModulo2, convocatiIds, touched) {
+  function renderFormazioneUnica(formazione1, onChangeSlot1, modulo1, onChangeModulo1, poolIniziale, formazione2, onChangeSlot2, modulo2, onChangeModulo2, convocatiIds, touched, onToggleConvocato) {
     const moduloKey = modulo1 || DEFAULT_MODULO;
     const slots = FORMATIONS[moduloKey].slots;
     const poolRoster = rosterSorted.filter((r) => poolIniziale.includes(String(r.id)));
@@ -2296,6 +2296,12 @@ function coloreTestoContrastante(hex) {
     const idsInCampo = new Set(Object.values(effectiveBySlot).filter(Boolean));
     const panchina = (convocatiIds || []).filter((id) => !idsInCampo.has(String(id)));
     const jerseyPath = "M20,2 L20,0 L36,0 L36,2 L44,7 L56,16 L48,26 L42,21 L42,50 L14,50 L14,21 L8,26 L0,16 L12,7 Z";
+
+    // Chi viene schierato (titolare o aggiunto in panchina) diventa convocato in automatico, senza
+    // passaggio separato: idempotente, non tocca nulla se è già convocato.
+    function garantisciConvocato(id) {
+      if (!(convocatiIds || []).map(String).includes(String(id))) onToggleConvocato(id);
+    }
 
     function tapJersey(slotId) {
       if (!panchinaArmato) return;
@@ -2330,7 +2336,7 @@ function coloreTestoContrastante(hex) {
           {/* COLONNA TITOLARI */}
           <div style={{ width: colTitolariAperta ? 92 : 22, flexShrink: 0, transition: "width 0.2s" }}>
             <div onClick={() => setColTitolariAperta((v) => !v)} className="body-font"
-              style={{ fontSize: 9, color: MUTED, textTransform: "uppercase", marginBottom: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              style={{ fontSize: 10, color: colore1, fontWeight: 700, textTransform: "uppercase", marginBottom: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               {colTitolariAperta && <span>Titolari</span>}
               <span>{colTitolariAperta ? "◂" : "▸"}</span>
             </div>
@@ -2338,17 +2344,17 @@ function coloreTestoContrastante(hex) {
               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                 {slots.map((slot) => {
                   const attuale = formazione1[slot.id] ? String(formazione1[slot.id]) : "";
-                  // Filtra il pool per ruolo (flag ruoloP/D/C/A dell'anagrafica); se nessuno in rosa ha
-                  // ancora quel ruolo compilato, mostra tutti invece di una tendina vuota e inutilizzabile.
+                  // Filtro per ruolo rigoroso (flag ruoloP/D/C/A dell'anagrafica): se nessuno in rosa ha
+                  // ancora quel ruolo compilato, la tendina resta vuota invece di mostrare tutti — è il
+                  // segnale che manca da compilare l'anagrafica, non un errore.
                   const colRuolo = "ruolo" + slot.label;
-                  const perRuolo = poolRoster.filter((rp) => isFlagTrue(rp[colRuolo]) || String(rp.id) === attuale);
-                  const opzioni = perRuolo.length > 0 ? perRuolo : poolRoster;
+                  const opzioni = poolRoster.filter((rp) => isFlagTrue(rp[colRuolo]) || String(rp.id) === attuale);
                   return (
                     <div key={slot.id} style={{ display: "flex", alignItems: "center", gap: 3 }}>
                       <span className="mono-font" style={{ fontSize: 9, color: MUTED, width: 12, flexShrink: 0 }}>{slot.label}</span>
-                      <select value={attuale} onChange={(e) => onChangeSlot1(slot.id, e.target.value)} className="body-font"
+                      <select value={attuale} onChange={(e) => { onChangeSlot1(slot.id, e.target.value); if (e.target.value) garantisciConvocato(e.target.value); }} className="body-font"
                         style={{ fontSize: 9, padding: "3px 2px", borderRadius: 4, border: `1px solid ${LINE}`, background: attuale ? PANEL_BG : "transparent", color: attuale ? INK : MUTED, width: "100%", minWidth: 0 }}>
-                        <option value="">scegli</option>
+                        <option value="">{opzioni.length === 0 ? "nessuno con ruolo" : "scegli"}</option>
                         {opzioni.map((rp) => <option key={rp.id} value={rp.id}>{lastName(rp.nome)}</option>)}
                       </select>
                     </div>
@@ -2361,7 +2367,7 @@ function coloreTestoContrastante(hex) {
           {/* MAPPA */}
           <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
             <div style={{
-              position: "relative", width: "100%", aspectRatio: "3 / 4", margin: "0 auto",
+              position: "relative", width: "100%", aspectRatio: "1 / 1", margin: "0 auto",
               transform: "perspective(600px) rotateX(6deg)", borderRadius: 8, overflow: "hidden", border: "2px solid #2c6b2f",
               background: "repeating-linear-gradient(0deg, #3f9142 0px, #3f9142 11%, #368239 11%, #368239 22%)",
             }}>
@@ -2379,14 +2385,14 @@ function coloreTestoContrastante(hex) {
                     position: "absolute", left: `${slot.x}%`, top: `${slot.y}%`, transform: "translate(-50%,-50%)",
                     textAlign: "center", cursor: panchinaArmato ? "pointer" : "default",
                   }}>
-                    <svg width="30" height="28" viewBox="0 0 56 52">
+                    <svg width="46" height="43" viewBox="0 0 56 52">
                       <path d={jerseyPath}
                         fill={player ? (isSub ? colore2 : colore1) : "rgba(255,255,255,0.15)"}
                         stroke={panchinaArmato ? "#ffe08a" : "#fff"}
                         strokeWidth={panchinaArmato ? 4 : 2.5}
                         strokeDasharray={isSub ? "5 4" : "none"} />
                     </svg>
-                    <div className="body-font" style={{ fontSize: cognomeFmt ? cognomeFmt.size : 7, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}>
+                    <div className="body-font" style={{ fontSize: cognomeFmt ? cognomeFmt.size + 1.5 : 8.5, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}>
                       {player ? cognomeFmt.testo : slot.label}
                     </div>
                   </div>
@@ -2398,7 +2404,7 @@ function coloreTestoContrastante(hex) {
           {/* COLONNA PANCHINA */}
           <div style={{ width: colPanchinaAperta ? 92 : 22, flexShrink: 0, transition: "width 0.2s" }}>
             <div onClick={() => setColPanchinaAperta((v) => !v)} className="body-font"
-              style={{ fontSize: 9, color: MUTED, textTransform: "uppercase", marginBottom: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              style={{ fontSize: 10, color: colore1, fontWeight: 700, textTransform: "uppercase", marginBottom: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span>{colPanchinaAperta ? "▾" : "◂"}</span>
               {colPanchinaAperta && <span>Panchina</span>}
             </div>
@@ -2410,15 +2416,25 @@ function coloreTestoContrastante(hex) {
                   if (!rp) return null;
                   const armato = panchinaArmato === String(id);
                   return (
-                    <div key={id} onClick={() => setPanchinaArmato(armato ? null : String(id))}
-                      className="body-font"
-                      style={{ fontSize: 9, padding: "4px 5px", borderRadius: 4, cursor: "pointer", textAlign: "center",
+                    <div key={id} className="body-font"
+                      style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 9, padding: "4px 5px", borderRadius: 4,
                         border: `1px solid ${armato ? colore1 : LINE}`, background: armato ? colore1 : PANEL_BG, color: armato ? "#fff" : INK,
                         boxShadow: armato ? `0 0 6px ${colore1}99` : "none" }}>
-                      {lastName(rp.nome)}
+                      <span onClick={() => setPanchinaArmato(armato ? null : String(id))} style={{ cursor: "pointer", flex: 1, textAlign: "center" }}>
+                        {lastName(rp.nome)}
+                      </span>
+                      <span onClick={() => { if (panchinaArmato === String(id)) setPanchinaArmato(null); onToggleConvocato(id); }}
+                        title="Togli dai convocati" style={{ cursor: "pointer", opacity: 0.7, flexShrink: 0 }}>×</span>
                     </div>
                   );
                 })}
+                <select value="" onChange={(e) => { if (e.target.value) garantisciConvocato(e.target.value); }} className="body-font"
+                  style={{ fontSize: 9, padding: "3px 2px", borderRadius: 4, border: `1px dashed ${LINE}`, background: "transparent", color: MUTED }}>
+                  <option value="">+ aggiungi</option>
+                  {rosterSorted.filter((rp) => !idsInCampo.has(String(rp.id)) && !panchina.includes(String(rp.id))).map((rp) => (
+                    <option key={rp.id} value={rp.id}>{lastName(rp.nome)}</option>
+                  ))}
+                </select>
               </div>
             )}
           </div>
@@ -2945,57 +2961,31 @@ function coloreTestoContrastante(hex) {
         {isOpen && canOpenDetails && (
           <div style={{ borderTop: `1px solid ${LINE}`, padding: "10px 12px", background: PANEL_BG }}>
 
+            {/* Formazione, cambi, marcatori, cartellini, voti: accessibili anche prima che la partita finisca */}
             {roster.length > 0 && (
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontWeight: 700, fontSize: 12, color: convocatiIds.length >= 20 ? RED : MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
-                  1. Convocati ({convocatiIds.length}/20)
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {rosterSorted.map((rp) => {
-                    const isConv = !!convocati[rp.id];
-                    const blocked = !isConv && convocatiIds.length >= 20;
-                    const stato = statoInCampo(rp.id, formazioneIniziale, formazioneFinale);
-                    const bg = stato === "titolare" ? RED : stato === "sostituto" ? CYAN : isConv ? "#3aa757" : (blocked ? DISABLED_BG : PANEL_BG);
-                    const fg = (stato || isConv) ? "#fff" : (blocked ? MUTED : INK);
-                    return (
-                      <button key={rp.id} onClick={() => { if (!blocked) toggleConvocato(fx.id, rp.id); }} disabled={blocked}
-                        title={blocked ? "Limite di 20 convocati raggiunto (regolamento FIGC)" : (stato === "titolare" ? "Titolare" : stato === "sostituto" ? "Sostituto" : undefined)}
-                        style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: `1px solid ${LINE}`, background: bg, color: fg, cursor: blocked ? "not-allowed" : "pointer" }}>
-                        {rp.nome}
-                      </button>
-                    );
-                  })}
-                </div>
-                {convocatiIds.length >= 20 && (
-                  <div style={{ fontSize: 11, color: RED, marginTop: 6 }}>Limite di 20 convocati raggiunto (regolamento FIGC Under17 Elite calcio a 11).</div>
-                )}
-              </div>
-            )}
-
-            {/* Formazione, cambi, marcatori, cartellini, voti: accessibili anche prima che la partita finisca */}
-            {convocatiIds.length > 0 && (
-              <div style={{ marginBottom: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-                  <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>2. Modulo</div>
+                  <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>1. Formazione</div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: subCount > 7 ? RED : MUTED }}>
                     {subCount}/7 sostituzioni{subCount > 7 ? " — oltre il limite FIGC" : ""}
                   </div>
                 </div>
                 <div style={{ fontSize: 11, color: MUTED, marginBottom: 8, fontStyle: "italic" }}>
-                  Piazza i convocati sul campo: chi metti in campo è titolare, chi resta fuori è automaticamente in panchina.
+                  Assegna direttamente titolari e panchina: chi schieri diventa convocato in automatico, niente passaggio separato.
                 </div>
                 {renderFormazioneUnica(
                   formazioneIniziale,
                   (slotId, playerId) => setFormazione(fx.id, slotId, playerId),
                   moduloIniziale,
                   (modulo) => setModulo(fx.id, modulo),
-                  convocatiIds,
+                  roster.map((r) => String(r.id)),
                   formazioneFinale,
                   (slotId, playerId) => setFormazione2(fx.id, slotId, playerId),
                   moduloFinale,
                   (modulo) => setModulo2(fx.id, modulo),
                   convocatiIds,
-                  formazione2Touched
+                  formazione2Touched,
+                  (playerId) => toggleConvocato(fx.id, playerId)
                 )}
               </div>
             )}
@@ -3366,53 +3356,31 @@ function coloreTestoContrastante(hex) {
         {isOpen && canOpenDetails && (
           <div style={{ borderTop: `1px solid ${LINE}`, padding: "10px 12px" }}>
 
+            {/* Formazione, cambi, marcatori, cartellini, voti: accessibili anche prima di inserire il risultato finale */}
             {roster.length > 0 && (
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
-                  1. Convocati {convocatiIdsF.length > 0 && `(${convocatiIdsF.length})`}
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {rosterSorted.map((rp) => {
-                    const isConv = !!convocatiF[rp.id];
-                    const stato = statoInCampo(rp.id, formazioneInizialeF, formazioneFinaleF);
-                    const bg = stato === "titolare" ? RED : stato === "sostituto" ? CYAN : isConv ? "#3aa757" : PANEL_BG;
-                    const fg = (stato || isConv) ? "#fff" : INK;
-                    return (
-                      <button key={rp.id} onClick={() => toggleConvocatoF(f.id, rp.id)}
-                        title={stato === "titolare" ? "Titolare" : stato === "sostituto" ? "Sostituto" : undefined}
-                        style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: `1px solid ${LINE}`, background: bg, color: fg, cursor: "pointer" }}>
-                        {rp.nome}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Formazione, cambi, marcatori, cartellini, voti: accessibili anche prima di inserire il risultato finale */}
-            {convocatiIdsF.length > 0 && (
-              <div style={{ marginBottom: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-                  <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>2. Modulo</div>
+                  <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>1. Formazione</div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: subCountF > 7 ? RED : MUTED }}>
                     {subCountF}/7 sostituzioni{subCountF > 7 ? " — oltre il limite FIGC" : ""}
                   </div>
                 </div>
                 <div style={{ fontSize: 11, color: MUTED, marginBottom: 8, fontStyle: "italic" }}>
-                  Piazza i convocati sul campo: chi metti in campo è titolare, chi resta fuori è automaticamente in panchina.
+                  Assegna direttamente titolari e panchina: chi schieri diventa convocato in automatico, niente passaggio separato.
                 </div>
                 {renderFormazioneUnica(
                   formazioneInizialeF,
                   (slotId, playerId) => setFormazioneF(f.id, slotId, playerId),
                   moduloInizialeF,
                   (modulo) => setModuloF(f.id, modulo),
-                  convocatiIdsF,
+                  roster.map((r) => String(r.id)),
                   formazioneFinaleF,
                   (slotId, playerId) => setFormazioneF2(f.id, slotId, playerId),
                   moduloFinaleF,
                   (modulo) => setModuloF2(f.id, modulo),
                   convocatiIdsF,
-                  formazione2TouchedF
+                  formazione2TouchedF,
+                  (playerId) => toggleConvocatoF(f.id, playerId)
                 )}
               </div>
             )}
