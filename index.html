@@ -306,6 +306,23 @@ const NAME_MAP = {
 };
 
 const CIMIANO = "Cimiano Calcio";
+
+// Riconosce se il nome scritto a mano nel form "Aggiungi/Modifica Partita" corrisponde a una
+// squadra nota del girone (08/09/2026): tollerante a maiuscole/minuscole e spazi doppi, e passa
+// anche dalle varianti già note in NAME_MAP (es. "Cimiano" -> "Cimiano Calcio"). Usato per evitare
+// che un refuso mandi in errore il calcolo della Classifica quando quella partita avrà un risultato.
+function normalizzaNomeSquadra(nome) {
+  return String(nome || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+function squadraRiconosciuta(nome, listaSquadre) {
+  const n = normalizzaNomeSquadra(nome);
+  if (!n) return null;
+  const daNameMap = NAME_MAP[nome] || NAME_MAP[nome.trim()];
+  if (daNameMap && listaSquadre.includes(daNameMap)) return daNameMap;
+  const trovata = listaSquadre.find((t) => normalizzaNomeSquadra(t) === n);
+  return trovata || null;
+}
+
 const RED = "#c8102e";
 const GREEN = "#0f2818";
 // --- Restyling "Direzione A" (04/09/2026, Fase 1) ---
@@ -406,10 +423,8 @@ const FOTO_PREVIEW_W = 224;
 const FOTO_PREVIEW_H = 196;
 const FOTO_OUTPUT_W = 300;
 const FOTO_OUTPUT_H = 263;
-// Punto 08/09/2026 (v3): con le proporzioni corrette, resta comunque utile un perno di partenza
-// leggermente più basso del centro puro per la maggior parte delle foto (meno sfondo sopra la testa
-// di default). Il trascinamento libero permette comunque di spostarlo dove serve caso per caso.
-const FOTO_BIAS_VERTICALE = 0.68;
+// Punto 08/09/2026 (v4): abbassato ancora, in modo netto, su richiesta esplicita dopo il test.
+const FOTO_BIAS_VERTICALE = 0.85;
 // Sagoma a scudo della card giocatore (07/09/2026), concordata dopo diversi mockup: spazio 240x300.
 // Costante globale perché serve sia al modal React (clip-path CSS) sia al disegno su canvas per lo
 // scaricamento come immagine (Path2D del Canvas 2D accetta la stessa sintassi SVG).
@@ -632,8 +647,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.40";
-const TRACKER_VERSION_DATE = "08/09/2026@15.56";
+const TRACKER_VERSION = "3.41";
+const TRACKER_VERSION_DATE = "08/09/2026@16.15";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -869,6 +884,8 @@ function GironeATracker() {
 
   const [mostraFormPartita, setMostraFormPartita] = useState(false);
   const [nuovaPartitaForm, setNuovaPartitaForm] = useState({ tipo: "amichevole", avversario: "", casa: true, data: "", ora: "", golCimiano: "", golAvv: "", giornata: "", half: "andata" });
+  const [erroreNuovaPartita, setErroreNuovaPartita] = useState(null);
+  const [erroreModificaPartita, setErroreModificaPartita] = useState(null);
   const [expandedFriendly, setExpandedFriendly] = useState({});
   const [ratingDraftF, setRatingDraftF] = useState({});
   const [editingRatingF, setEditingRatingF] = useState(null); // `${friendlyId}:${voteId}`
@@ -1190,8 +1207,7 @@ function GironeATracker() {
       if (dy !== dx) return dy - dx;
       return y.gf - x.gf;
     });
-  }, [results]);
-
+  }, [results, ROUNDS]);
   const cimianoPos = standings.findIndex((s) => s.name === CIMIANO) + 1;
   const cimianoRow = standings.find((s) => s.name === CIMIANO);
   const playedCount = Object.keys(results).filter((k) => results[k] && results[k].golHome !== "" && results[k].golAway !== "").length;
@@ -1254,7 +1270,7 @@ function GironeATracker() {
       if (dy !== dx) return dy - dx;
       return y.gf - x.gf;
     });
-  }, [results]);
+  }, [results, COPPA_FIXTURES]);
 
   const playerStats = useMemo(() => {
     const map = {};
@@ -1788,6 +1804,7 @@ function GironeATracker() {
   function aggiungiPartita() {
     const d = nuovaPartitaForm;
     if (!d.avversario) return;
+    setErroreNuovaPartita(null);
     if (d.tipo === "amichevole") {
       const dataPart = d.data ? d.data.replace(/-/g, "") : "SD";
       const base = `Amic-${dataPart}-${codificaSquadra(d.avversario)}`;
@@ -1798,15 +1815,19 @@ function GironeATracker() {
       setFriendlies((prev) => [...prev, nuova]);
       window.rows.insert("Amichevoli", nuova).catch(() => {});
     } else if (d.tipo === "coppa") {
-      const home = d.casa ? "Cimiano" : d.avversario;
-      const away = d.casa ? d.avversario : "Cimiano";
+      const canonico = squadraRiconosciuta(d.avversario, COPPA_TEAMS);
+      if (!canonico) { setErroreNuovaPartita(`"${d.avversario}" non è tra le squadre della Coppa (${COPPA_TEAMS.filter((t) => t !== CIMIANO).join(", ")}). Controlla il nome.`); return; }
+      const home = d.casa ? "Cimiano" : canonico;
+      const away = d.casa ? canonico : "Cimiano";
       const id = `Copp-manual-${Date.now()}`;
       const nuova = { id, home, away, data: d.data, ora: d.ora };
       setCOPPA_FIXTURES((prev) => [...prev, nuova].sort((a, b) => a.data.localeCompare(b.data)));
       window.rows.insert("CalendarioCoppa", nuova).catch(() => {});
     } else {
-      const home = d.casa ? "Cimiano" : d.avversario;
-      const away = d.casa ? d.avversario : "Cimiano";
+      const canonico = squadraRiconosciuta(d.avversario, TEAMS);
+      if (!canonico) { setErroreNuovaPartita(`"${d.avversario}" non è tra le squadre del girone. Controlla il nome (deve corrispondere esattamente a una squadra del Campionato).`); return; }
+      const home = d.casa ? "Cimiano" : canonico;
+      const away = d.casa ? canonico : "Cimiano";
       const giornataNum = Number(d.giornata) || 1;
       const half = d.half === "ritorno" ? "ritorno" : "andata";
       const id = `manual-${giornataNum}${half === "ritorno" ? "R" : "A"}-${Date.now()}`;
@@ -1932,8 +1953,14 @@ function GironeATracker() {
   function saveEditFixtureDate(fx) {
     const tipo = tipoDaFixtureId(fx.id);
     const d = fixtureDateDraft;
-    const home = d.casa ? "Cimiano" : d.avversario;
-    const away = d.casa ? d.avversario : "Cimiano";
+    setErroreModificaPartita(null);
+    const canonico = squadraRiconosciuta(d.avversario, tipo === "coppa" ? COPPA_TEAMS : TEAMS);
+    if (!canonico) {
+      setErroreModificaPartita(`"${d.avversario}" non è tra le squadre ${tipo === "coppa" ? "della Coppa" : "del girone"}. Controlla il nome.`);
+      return;
+    }
+    const home = d.casa ? "Cimiano" : canonico;
+    const away = d.casa ? canonico : "Cimiano";
     if (tipo === "coppa") {
       setCOPPA_FIXTURES((prev) => prev.map((f) => (f.id === fx.id ? { ...f, home, away, data: d.data, ora: d.ora } : f)));
       window.rows.upsert("CalendarioCoppa", { id: fx.id }, { home, away, data: d.data, ora: d.ora }).catch(() => {});
@@ -3155,7 +3182,10 @@ function coloreTestoContrastante(hex) {
             <input type="time" value={fixtureDateDraft.ora || ""} onChange={(e) => setFixtureDateDraft((p) => ({ ...p, ora: e.target.value }))}
               style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
             <button onClick={() => saveEditFixtureDate(fx)} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
-            <button onClick={() => setEditingFixtureDate(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
+            <button onClick={() => { setEditingFixtureDate(null); setErroreModificaPartita(null); }} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
+            {erroreModificaPartita && (
+              <div style={{ width: "100%", fontSize: 11, color: RED }}>{erroreModificaPartita}</div>
+            )}
           </div>
         ) : (
         <div style={{ padding: metaLabel ? "4px 12px 4px" : "8px 12px 4px" }}>
@@ -4218,8 +4248,11 @@ function coloreTestoContrastante(hex) {
                 <button onClick={aggiungiPartita} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>
                   Aggiungi
                 </button>
-                <span onClick={() => setMostraFormPartita(false)} style={{ alignSelf: "center", color: MUTED, fontSize: 12, cursor: "pointer" }}>annulla</span>
+                <span onClick={() => { setMostraFormPartita(false); setErroreNuovaPartita(null); }} style={{ alignSelf: "center", color: MUTED, fontSize: 12, cursor: "pointer" }}>annulla</span>
               </div>
+              {erroreNuovaPartita && (
+                <div style={{ fontSize: 11, color: RED, marginBottom: 6 }}>{erroreNuovaPartita}</div>
+              )}
               <div style={{ fontSize: 11, color: MUTED }}>
                 {nuovaPartitaForm.tipo === "amichevole"
                   ? "Se la partita non si è ancora giocata, lascia vuoti i gol: comparirà come \"in programma\" e potrai aggiungere il risultato dopo."
