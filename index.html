@@ -626,8 +626,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.32";
-const TRACKER_VERSION_DATE = "08/09/2026@11.35";
+const TRACKER_VERSION = "3.33";
+const TRACKER_VERSION_DATE = "08/09/2026@11.55";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -1783,6 +1783,34 @@ function GironeATracker() {
     // Nota: il foglio "Amichevoli" (Fase 3) non ha più il campo "note" (spostato da tempo nel Voto Squadra).
     window.rows.insert("Amichevoli", nuova).catch(() => {});
     setFForm({ avversario: "", golCimiano: "", golAvv: "", data: "", ora: "", note: "" });
+  }
+
+  // Riavvia formazione (08/09/2026): pensata per le partite con dati di test lasciati da PRIMA del
+  // nuovo sistema formazione, dove il flag nascosto "formazione2Touched" resta agganciato a un dato
+  // vecchio anche dopo aver cancellato titolari/panchina a mano. Cancella titolari, panchina,
+  // sostituzioni, modulo E quel flag, per una partita sola — non tocca voti/marcatori/cartellini.
+  function riavviaFormazione(fixtureId, isFriendly) {
+    const ok = window.confirm("Riavviare la formazione di questa partita? Titolari, panchina, modulo e sostituzioni verranno cancellati (voti, marcatori e cartellini restano).");
+    if (!ok) return;
+    if (isFriendly) {
+      setFriendlyConvocati((prev) => { const next = { ...prev }; delete next[fixtureId]; return next; });
+      setFriendlyFormazione((prev) => { const next = { ...prev }; delete next[fixtureId]; return next; });
+      setFriendlyFormazione2((prev) => { const next = { ...prev }; delete next[fixtureId]; return next; });
+      setFriendlyModuloState((prev) => { const next = { ...prev }; delete next[fixtureId]; return next; });
+      setFriendlyModulo2State((prev) => { const next = { ...prev }; delete next[fixtureId]; return next; });
+      setFriendlyFormazione2Touched((prev) => { const next = { ...prev }; delete next[fixtureId]; return next; });
+    } else {
+      setDetailsShared((prev) => {
+        if (!prev[fixtureId]) return prev;
+        return { ...prev, [fixtureId]: { ...prev[fixtureId], convocati: {}, formazione: {}, formazione2: {}, modulo: undefined, modulo2: undefined, formazione2Touched: false } };
+      });
+    }
+    (async () => {
+      await window.rows.remove("Convocati", { fixtureId }).catch(() => {});
+      await window.rows.remove("Formazioni", { fixtureId }).catch(() => {});
+      await window.rows.remove("Moduli", { fixtureId }).catch(() => {});
+      await window.rows.remove("Impostazioni", { chiave: "formazione2Touched:" + fixtureId }).catch(() => {});
+    })();
   }
 
   function removeFriendly(id) {
@@ -3041,7 +3069,10 @@ function coloreTestoContrastante(hex) {
             {roster.length > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-                  <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>1. Formazione</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>1. Formazione</div>
+                    <span onClick={() => riavviaFormazione(fx.id, false)} style={{ fontSize: 10, color: MUTED, cursor: "pointer", textDecoration: "underline" }}>Riavvia</span>
+                  </div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: subCount > 7 ? RED : MUTED }}>
                     {subCount}/7 sostituzioni{subCount > 7 ? " — oltre il limite FIGC" : ""}
                   </div>
@@ -3436,7 +3467,10 @@ function coloreTestoContrastante(hex) {
             {roster.length > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-                  <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>1. Formazione</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>1. Formazione</div>
+                    <span onClick={() => riavviaFormazione(f.id, true)} style={{ fontSize: 10, color: MUTED, cursor: "pointer", textDecoration: "underline" }}>Riavvia</span>
+                  </div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: subCountF > 7 ? RED : MUTED }}>
                     {subCountF}/7 sostituzioni{subCountF > 7 ? " — oltre il limite FIGC" : ""}
                   </div>
