@@ -647,8 +647,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.41";
-const TRACKER_VERSION_DATE = "08/09/2026@16.15";
+const TRACKER_VERSION = "3.42";
+const TRACKER_VERSION_DATE = "08/09/2026@16.30";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -2491,9 +2491,9 @@ function coloreTestoContrastante(hex) {
           )}
         </div>
 
-        <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+        <div className="formazione-grid">
           {/* COLONNA TITOLARI */}
-          <div style={{ width: colTitolariAperta ? 92 : 22, flexShrink: 0, transition: "width 0.2s" }}>
+          <div style={{ gridArea: "tit", width: colTitolariAperta ? "100%" : 22, maxWidth: colTitolariAperta ? 140 : 22, transition: "width 0.2s" }}>
             <div onClick={() => setColTitolariAperta((v) => !v)} className="body-font"
               style={{ fontSize: 10, color: colore1, fontWeight: 700, textTransform: "uppercase", marginBottom: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               {colTitolariAperta && <span>Titolari</span>}
@@ -2524,7 +2524,7 @@ function coloreTestoContrastante(hex) {
           </div>
 
           {/* MAPPA */}
-          <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
+          <div style={{ gridArea: "mappa", minWidth: 0, position: "relative" }}>
             <div style={{
               position: "relative", width: "100%", aspectRatio: "1 / 1", margin: "0 auto",
               transform: "perspective(600px) rotateX(6deg)", borderRadius: 8, overflow: "hidden", border: "2px solid #2c6b2f",
@@ -2563,7 +2563,7 @@ function coloreTestoContrastante(hex) {
           </div>
 
           {/* COLONNA PANCHINA */}
-          <div style={{ width: colPanchinaAperta ? 92 : 22, flexShrink: 0, transition: "width 0.2s" }}>
+          <div style={{ gridArea: "panch", width: colPanchinaAperta ? "100%" : 22, maxWidth: colPanchinaAperta ? 140 : 22, transition: "width 0.2s" }}>
             <div onClick={() => setColPanchinaAperta((v) => !v)} className="body-font"
               style={{ fontSize: 10, color: colore1, fontWeight: 700, textTransform: "uppercase", marginBottom: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span>{colPanchinaAperta ? "▾" : "◂"}</span>
@@ -3996,6 +3996,12 @@ function coloreTestoContrastante(hex) {
         .dual-pitch-wrapper { display: flex; flex-direction: column; gap: 20px; }
         @media (min-width: 700px) {
           .dual-pitch-wrapper { flex-direction: row; gap: 14px; }
+        }
+        /* Formazione v2 (08/09/2026): da cellulare, Titolari e Panchina affiancati sopra, Mappa sotto
+           a piena larghezza — le tre colonne fianco a fianco diventavano imbarazzanti su schermo stretto. */
+        .formazione-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-areas: "tit panch" "mappa mappa"; gap: 10px 8px; align-items: start; }
+        @media (min-width: 700px) {
+          .formazione-grid { grid-template-columns: auto 1fr auto; grid-template-areas: "tit mappa panch"; align-items: start; }
         }
         @media print {
           body * { visibility: hidden; }
