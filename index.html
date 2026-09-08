@@ -626,8 +626,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.34";
-const TRACKER_VERSION_DATE = "08/09/2026@12.05";
+const TRACKER_VERSION = "3.35";
+const TRACKER_VERSION_DATE = "08/09/2026@12.20";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -1088,10 +1088,15 @@ function GironeATracker() {
             voterOptionsExtraFinal.push(r.valore);
           } else if (chiave.indexOf("formazione2Touched:") === 0) {
             const fixtureId = chiave.slice("formazione2Touched:".length);
-            // Non sappiamo qui se l'id appartiene a una partita ufficiale o a un'amichevole: lo segniamo
-            // in entrambi i posti possibili, è innocuo perché ciascuno viene letto solo dal proprio contesto.
-            friendlyFormazione2TouchedFinal[fixtureId] = true;
-            detailEntry(fixtureId).formazione2Touched = true;
+            // Punto 08/09/2026: il flag conta solo se valore è "1" (non la sola presenza della riga),
+            // così "Riavvia formazione" può azzerarlo con una scrittura esplicita (upsert, già affidabile)
+            // invece di una remove che se fallisce o arriva in ritardo lascia il flag bloccato a vero.
+            if (r.valore === "1") {
+              // Non sappiamo qui se l'id appartiene a una partita ufficiale o a un'amichevole: lo segniamo
+              // in entrambi i posti possibili, è innocuo perché ciascuno viene letto solo dal proprio contesto.
+              friendlyFormazione2TouchedFinal[fixtureId] = true;
+              detailEntry(fixtureId).formazione2Touched = true;
+            }
           } else if (chiave === "teamNome" && r.valore) {
             teamNomeFinal = r.valore;
           } else if (chiave === "teamCategoria" && r.valore) {
@@ -1811,7 +1816,7 @@ function GironeATracker() {
       await window.rows.remove("Convocati", { fixtureId }).catch(() => {});
       await window.rows.remove("Formazioni", { fixtureId }).catch(() => {});
       await window.rows.remove("Moduli", { fixtureId }).catch(() => {});
-      await window.rows.remove("Impostazioni", { chiave: "formazione2Touched:" + fixtureId }).catch(() => {});
+      await window.rows.upsert("Impostazioni", { chiave: "formazione2Touched:" + fixtureId }, { valore: "0" }).catch(() => {});
     })();
   }
 
