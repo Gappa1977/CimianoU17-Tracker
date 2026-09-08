@@ -626,8 +626,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.28";
-const TRACKER_VERSION_DATE = "07/09/2026@23.50";
+const TRACKER_VERSION = "3.29";
+const TRACKER_VERSION_DATE = "08/09/2026@__:__";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -785,6 +785,9 @@ function GironeATracker() {
   const [distintaModal, setDistintaModal] = useState(null); // { titolo, sottotitolo, modulo, formazione, convocatiIds }
   const [playerCardModal, setPlayerCardModal] = useState(null); // { p, rp } — card stile figurina
   const [cardFlipped, setCardFlipped] = useState(false); // false = fronte, true = retro
+  const [colTitolariAperta, setColTitolariAperta] = useState(true);
+  const [colPanchinaAperta, setColPanchinaAperta] = useState(true);
+  const [panchinaArmato, setPanchinaArmato] = useState(null); // playerId del panchinaro selezionato, in attesa di toccare il titolare da sostituire
   const [fotoUploading, setFotoUploading] = useState(null); // id del giocatore la cui foto si sta caricando
   const [fotoCropModal, setFotoCropModal] = useState(null); // { rp, objectUrl, naturalW, naturalH, scala0, zoom, offsetX, offsetY }
   const [teamNome, setTeamNome] = useState(DEFAULT_TEAM_NOME);
@@ -2252,20 +2255,15 @@ function GironeATracker() {
 // una riga se corto, spezzato a metà dei caratteri su due righe se serve, troncato con puntini come
 // ultima spiaggia per i cognomi davvero lunghi (es. "Mancagnello") dove nemmeno due righe bastano a
 // stare leggibili. "big" = mappa compatta più grande (maglia da 54px) rispetto a quella normale (46px).
-function formattaCognomeMaglia(cognome, big) {
+// Adatta il cognome a UNA sola riga (07/09/2026, sistema formazione v2): il font si restringe in
+// base alla lunghezza, con troncamento come ultima spiaggia per i cognomi davvero lunghi.
+function formattaCognomeUnaRiga(cognome) {
   const nome = (cognome || "").toUpperCase();
   const L = nome.length;
-  if (L <= 6) return { righe: [nome], size: big ? 9 : 8 };
-  if (L <= 8) return { righe: [nome], size: big ? 7.5 : 6.5 };
-  const mid = Math.ceil(L / 2);
-  let r1 = nome.slice(0, mid), r2 = nome.slice(mid);
-  let size = big ? 7 : 6;
-  if (L > 14) {
-    r1 = r1.slice(0, 7);
-    r2 = r2.slice(0, 6) + "…";
-    size = big ? 6.5 : 5.5;
-  }
-  return { righe: [r1, r2], size };
+  if (L <= 6) return { testo: nome, size: 9 };
+  if (L <= 9) return { testo: nome, size: 7.5 };
+  if (L <= 12) return { testo: nome, size: 6.5 };
+  return { testo: nome.slice(0, 11) + "…", size: 6.5 };
 }
 
 // Sceglie testo bianco o quasi-nero a seconda di quanto è chiaro lo sfondo (luminanza percepita),
@@ -2278,170 +2276,151 @@ function coloreTestoContrastante(hex) {
   return luminanza > 0.6 ? "#14181a" : "#ffffff";
 }
 
-  function renderPitch(formazione, onChangeSlot, modulo, onChangeModulo, playerPool, opts) {
-    opts = opts || {};
-    const compact = !!opts.compact;
-    const moduloKey = modulo || DEFAULT_MODULO;
+  // Sistema formazione v2 (07/09/2026): sostituisce le due mappe fianco a fianco con un'unica mappa
+  // più grande, colonna Titolari a sinistra (modulo unico, ruolo assegnato dal modulo) e colonna
+  // Panchina a destra, sostituzioni a tocca-tocca invece che a menù a tendina sulla mappa. Sotto il
+  // cofano usa ESATTAMENTE lo stesso dato di prima (formazione1 = titolari, formazione2 = effettivo
+  // in campo, aggiornato dalle sostituzioni) — nessuna migrazione di dati necessaria, tutto il resto
+  // dell'app che legge formazione1/formazione2 (voti, convocati, Distinta) continua a funzionare invariato.
+  function renderFormazioneUnica(formazione1, onChangeSlot1, modulo1, onChangeModulo1, poolIniziale, formazione2, onChangeSlot2, modulo2, onChangeModulo2, convocatiIds, touched) {
+    const moduloKey = modulo1 || DEFAULT_MODULO;
     const slots = FORMATIONS[moduloKey].slots;
-    // Punto 16: opzioni della tendina ordinate per cognome, ereditando l'ordine da rosterSorted.
-    const poolRoster = rosterSorted.filter((r) => playerPool.includes(String(r.id)));
-    // Punto 14: pallini ingranditi del 50% in modalità compact (34px -> 51px); invariati altrove.
-    const circleSize = compact ? 51 : 44;
-    const labelFont = compact ? 9 : 9;
-    const pitchMaxWidth = compact ? "100%" : 320;
-    // Valore di ogni slot (sempre dato reale: la mappa 2 ora è una copia scritta per davvero di formazione1,
-    // finché l'utente non la tocca — vedi setFormazione/setModulo/setFormazione2/setModulo2), usato per:
-    // colore titolare/subentrato ed evitare che lo stesso giocatore compaia in più di uno slot di questa mappa.
-    const effectiveBySlot = {};
-    slots.forEach((slot) => {
-      effectiveBySlot[slot.id] = formazione[slot.id] ? String(formazione[slot.id]) : "";
-    });
-    const startersIds = opts.startersIds || null;
-    // Punto 12: valori dell'ALTRA mappa (stesso concetto di effectiveBySlot ma calcolato altrove in
-    // renderDualPitch), usati per escludere dalle opzioni anche chi è già piazzato là, non solo qui.
-    const otherEff = opts.otherMapEffective || {};
-    // Punto 11: stile leggibile per le <option> della tendina aperta, senza toccare l'aspetto del
-    // pallino chiuso (che resta piccolo e colorato, gestito dallo style del <select> stesso).
-    const optionStyle = { color: INK, background: PANEL_BG, fontSize: 15 };
-    return (
-      <div>
-        {!compact && (
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-            {Object.entries(FORMATIONS).map(([key, f]) => (
-              <button key={key} onClick={() => onChangeModulo(key)}
-                style={{ fontSize: 11, padding: "4px 10px", borderRadius: 10, border: `1px solid ${LINE}`, background: moduloKey === key ? colore1 : PANEL_BG, color: moduloKey === key ? "#fff" : INK, cursor: "pointer", fontWeight: 600 }}>
-                {f.label}
-              </button>
-            ))}
-          </div>
-        )}
-        {compact && (
-          <select value={moduloKey} onChange={(e) => onChangeModulo(e.target.value)}
-            style={{ fontSize: 10, padding: "2px 4px", border: `1px solid ${LINE}`, borderRadius: 4, marginBottom: 6, width: "100%" }}>
-            {Object.entries(FORMATIONS).map(([key, f]) => (
-              <option key={key} value={key}>{f.label}</option>
-            ))}
-          </select>
-        )}
-        {poolRoster.length === 0 && (
-          <div style={{ fontSize: 11, color: MUTED, marginBottom: 8 }}>Nessun giocatore disponibile da piazzare qui al momento.</div>
-        )}
-        {(() => {
-          // Colore sociale di questa mappa (07/09/2026): 1° colore per la mappa Inizio, 2° per Cambi/Fine.
-          const mapColor = opts.mappaNumero === 2 ? colore2 : colore1;
-          const jerseyTextColor = coloreTestoContrastante(mapColor);
-          const jerseySize = compact ? 56 : 48;
-          // Punto 07/09/2026 (rivisto): quadrato arrotondato invece della maglietta con maniche. Più
-          // compatto e senza spazio sprecato ai lati, così una linea affollata (5 a centrocampo) ci
-          // sta senza sovrapporsi, senza bisogno di sfalsare le posizioni (tolto: rendeva la mappa
-          // disordinata invece di più leggibile).
-          return (
-        <div style={{
-          position: "relative", width: "100%", maxWidth: pitchMaxWidth, aspectRatio: "2 / 3", margin: "0 auto",
-          background: "linear-gradient(180deg, #3f9142 0%, #368239 100%)", borderRadius: 8, border: `2px solid #2c6b2f`, overflow: "hidden",
-        }}>
-          {/* linee di campo */}
-          <div style={{ position: "absolute", left: "10%", right: "10%", top: "50%", height: 1, background: "rgba(255,255,255,0.5)" }} />
-          <div style={{ position: "absolute", left: "50%", top: "50%", width: compact ? 36 : 60, height: compact ? 36 : 60, border: "1px solid rgba(255,255,255,0.5)", borderRadius: "50%", transform: "translate(-50%,-50%)" }} />
-          <div style={{ position: "absolute", left: "25%", right: "25%", bottom: 0, height: "14%", border: "1px solid rgba(255,255,255,0.5)", borderTop: "none" }} />
-          <div style={{ position: "absolute", left: "25%", right: "25%", top: 0, height: "14%", border: "1px solid rgba(255,255,255,0.5)", borderBottom: "none" }} />
-          {slots.map((slot) => {
-            const playerId = effectiveBySlot[slot.id];
-            const player = roster.find((r) => String(r.id) === playerId);
-            const isSub = startersIds ? (!!playerId && !startersIds.has(playerId)) : false;
-            // Punto 12: un giocatore già piazzato in UN ALTRO slot — di QUESTA mappa o dell'ALTRA — non
-            // compare più tra le opzioni (resta comunque visibile/selezionabile nello slot dove è già
-            // piazzato lui stesso, incluso il proprio slot.id nell'altra mappa: continuità dello stesso
-            // titolare che gioca senza cambi).
-            const usedElsewhereSameMap = new Set(
-              Object.entries(effectiveBySlot).filter(([sId, pId]) => sId !== slot.id && pId).map(([, pId]) => pId)
-            );
-            const usedElsewhereOtherMap = new Set(
-              Object.entries(otherEff).filter(([sId, pId]) => sId !== slot.id && pId).map(([, pId]) => pId)
-            );
-            const usedElsewhere = new Set([...usedElsewhereSameMap, ...usedElsewhereOtherMap]);
-            const optionsForThisSlot = poolRoster.filter((rp) => String(rp.id) === playerId || !usedElsewhere.has(String(rp.id)));
-            const cognomeFmt = player ? formattaCognomeMaglia(lastName(player.nome), compact) : null;
-            return (
-              <div key={slot.id} style={{ position: "absolute",
-                left: `calc(${jerseySize / 2}px + (100% - ${jerseySize}px) * ${slot.x / 100})`,
-                top: `calc(${jerseySize / 2}px + (100% - ${jerseySize}px) * ${slot.y / 100})`,
-                transform: "translate(-50%,-50%)", textAlign: "center" }}>
-                <div style={{ position: "relative", width: jerseySize, height: jerseySize, margin: "0 auto" }}>
-                  {/* Maglietta stilizzata: colore sociale della mappa, contorno tratteggiato per i subentrati */}
-                  <div style={{
-                    width: jerseySize, height: jerseySize, borderRadius: 8,
-                    border: player ? `2px ${isSub ? "dashed" : "solid"} #fff` : "2px solid rgba(255,255,255,0.6)",
-                    background: player ? mapColor : "rgba(255,255,255,0.15)",
-                    display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", pointerEvents: "none", overflow: "hidden",
-                  }}>
-                    {player ? (
-                      <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.05, padding: "0 2px" }}>
-                        {cognomeFmt.righe.map((riga, i) => (
-                          <span key={i} style={{ fontSize: cognomeFmt.size, fontWeight: 700, color: jerseyTextColor, whiteSpace: "nowrap" }}>{riga}</span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span style={{ fontSize: compact ? 8 : 9, fontWeight: 700, color: "#fff" }}>{slot.label}</span>
-                    )}
-                  </div>
-                  {/* Select invisibile sovrapposto: gestisce il tap/click, mostra nome+cognome su una riga nella lista */}
-                  <select value={playerId} onChange={(e) => onChangeSlot(slot.id, e.target.value)}
-                    style={{
-                      position: "absolute", inset: 0, width: jerseySize, height: jerseySize,
-                      opacity: 0, cursor: "pointer", appearance: "none", border: "none", padding: 0,
-                    }}>
-                    <option value="" style={optionStyle}>{slot.label}</option>
-                    {optionsForThisSlot.map((rp) => (
-                      <option key={rp.id} value={rp.id} style={optionStyle}>{rp.nome}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-          );
-        })()}
-      </div>
-    );
-  }
-
-  function renderDualPitch(formazione1, onChangeSlot1, modulo1, onChangeModulo1, poolIniziale, formazione2, onChangeSlot2, modulo2, onChangeModulo2, convocatiIds, touched) {
-    const modulo1Key = modulo1 || DEFAULT_MODULO;
-    const modulo2Key = modulo2 || DEFAULT_MODULO;
-    // Titolari = tutti i playerId presenti in QUALSIASI slot di formazione1, indipendentemente da slot/modulo:
-    // così il colore titolare/subentrato sulla mappa 2 è corretto anche quando i due moduli differiscono.
+    const poolRoster = rosterSorted.filter((r) => poolIniziale.includes(String(r.id)));
     const startersIds = new Set(Object.values(formazione1 || {}).filter(Boolean).map(String));
-    // Punto 12: valore reale di ogni slot per CIASCUNA mappa, usato per l'esclusione incrociata dentro
-    // renderPitch (ogni mappa riceve l'effectiveBySlot dell'ALTRA come opts.otherMapEffective).
-    const eff1 = {};
-    FORMATIONS[modulo1Key].slots.forEach((s) => { eff1[s.id] = formazione1[s.id] ? String(formazione1[s.id]) : ""; });
-    const eff2 = {};
-    FORMATIONS[modulo2Key].slots.forEach((s) => { eff2[s.id] = formazione2[s.id] ? String(formazione2[s.id]) : ""; });
+    // Effettivo in campo per ogni slot: se la mappa 2 non è ancora stata toccata manualmente, rispecchia
+    // la formazione iniziale; una volta toccata (anche una sola sostituzione fatta) usa i suoi valori.
+    const effectiveBySlot = {};
+    slots.forEach((s) => {
+      effectiveBySlot[s.id] = touched ? (formazione2[s.id] ? String(formazione2[s.id]) : "") : (formazione1[s.id] ? String(formazione1[s.id]) : "");
+    });
+    const idsInCampo = new Set(Object.values(effectiveBySlot).filter(Boolean));
+    const panchina = (convocatiIds || []).filter((id) => !idsInCampo.has(String(id)));
+    const jerseyPath = "M20,2 L20,0 L36,0 L36,2 L44,7 L56,16 L48,26 L42,21 L42,50 L14,50 L14,21 L8,26 L0,16 L12,7 Z";
+
+    function tapJersey(slotId) {
+      if (!panchinaArmato) return;
+      onChangeSlot2(slotId, panchinaArmato);
+      setPanchinaArmato(null);
+    }
+
     return (
       <div>
-        <div style={{ display: "flex", gap: 14, marginBottom: 8, fontSize: 11, color: MUTED }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: 11, color: MUTED }}>Modulo</span>
+          <select value={moduloKey} onChange={(e) => { onChangeModulo1(e.target.value); onChangeModulo2(e.target.value); }} className="body-font"
+            style={{ fontSize: 12, padding: "4px 8px", borderRadius: 6, border: `1px solid ${LINE}`, background: PANEL_BG, color: INK }}>
+            {Object.entries(FORMATIONS).map(([key, f]) => <option key={key} value={key}>{f.label}</option>)}
+          </select>
+        </div>
+        <div style={{ display: "flex", gap: 14, marginBottom: 8, fontSize: 11, color: MUTED, flexWrap: "wrap" }}>
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ width: 12, height: 12, borderRadius: 2, background: colore1, border: "2px solid #fff", display: "inline-block" }} /> Titolare
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ width: 12, height: 12, borderRadius: 2, background: colore2, border: "2px dashed #fff", display: "inline-block" }} /> Subentrato
           </span>
+          {panchinaArmato && (
+            <span style={{ color: colore1, fontWeight: 700 }}>
+              {lastName((roster.find((r) => String(r.id) === panchinaArmato) || {}).nome || "")} pronto a entrare: tocca il titolare da sostituire
+            </span>
+          )}
         </div>
-        <div style={{ fontSize: 11, color: MUTED, marginBottom: 8, fontStyle: "italic" }}>
-          {touched
-            ? "Mappa 2 gestita manualmente: da qui in poi le modifiche a INIZIO non la toccano più."
-            : "Mappa 2 agganciata a INIZIO: si aggiorna in automatico finché non la tocchi direttamente."}
-        </div>
-        <div className="dual-pitch-wrapper">
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 10, color: MUTED, marginBottom: 4, fontWeight: 700, textAlign: "center" }}>INIZIO</div>
-            {renderPitch(formazione1, onChangeSlot1, modulo1Key, onChangeModulo1, poolIniziale, { compact: true, otherMapEffective: eff2, mappaNumero: 1 })}
+
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+          {/* COLONNA TITOLARI */}
+          <div style={{ width: colTitolariAperta ? 92 : 22, flexShrink: 0, transition: "width 0.2s" }}>
+            <div onClick={() => setColTitolariAperta((v) => !v)} className="body-font"
+              style={{ fontSize: 9, color: MUTED, textTransform: "uppercase", marginBottom: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              {colTitolariAperta && <span>Titolari</span>}
+              <span>{colTitolariAperta ? "◂" : "▸"}</span>
+            </div>
+            {colTitolariAperta && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {slots.map((slot) => {
+                  const attuale = formazione1[slot.id] ? String(formazione1[slot.id]) : "";
+                  // Filtra il pool per ruolo (flag ruoloP/D/C/A dell'anagrafica); se nessuno in rosa ha
+                  // ancora quel ruolo compilato, mostra tutti invece di una tendina vuota e inutilizzabile.
+                  const colRuolo = "ruolo" + slot.label;
+                  const perRuolo = poolRoster.filter((rp) => isFlagTrue(rp[colRuolo]) || String(rp.id) === attuale);
+                  const opzioni = perRuolo.length > 0 ? perRuolo : poolRoster;
+                  return (
+                    <div key={slot.id} style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                      <span className="mono-font" style={{ fontSize: 9, color: MUTED, width: 12, flexShrink: 0 }}>{slot.label}</span>
+                      <select value={attuale} onChange={(e) => onChangeSlot1(slot.id, e.target.value)} className="body-font"
+                        style={{ fontSize: 9, padding: "3px 2px", borderRadius: 4, border: `1px solid ${LINE}`, background: attuale ? PANEL_BG : "transparent", color: attuale ? INK : MUTED, width: "100%", minWidth: 0 }}>
+                        <option value="">scegli</option>
+                        {opzioni.map((rp) => <option key={rp.id} value={rp.id}>{lastName(rp.nome)}</option>)}
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 10, color: MUTED, marginBottom: 4, fontWeight: 700, textAlign: "center" }}>CAMBI / FINE</div>
-            {renderPitch(formazione2, onChangeSlot2, modulo2Key, onChangeModulo2, convocatiIds, { compact: true, startersIds, otherMapEffective: eff1, mappaNumero: 2 })}
+
+          {/* MAPPA */}
+          <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
+            <div style={{
+              position: "relative", width: "100%", aspectRatio: "3 / 4", margin: "0 auto",
+              transform: "perspective(600px) rotateX(6deg)", borderRadius: 8, overflow: "hidden", border: "2px solid #2c6b2f",
+              background: "repeating-linear-gradient(0deg, #3f9142 0px, #3f9142 11%, #368239 11%, #368239 22%)",
+            }}>
+              <div style={{ position: "absolute", left: "8%", right: "8%", top: "50%", height: 1, background: "rgba(255,255,255,0.5)" }} />
+              <div style={{ position: "absolute", left: "50%", top: "50%", width: 46, height: 46, border: "1px solid rgba(255,255,255,0.5)", borderRadius: "50%", transform: "translate(-50%,-50%)" }} />
+              <div style={{ position: "absolute", left: "22%", right: "22%", bottom: 0, height: "14%", border: "1px solid rgba(255,255,255,0.5)", borderTop: "none" }} />
+              <div style={{ position: "absolute", left: "22%", right: "22%", top: 0, height: "14%", border: "1px solid rgba(255,255,255,0.5)", borderBottom: "none" }} />
+              {slots.map((slot) => {
+                const playerId = effectiveBySlot[slot.id];
+                const player = playerId ? roster.find((r) => String(r.id) === playerId) : null;
+                const isSub = !!playerId && !startersIds.has(playerId);
+                const cognomeFmt = player ? formattaCognomeUnaRiga(lastName(player.nome)) : null;
+                return (
+                  <div key={slot.id} onClick={() => tapJersey(slot.id)} style={{
+                    position: "absolute", left: `${slot.x}%`, top: `${slot.y}%`, transform: "translate(-50%,-50%)",
+                    textAlign: "center", cursor: panchinaArmato ? "pointer" : "default",
+                  }}>
+                    <svg width="30" height="28" viewBox="0 0 56 52">
+                      <path d={jerseyPath}
+                        fill={player ? (isSub ? colore2 : colore1) : "rgba(255,255,255,0.15)"}
+                        stroke={panchinaArmato ? "#ffe08a" : "#fff"}
+                        strokeWidth={panchinaArmato ? 4 : 2.5}
+                        strokeDasharray={isSub ? "5 4" : "none"} />
+                    </svg>
+                    <div className="body-font" style={{ fontSize: cognomeFmt ? cognomeFmt.size : 7, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}>
+                      {player ? cognomeFmt.testo : slot.label}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* COLONNA PANCHINA */}
+          <div style={{ width: colPanchinaAperta ? 92 : 22, flexShrink: 0, transition: "width 0.2s" }}>
+            <div onClick={() => setColPanchinaAperta((v) => !v)} className="body-font"
+              style={{ fontSize: 9, color: MUTED, textTransform: "uppercase", marginBottom: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span>{colPanchinaAperta ? "▾" : "◂"}</span>
+              {colPanchinaAperta && <span>Panchina</span>}
+            </div>
+            {colPanchinaAperta && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {panchina.length === 0 && <div style={{ fontSize: 9, color: MUTED, fontStyle: "italic" }}>Nessuno</div>}
+                {panchina.map((id) => {
+                  const rp = roster.find((r) => String(r.id) === String(id));
+                  if (!rp) return null;
+                  const armato = panchinaArmato === String(id);
+                  return (
+                    <div key={id} onClick={() => setPanchinaArmato(armato ? null : String(id))}
+                      className="body-font"
+                      style={{ fontSize: 9, padding: "4px 5px", borderRadius: 4, cursor: "pointer", textAlign: "center",
+                        border: `1px solid ${armato ? colore1 : LINE}`, background: armato ? colore1 : PANEL_BG, color: armato ? "#fff" : INK,
+                        boxShadow: armato ? `0 0 6px ${colore1}99` : "none" }}>
+                      {lastName(rp.nome)}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -3005,7 +2984,7 @@ function coloreTestoContrastante(hex) {
                 <div style={{ fontSize: 11, color: MUTED, marginBottom: 8, fontStyle: "italic" }}>
                   Piazza i convocati sul campo: chi metti in campo è titolare, chi resta fuori è automaticamente in panchina.
                 </div>
-                {renderDualPitch(
+                {renderFormazioneUnica(
                   formazioneIniziale,
                   (slotId, playerId) => setFormazione(fx.id, slotId, playerId),
                   moduloIniziale,
@@ -3422,7 +3401,7 @@ function coloreTestoContrastante(hex) {
                 <div style={{ fontSize: 11, color: MUTED, marginBottom: 8, fontStyle: "italic" }}>
                   Piazza i convocati sul campo: chi metti in campo è titolare, chi resta fuori è automaticamente in panchina.
                 </div>
-                {renderDualPitch(
+                {renderFormazioneUnica(
                   formazioneInizialeF,
                   (slotId, playerId) => setFormazioneF(f.id, slotId, playerId),
                   moduloInizialeF,
