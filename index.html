@@ -424,7 +424,7 @@ const FOTO_PREVIEW_H = 196;
 const FOTO_OUTPUT_W = 300;
 const FOTO_OUTPUT_H = 263;
 // Punto 08/09/2026 (v4): abbassato ancora, in modo netto, su richiesta esplicita dopo il test.
-const FOTO_BIAS_VERTICALE = 0.85;
+const FOTO_BIAS_VERTICALE = 0.80;
 // Sagoma a scudo della card giocatore (07/09/2026), concordata dopo diversi mockup: spazio 240x300.
 // Costante globale perché serve sia al modal React (clip-path CSS) sia al disegno su canvas per lo
 // scaricamento come immagine (Path2D del Canvas 2D accetta la stessa sintassi SVG).
@@ -647,8 +647,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "3.43";
-const TRACKER_VERSION_DATE = "09/09/2026@00.22";
+const TRACKER_VERSION = "4.01";
+const TRACKER_VERSION_DATE = "09/09/2026@00.55";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -798,7 +798,11 @@ function GironeATracker() {
   const [macroTab, setMacroTab] = useState("stagione"); // "campionato" | "coppa" | "stagione"
   const [campSub, setCampSub] = useState("classifica"); // "classifica" | "risultati"
   const [coppaSub, setCoppaSub] = useState("classifica"); // "classifica" | "risultati"
-  const [stagSub, setStagSub] = useState("cimiano"); // "cimiano" | "giocatori" | "cannonieri"
+  const [stagSub, setStagSub] = useState("cimiano"); // "cimiano" | "giocatori" | "cannonieri" | "cartellini"
+  // Tab Goal (09/09/2026): ordinamento cliccabile per colonna, stesso pattern riusato per Cartellini.
+  const [goalSort, setGoalSort] = useState({ col: "totale", dir: "desc" });
+  const [cartelliniSort, setCartelliniSort] = useState({ col: "totale", dir: "desc" });
+  const [cartelliniFiltro, setCartelliniFiltro] = useState("tutti"); // "tutti" | "giallo" | "rosso"
   const [results, setResults] = useState({}); // { fixtureId: {golHome, golAway} } — CONDIVISO
   const [detailsShared, setDetailsShared] = useState({}); // { fixtureId: {marcatori, voti, votoSquadra, presenze, formazione, modulo} } — CONDIVISO, i voti sono etichettati con l'autore
   const [voterName, setVoterNameState] = useState(""); // identità di chi vota su questo dispositivo — LOCALE
@@ -1416,31 +1420,96 @@ function GironeATracker() {
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [detailsShared, friendlies, friendlyTeamVoto]);
 
-  // --- CANNONIERI CIMIANO (campionato + coppa + amichevoli) ---
+  // --- GOAL (ex Cannonieri) CIMIANO, scomposti per competizione (09/09/2026) ---
+  // Ogni marcatore è già legato a un fixtureId; per Campionato/Coppa il tipo si ricava con
+  // tipoDaFixtureId (prefisso "Copp-" = coppa, altrimenti campionato), per le amichevoli è già
+  // separato in friendlyMarcatori. Nessun cambio di schema sul foglio: stessi dati di sempre.
   const cannonieri = useMemo(() => {
     const counts = {};
-    function add(nome) {
+    function add(nome, tipo) {
       if (!nome) return;
-      counts[nome] = (counts[nome] || 0) + 1;
+      if (!counts[nome]) counts[nome] = { amichevole: 0, campionato: 0, coppa: 0 };
+      counts[nome][tipo] += 1;
     }
     Object.keys(detailsShared).forEach((fixtureId) => {
-      ((detailsShared[fixtureId] && detailsShared[fixtureId].marcatori) || []).forEach((s) => add(s.giocatore));
+      const tipo = tipoDaFixtureId(fixtureId);
+      ((detailsShared[fixtureId] && detailsShared[fixtureId].marcatori) || []).forEach((s) => add(s.giocatore, tipo));
     });
     Object.keys(friendlyMarcatori).forEach((friendlyId) => {
-      (friendlyMarcatori[friendlyId] || []).forEach((s) => add(s.giocatore));
+      (friendlyMarcatori[friendlyId] || []).forEach((s) => add(s.giocatore, "amichevole"));
     });
-    return Object.entries(counts)
-      .map(([name, gol]) => ({ name, gol }))
-      .sort((a, b) => b.gol - a.gol);
+    return Object.entries(counts).map(([name, c]) => ({
+      name, amichevole: c.amichevole, campionato: c.campionato, coppa: c.coppa,
+      totale: c.amichevole + c.campionato + c.coppa,
+    }));
   }, [detailsShared, friendlyMarcatori]);
 
-  // Stessi conteggi di "cannonieri" ma come mappa nome->gol, comoda per l'ordinamento di Giocatori
+  // Stessa fonte di "cannonieri" ma come mappa nome->totale, comoda per l'ordinamento di Giocatori
   // (evita di dover ricercare in un array ogni volta).
   const golPerGiocatore = useMemo(() => {
     const map = {};
-    cannonieri.forEach((c) => { map[c.name] = c.gol; });
+    cannonieri.forEach((c) => { map[c.name] = c.totale; });
     return map;
   }, [cannonieri]);
+
+  // Riga ordinata di "cannonieri" secondo la colonna scelta nel tab Goal.
+  const cannonieriOrdinati = useMemo(() => {
+    const { col, dir } = goalSort;
+    const mult = dir === "asc" ? 1 : -1;
+    return [...cannonieri].sort((a, b) => {
+      if (col === "name") return mult * a.name.localeCompare(b.name, "it", { sensitivity: "base" });
+      return mult * (a[col] - b[col]);
+    });
+  }, [cannonieri, goalSort]);
+
+  // --- CARTELLINI per competizione (09/09/2026): stessa logica di scomposizione dei Goal, ma con
+  // in più il colore (giallo/rosso). Tabella separata da "cartelliniCount" usata altrove (Giocatori,
+  // card giocatore), che invece somma tutte le competizioni insieme: nessun rischio di rompere quella.
+  const cartelliniPerCompetizione = useMemo(() => {
+    const counts = {};
+    function add(nome, tipo, colore) {
+      if (!nome) return;
+      if (!counts[nome]) counts[nome] = { amichevole: { giallo: 0, rosso: 0 }, campionato: { giallo: 0, rosso: 0 }, coppa: { giallo: 0, rosso: 0 } };
+      const key = colore === "rosso" ? "rosso" : "giallo";
+      counts[nome][tipo][key] += 1;
+    }
+    Object.keys(detailsShared).forEach((fixtureId) => {
+      const tipo = tipoDaFixtureId(fixtureId);
+      ((detailsShared[fixtureId] && detailsShared[fixtureId].cartellini) || []).forEach((c) => add(c.giocatore, tipo, c.colore));
+    });
+    Object.keys(friendlyCartellini).forEach((friendlyId) => {
+      (friendlyCartellini[friendlyId] || []).forEach((c) => add(c.giocatore, "amichevole", c.colore));
+    });
+    // Con il filtro corrente (tutti/giallo/rosso) calcola il numero per cella e il totale: la somma
+    // permette l'ordinamento numerico (un formato "3G · 1R" non sarebbe ordinabile).
+    function perCompetizione(nome, tipo) {
+      const c = (counts[nome] || {})[tipo] || { giallo: 0, rosso: 0 };
+      if (cartelliniFiltro === "giallo") return c.giallo;
+      if (cartelliniFiltro === "rosso") return c.rosso;
+      return c.giallo + c.rosso;
+    }
+    return Object.keys(counts).map((name) => {
+      const amichevole = perCompetizione(name, "amichevole");
+      const campionato = perCompetizione(name, "campionato");
+      const coppa = perCompetizione(name, "coppa");
+      return { name, amichevole, campionato, coppa, totale: amichevole + campionato + coppa };
+    }).filter((r) => r.totale > 0);
+  }, [detailsShared, friendlyCartellini, cartelliniFiltro]);
+
+  const cartelliniOrdinati = useMemo(() => {
+    const { col, dir } = cartelliniSort;
+    const mult = dir === "asc" ? 1 : -1;
+    return [...cartelliniPerCompetizione].sort((a, b) => {
+      if (col === "name") return mult * a.name.localeCompare(b.name, "it", { sensitivity: "base" });
+      return mult * (a[col] - b[col]);
+    });
+  }, [cartelliniPerCompetizione, cartelliniSort]);
+
+  // Cliccare un'intestazione già attiva inverte la direzione; su una nuova colonna riparte da
+  // decrescente (il più delle volte è l'ordine che interessa di più, es. più gol/più cartellini).
+  function toggleSort(setter, current, col) {
+    setter({ col, dir: current.col === col && current.dir === "desc" ? "asc" : "desc" });
+  }
 
   // Anagrafica per nome (Voti/Marcatori salvano il nome come testo, non l'id): permette di
   // recuperare ruolo/lato/piede di un giocatore a partire da playerStats, che è indicizzato per nome.
@@ -4128,7 +4197,8 @@ function coloreTestoContrastante(hex) {
           {macroTab === "stagione" && [
             ["cimiano", "Partite"],
             ["giocatori", "Giocatori"],
-            ["cannonieri", "Cannonieri"],
+            ["cannonieri", "Goal"],
+            ["cartellini", "Cartellini"],
           ].map(([key, label]) => (
             <button key={key} onClick={() => setStagSub(key)} className="body-font"
               style={{ padding: "6px 12px", border: "none", borderRadius: 14, cursor: "pointer",
@@ -4586,9 +4656,9 @@ function coloreTestoContrastante(hex) {
         {macroTab === "stagione" && stagSub === "cannonieri" && (
           <div className="body-font">
             <div style={{ fontSize: 12, color: MUTED, marginBottom: 16 }}>
-              Gol segnati in tutte le competizioni: campionato, Coppa Lombardia e amichevoli.
+              Gol segnati in tutte le competizioni: campionato, Coppa Lombardia e amichevoli. Tocca un'intestazione per ordinare.
             </div>
-            {cannonieri.length === 0 ? (
+            {cannonieriOrdinati.length === 0 ? (
               <div style={{ color: MUTED, fontSize: 13 }}>Nessun marcatore registrato ancora.</div>
             ) : (
               <div className="chrome-box">
@@ -4596,15 +4666,71 @@ function coloreTestoContrastante(hex) {
                   <table style={{ fontSize: 13, width: "100%" }}>
                     <thead>
                       <tr style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                        <th style={{ textAlign: "left" }}>#</th><th style={{ textAlign: "left" }}>Giocatore</th><th style={{ textAlign: "center" }}>Gol</th>
+                        {[["name", "Giocatore", "left"], ["amichevole", "Amic.", "center"], ["campionato", "Camp.", "center"], ["coppa", "Coppa", "center"], ["totale", "Tot.", "center"]].map(([col, label, align]) => (
+                          <th key={col} onClick={() => toggleSort(setGoalSort, goalSort, col)}
+                            style={{ textAlign: align, cursor: "pointer", padding: "4px 2px", userSelect: "none", color: goalSort.col === col ? colore1 : MUTED }}>
+                            {label}{goalSort.col === col ? (goalSort.dir === "desc" ? " ▾" : " ▴") : ""}
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {cannonieri.map((c, i) => (
+                      {cannonieriOrdinati.map((c) => (
                         <tr key={c.name} style={{ borderBottom: `1px solid ${LINE}` }}>
-                          <td className="mono-font" style={{ padding: "8px 0", color: MUTED }}>{i + 1}</td>
-                          <td style={{ padding: "8px 0", fontWeight: 600 }}>{c.name}</td>
-                          <td className="mono-font" style={{ padding: "8px 0", textAlign: "center", fontWeight: 700, color: colore1 }}>⚽ {c.gol}</td>
+                          <td style={{ padding: "8px 2px", fontWeight: 600 }}>{c.name}</td>
+                          <td className="mono-font" style={{ padding: "8px 2px", textAlign: "center", color: c.amichevole ? INK : MUTED }}>{c.amichevole}</td>
+                          <td className="mono-font" style={{ padding: "8px 2px", textAlign: "center", color: c.campionato ? INK : MUTED }}>{c.campionato}</td>
+                          <td className="mono-font" style={{ padding: "8px 2px", textAlign: "center", color: c.coppa ? INK : MUTED }}>{c.coppa}</td>
+                          <td className="mono-font" style={{ padding: "8px 2px", textAlign: "center", fontWeight: 700, color: colore1 }}>⚽ {c.totale}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {macroTab === "stagione" && stagSub === "cartellini" && (
+          <div className="body-font">
+            <div style={{ fontSize: 12, color: MUTED, marginBottom: 12 }}>
+              Cartellini ricevuti in tutte le competizioni. Tocca un'intestazione per ordinare.
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+              {[["tutti", "Tutti"], ["giallo", "🟨 Gialli"], ["rosso", "🟥 Rossi"]].map(([key, label]) => (
+                <button key={key} onClick={() => setCartelliniFiltro(key)}
+                  style={{ padding: "6px 12px", border: "none", borderRadius: 14, cursor: "pointer",
+                    background: cartelliniFiltro === key ? colore1 : PANEL_BG,
+                    fontWeight: 600, fontSize: 12, color: cartelliniFiltro === key ? "#fff" : MUTED }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {cartelliniOrdinati.length === 0 ? (
+              <div style={{ color: MUTED, fontSize: 13 }}>Nessun cartellino registrato ancora{cartelliniFiltro !== "tutti" ? ` di questo colore` : ""}.</div>
+            ) : (
+              <div className="chrome-box">
+                <div className="chrome-box-inner" style={{ padding: "4px 14px" }}>
+                  <table style={{ fontSize: 13, width: "100%" }}>
+                    <thead>
+                      <tr style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                        {[["name", "Giocatore", "left"], ["amichevole", "Amic.", "center"], ["campionato", "Camp.", "center"], ["coppa", "Coppa", "center"], ["totale", "Tot.", "center"]].map(([col, label, align]) => (
+                          <th key={col} onClick={() => toggleSort(setCartelliniSort, cartelliniSort, col)}
+                            style={{ textAlign: align, cursor: "pointer", padding: "4px 2px", userSelect: "none", color: cartelliniSort.col === col ? colore1 : MUTED }}>
+                            {label}{cartelliniSort.col === col ? (cartelliniSort.dir === "desc" ? " ▾" : " ▴") : ""}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cartelliniOrdinati.map((c) => (
+                        <tr key={c.name} style={{ borderBottom: `1px solid ${LINE}` }}>
+                          <td style={{ padding: "8px 2px", fontWeight: 600 }}>{c.name}</td>
+                          <td className="mono-font" style={{ padding: "8px 2px", textAlign: "center", color: c.amichevole ? INK : MUTED }}>{c.amichevole}</td>
+                          <td className="mono-font" style={{ padding: "8px 2px", textAlign: "center", color: c.campionato ? INK : MUTED }}>{c.campionato}</td>
+                          <td className="mono-font" style={{ padding: "8px 2px", textAlign: "center", color: c.coppa ? INK : MUTED }}>{c.coppa}</td>
+                          <td className="mono-font" style={{ padding: "8px 2px", textAlign: "center", fontWeight: 700, color: colore1 }}>{c.totale}</td>
                         </tr>
                       ))}
                     </tbody>
