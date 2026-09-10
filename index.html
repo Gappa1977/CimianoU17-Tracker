@@ -343,7 +343,10 @@ const CYAN = "#2b6cb0";
 const PANEL_BG = "#34363D";
 // Bordo "cromato" per i box in stile scheda/distinta (Fase 1): sfumatura chiara->scura->chiara, usata come
 // background di un contenitore con padding di 1.5px, con dentro un secondo box a sfondo pieno PANEL_BG.
-const CHROME_BORDER = "linear-gradient(150deg,#eef0ee 0%,#9aa19d 18%,#3d4341 42%,#575e5b 60%,#c4cac6 78%,#4a504e 100%)";
+// Bordo dei "chrome-box" (09/10/2026, restyle Huddle): prima era un grigio metallizzato generico,
+// ora un sottile filo che va dall'azzurro all'arancione — la stessa coppia di colori del logo,
+// diventa la "firma" visiva riconoscibile di ogni box del Tracker.
+const CHROME_BORDER = "linear-gradient(135deg,#00AEEF 0%,#3A3D45 45%,#3A3D45 55%,#FF6A00 100%)";
 const TITLE_FONT = "'Space Grotesk', sans-serif";
 const MONO_FONT = "'JetBrains Mono', monospace";
 const DISABLED_BG = "#454850";
@@ -653,7 +656,7 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.04";
+const TRACKER_VERSION = "4.05";
 const TRACKER_VERSION_DATE = "10/09/2026@09.30";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
@@ -2594,16 +2597,16 @@ function coloreTestoContrastante(hex) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
           <span style={{ fontSize: 11, color: MUTED }}>Modulo</span>
           <select value={moduloKey} onChange={(e) => { onChangeModulo1(e.target.value); onChangeModulo2(e.target.value); }} className="body-font"
-            style={{ fontSize: 12, padding: "4px 8px", borderRadius: 6, border: `1px solid ${LINE}`, background: PANEL_BG, color: INK }}>
+            style={{ fontSize: 12, padding: "4px 8px", borderRadius: 12, border: `1px solid ${LINE}`, background: PANEL_BG, color: INK }}>
             {Object.entries(FORMATIONS).map(([key, f]) => <option key={key} value={key}>{f.label}</option>)}
           </select>
         </div>
         <div style={{ display: "flex", gap: 14, marginBottom: 8, fontSize: 11, color: MUTED, flexWrap: "wrap" }}>
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ width: 12, height: 12, borderRadius: 2, background: colore1, border: "2px solid #fff", display: "inline-block" }} /> Titolare
+            <span style={{ width: 12, height: 12, borderRadius: 6, background: colore1, border: "2px solid #fff", display: "inline-block" }} /> Titolare
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ width: 12, height: 12, borderRadius: 2, background: colore2, border: "2px dashed #fff", display: "inline-block" }} /> Subentrato
+            <span style={{ width: 12, height: 12, borderRadius: 6, background: colore2, border: "2px dashed #fff", display: "inline-block" }} /> Subentrato
           </span>
           {panchinaArmato && (
             <span style={{ color: colore1, fontWeight: 700 }}>
@@ -2633,7 +2636,7 @@ function coloreTestoContrastante(hex) {
                     <div key={slot.id} style={{ display: "flex", alignItems: "center", gap: 3 }}>
                       <span className="mono-font" style={{ fontSize: 9, color: MUTED, width: 12, flexShrink: 0 }}>{slot.label}</span>
                       <select value={attuale} onChange={(e) => { onChangeSlot1(slot.id, e.target.value); if (e.target.value) garantisciConvocato(e.target.value); }} className="body-font"
-                        style={{ fontSize: 9, padding: "3px 2px", borderRadius: 4, border: `1px solid ${LINE}`, background: attuale ? PANEL_BG : "transparent", color: attuale ? INK : MUTED, width: "100%", minWidth: 0 }}>
+                        style={{ fontSize: 9, padding: "3px 2px", borderRadius: 10, border: `1px solid ${LINE}`, background: attuale ? PANEL_BG : "transparent", color: attuale ? INK : MUTED, width: "100%", minWidth: 0 }}>
                         <option value="">{opzioni.length === 0 ? "nessuno con ruolo" : "scegli"}</option>
                         {opzioni.map((rp) => <option key={rp.id} value={rp.id}>{lastName(rp.nome)}</option>)}
                       </select>
@@ -2648,7 +2651,7 @@ function coloreTestoContrastante(hex) {
           <div style={{ gridArea: "mappa", minWidth: 0, position: "relative" }}>
             <div style={{
               position: "relative", width: "100%", aspectRatio: "1 / 1", margin: "0 auto",
-              transform: "perspective(600px) rotateX(6deg)", borderRadius: 8, overflow: "hidden", border: "2px solid #2c6b2f",
+              transform: "perspective(600px) rotateX(6deg)", borderRadius: 14, overflow: "hidden", border: "2px solid #2c6b2f",
               background: "repeating-linear-gradient(0deg, #3f9142 0px, #3f9142 11%, #368239 11%, #368239 22%)",
             }}>
               <div style={{ position: "absolute", left: "8%", right: "8%", top: "50%", height: 1, background: "rgba(255,255,255,0.5)" }} />
@@ -2699,7 +2702,7 @@ function coloreTestoContrastante(hex) {
                   const armato = panchinaArmato === String(id);
                   return (
                     <div key={id} className="body-font"
-                      style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 9, padding: "4px 5px", borderRadius: 4,
+                      style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 9, padding: "4px 5px", borderRadius: 10,
                         border: `1px solid ${armato ? colore1 : LINE}`, background: armato ? colore1 : PANEL_BG, color: armato ? "#fff" : INK,
                         boxShadow: armato ? `0 0 6px ${colore1}99` : "none" }}>
                       <span onClick={() => setPanchinaArmato(armato ? null : String(id))} style={{ cursor: "pointer", flex: 1, textAlign: "center" }}>
@@ -2711,7 +2714,7 @@ function coloreTestoContrastante(hex) {
                   );
                 })}
                 <select value="" onChange={(e) => { if (e.target.value) garantisciConvocato(e.target.value); }} className="body-font"
-                  style={{ fontSize: 9, padding: "3px 2px", borderRadius: 4, border: `1px dashed ${LINE}`, background: "transparent", color: MUTED }}>
+                  style={{ fontSize: 9, padding: "3px 2px", borderRadius: 10, border: `1px dashed ${LINE}`, background: "transparent", color: MUTED }}>
                   <option value="">+ aggiungi</option>
                   {rosterSorted.filter((rp) => !idsInCampo.has(String(rp.id)) && !panchina.includes(String(rp.id))).map((rp) => (
                     <option key={rp.id} value={rp.id}>{lastName(rp.nome)}</option>
@@ -2761,7 +2764,7 @@ function coloreTestoContrastante(hex) {
           <div style={{ display: "flex", alignItems: "center", gap: 8, borderTop: `1px solid ${LINE}`, paddingTop: 10 }}>
             <span className="body-font" style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>Ordina per</span>
             <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setSortDir(e.target.value === "nome" ? "asc" : "desc"); }} className="body-font"
-              style={{ fontSize: 12, padding: "4px 8px", borderRadius: 4, border: `1px solid ${LINE}` }}>
+              style={{ fontSize: 12, padding: "4px 8px", borderRadius: 10, border: `1px solid ${LINE}` }}>
               {sortOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
             <span onClick={() => setSortDir((d) => d === "asc" ? "desc" : "asc")}
@@ -3303,28 +3306,28 @@ function coloreTestoContrastante(hex) {
         {isEditingDate ? (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "10px 12px", alignItems: "center" }}>
             <input placeholder="Avversario" value={fixtureDateDraft.avversario || ""} onChange={(e) => setFixtureDateDraft((p) => ({ ...p, avversario: e.target.value }))}
-              style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 3, minWidth: 140, flex: 1 }} />
+              style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 8, minWidth: 140, flex: 1 }} />
             <select value={fixtureDateDraft.casa ? "casa" : "trasferta"} onChange={(e) => setFixtureDateDraft((p) => ({ ...p, casa: e.target.value === "casa" }))}
-              style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }}>
+              style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }}>
               <option value="casa">Casa</option>
               <option value="trasferta">Trasferta</option>
             </select>
             {fixtureDateDraft.half !== undefined && (
               <>
                 <input type="number" min="1" placeholder="Giornata" value={fixtureDateDraft.giornata || ""} onChange={(e) => setFixtureDateDraft((p) => ({ ...p, giornata: e.target.value }))}
-                  style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 3, width: 90 }} />
+                  style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 8, width: 90 }} />
                 <select value={fixtureDateDraft.half} onChange={(e) => setFixtureDateDraft((p) => ({ ...p, half: e.target.value }))}
-                  style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }}>
+                  style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }}>
                   <option value="andata">Andata</option>
                   <option value="ritorno">Ritorno</option>
                 </select>
               </>
             )}
             <input type="date" value={fixtureDateDraft.data || ""} onChange={(e) => setFixtureDateDraft((p) => ({ ...p, data: e.target.value }))}
-              style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+              style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
             <input type="time" value={fixtureDateDraft.ora || ""} onChange={(e) => setFixtureDateDraft((p) => ({ ...p, ora: e.target.value }))}
-              style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-            <button onClick={() => saveEditFixtureDate(fx)} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
+              style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
+            <button onClick={() => saveEditFixtureDate(fx)} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>Salva</button>
             <button onClick={() => { setEditingFixtureDate(null); setErroreModificaPartita(null); }} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
             {erroreModificaPartita && (
               <div style={{ width: "100%", fontSize: 11, color: RED }}>{erroreModificaPartita}</div>
@@ -3366,7 +3369,7 @@ function coloreTestoContrastante(hex) {
             {played ? (
               <button onClick={() => clearResult(fx.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>Azzera</button>
             ) : (
-              <button onClick={() => saveResult(fx.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "5px 12px", borderRadius: 3, fontWeight: 600, cursor: "pointer", fontSize: 12 }}>Salva</button>
+              <button onClick={() => saveResult(fx.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "5px 12px", borderRadius: 8, fontWeight: 600, cursor: "pointer", fontSize: 12 }}>Salva</button>
             )}
           </div>
         </div>
@@ -3422,10 +3425,10 @@ function coloreTestoContrastante(hex) {
                     return isEditing ? (
                       <div key={s.id} style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         <input value={ed.giocatore || ""} onChange={(e) => setScorerDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], giocatore: e.target.value } }))}
-                          style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                          style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                         <input placeholder="Min." value={ed.minuto || ""} onChange={(e) => setScorerDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], minuto: e.target.value } }))}
-                          style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                        <button onClick={() => saveEditScorer(fx.id, s.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>Salva</button>
+                          style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 8 }} />
+                        <button onClick={() => saveEditScorer(fx.id, s.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>Salva</button>
                         <button onClick={() => setEditingScorer(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>annulla</button>
                       </div>
                     ) : (
@@ -3443,17 +3446,17 @@ function coloreTestoContrastante(hex) {
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
                 {rosterSorted.map((rp) => (
                   <button key={rp.id} onClick={() => setScorerDraft((prev) => ({ ...prev, [fx.id]: { ...prev[fx.id], giocatore: rp.nome } }))}
-                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: sd.giocatore === rp.nome ? colore1 : PANEL_BG, color: sd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
+                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 16, border: `1px solid ${LINE}`, background: sd.giocatore === rp.nome ? colore1 : PANEL_BG, color: sd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
                     {rp.nome}
                   </button>
                 ))}
               </div>
               <div style={{ display: "flex", gap: 6 }}>
                 <input placeholder="Giocatore" value={sd.giocatore || ""} onChange={(e) => setScorerDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], giocatore: e.target.value } }))}
-                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                 <input placeholder="Min." value={sd.minuto || ""} onChange={(e) => setScorerDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], minuto: e.target.value } }))}
-                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                <button onClick={() => addScorer(fx.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>+</button>
+                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
+                <button onClick={() => addScorer(fx.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>+</button>
               </div>
             </div>
 
@@ -3467,14 +3470,14 @@ function coloreTestoContrastante(hex) {
                     return isEditing ? (
                       <div key={c.id} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                         <input value={ed.giocatore || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], giocatore: e.target.value } }))}
-                          style={{ flex: 1, minWidth: 100, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                          style={{ flex: 1, minWidth: 100, padding: 5, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                         <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], colore: "giallo" } }))}
-                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 3, border: ed.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟨</button>
+                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 8, border: ed.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟨</button>
                         <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], colore: "rosso" } }))}
-                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 3, border: ed.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟥</button>
+                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 8, border: ed.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟥</button>
                         <input placeholder="Min." value={ed.minuto || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], minuto: e.target.value } }))}
-                          style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                        <button onClick={() => saveEditCard(fx.id, c.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>Salva</button>
+                          style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 8 }} />
+                        <button onClick={() => saveEditCard(fx.id, c.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>Salva</button>
                         <button onClick={() => setEditingCard(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>annulla</button>
                       </div>
                     ) : (
@@ -3492,21 +3495,21 @@ function coloreTestoContrastante(hex) {
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
                 {rosterSorted.map((rp) => (
                   <button key={rp.id} onClick={() => setCardDraft((prev) => ({ ...prev, [fx.id]: { ...prev[fx.id], giocatore: rp.nome } }))}
-                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: cd.giocatore === rp.nome ? colore1 : PANEL_BG, color: cd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
+                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 16, border: `1px solid ${LINE}`, background: cd.giocatore === rp.nome ? colore1 : PANEL_BG, color: cd.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
                     {rp.nome}
                   </button>
                 ))}
               </div>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <input placeholder="Giocatore" value={cd.giocatore || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], giocatore: e.target.value } }))}
-                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                 <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], colore: "giallo" } }))}
-                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 3, border: cd.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟨</button>
+                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 8, border: cd.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟨</button>
                 <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], colore: "rosso" } }))}
-                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 3, border: cd.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟥</button>
+                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 8, border: cd.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟥</button>
                 <input placeholder="Min." value={cd.minuto || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], minuto: e.target.value } }))}
-                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                <button onClick={() => addCard(fx.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>+</button>
+                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
+                <button onClick={() => addCard(fx.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>+</button>
               </div>
             </div>
 
@@ -3515,7 +3518,7 @@ function coloreTestoContrastante(hex) {
                 <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>Voti</div>
                 {Array.from(new Set(voti.map((v) => v.autore))).length > 1 && (
                   <select value={playerVoteFilter[fx.id] || ""} onChange={(e) => setPlayerVoteFilter((p) => ({ ...p, [fx.id]: e.target.value }))}
-                    style={{ fontSize: 11, padding: "2px 4px", border: `1px solid ${LINE}`, borderRadius: 3 }}>
+                    style={{ fontSize: 11, padding: "2px 4px", border: `1px solid ${LINE}`, borderRadius: 8 }}>
                     <option value="">Tutti</option>
                     {Array.from(new Set(voti.map((v) => v.autore))).map((a) => (
                       <option key={a} value={a}>{a}</option>
@@ -3540,12 +3543,12 @@ function coloreTestoContrastante(hex) {
                             const isEditing = editingRating === `${fx.id}:${v.id}`;
                             const ed = ratingDraft[`edit-${fx.id}`] || {};
                             return isEditing ? (
-                              <div key={v.id} style={{ display: "flex", flexDirection: "column", gap: 6, background: PLAYER_BOX_BG, border: `1px solid ${PLAYER_BOX_BORDER}`, borderRadius: 6, padding: 8 }}>
+                              <div key={v.id} style={{ display: "flex", flexDirection: "column", gap: 6, background: PLAYER_BOX_BG, border: `1px solid ${PLAYER_BOX_BORDER}`, borderRadius: 12, padding: 8 }}>
                                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                                   <input value={ed.giocatore || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], giocatore: e.target.value } }))}
-                                    style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                                    style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                                   <input type="number" min="0" max="120" placeholder="Min'" value={ed.minutaggio || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], minutaggio: e.target.value } }))}
-                                    style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                                    style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                                 </div>
                                 <div style={{ display: "flex", gap: 6, alignItems: "flex-end", flexWrap: "wrap" }}>
                                   {SKILLS.map((sk) => (
@@ -3553,7 +3556,7 @@ function coloreTestoContrastante(hex) {
                                       <span style={{ fontSize: 9, color: MUTED, marginBottom: 2, textAlign: "center" }}>{sk.label}</span>
                                       <input type="number" min="1" max="10" step="0.5" value={ed[sk.key] || ""}
                                         onChange={(e) => setRatingDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], [sk.key]: e.target.value } }))}
-                                        style={{ width: 40, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3, fontSize: 12, textAlign: "center" }} />
+                                        style={{ width: 40, padding: 5, border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 12, textAlign: "center" }} />
                                     </div>
                                   ))}
                                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -3565,18 +3568,18 @@ function coloreTestoContrastante(hex) {
                                 </div>
                                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                                   <input placeholder="Nota" value={ed.nota || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], nota: e.target.value } }))}
-                                    style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                                    style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                                   <button onClick={() => saveEditRating(fx.id, v.id)} disabled={missingForRating(ed).length > 0}
-                                    style={{ background: missingForRating(ed).length > 0 ? DISABLED_BG : colore1, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 3, cursor: missingForRating(ed).length > 0 ? "not-allowed" : "pointer", fontSize: 12 }}>Salva</button>
+                                    style={{ background: missingForRating(ed).length > 0 ? DISABLED_BG : colore1, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 8, cursor: missingForRating(ed).length > 0 ? "not-allowed" : "pointer", fontSize: 12 }}>Salva</button>
                                   <button onClick={() => setEditingRating(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>annulla</button>
                                 </div>
                                 {missingForRating(ed).length > 0 && <div style={{ fontSize: 11, color: "#e0a52c", marginTop: 4 }}>{missingForRating(ed).join(" · ")}</div>}
                               </div>
                             ) : (
-                              <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: PLAYER_BOX_BG, border: `1px solid ${PLAYER_BOX_BORDER}`, borderRadius: 6, padding: "8px 10px", gap: 8 }}>
+                              <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: PLAYER_BOX_BG, border: `1px solid ${PLAYER_BOX_BORDER}`, borderRadius: 12, padding: "8px 10px", gap: 8 }}>
                                 <div>
                                   <div><strong>{v.voto}</strong>{v.minutaggio ? ` (${v.minutaggio}')` : ""}{v.nota ? ` · ${v.nota}` : ""}</div>
-                                  <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 8 }}>{v.autore}</span>
+                                  <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 14 }}>{v.autore}</span>
                                 </div>
                                 <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                                   <button onClick={() => startEditRating(fx.id, v)} style={{ background: "none", border: "none", color: colore1, cursor: "pointer", fontSize: 12 }}>Modifica</button>
@@ -3597,7 +3600,7 @@ function coloreTestoContrastante(hex) {
                   const selezionato = rd.giocatore === rp.nome;
                   return (
                     <button key={rp.id} onClick={() => setRatingDraft((prev) => ({ ...prev, [fx.id]: { ...prev[fx.id], giocatore: rp.nome } }))}
-                      style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: selezionato ? colore1 : (giaVotato ? colore1 : PANEL_BG), color: (selezionato || giaVotato) ? "#fff" : INK, cursor: "pointer", opacity: giaVotato && !selezionato ? 0.7 : 1 }}>
+                      style={{ fontSize: 11, padding: "3px 8px", borderRadius: 16, border: `1px solid ${LINE}`, background: selezionato ? colore1 : (giaVotato ? colore1 : PANEL_BG), color: (selezionato || giaVotato) ? "#fff" : INK, cursor: "pointer", opacity: giaVotato && !selezionato ? 0.7 : 1 }}>
                       {rp.nome}
                     </button>
                   );
@@ -3605,9 +3608,9 @@ function coloreTestoContrastante(hex) {
               </div>
               <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
                 <input placeholder="Giocatore" value={rd.giocatore || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], giocatore: e.target.value } }))}
-                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                 <input placeholder="Min'" type="number" min="0" max="120" value={rd.minutaggio || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], minutaggio: e.target.value } }))}
-                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
               </div>
               <div style={{ display: "flex", gap: 6, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 6 }}>
                 {SKILLS.map((sk) => (
@@ -3615,7 +3618,7 @@ function coloreTestoContrastante(hex) {
                     <span style={{ fontSize: 9, color: MUTED, marginBottom: 2, textAlign: "center" }}>{sk.label}</span>
                     <input type="number" min="1" max="10" step="0.5" value={rd[sk.key] || ""}
                       onChange={(e) => setRatingDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], [sk.key]: e.target.value } }))}
-                      style={{ width: 40, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3, fontSize: 12, textAlign: "center" }} />
+                      style={{ width: 40, padding: 5, border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 12, textAlign: "center" }} />
                   </div>
                 ))}
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -3627,9 +3630,9 @@ function coloreTestoContrastante(hex) {
               </div>
               <div style={{ display: "flex", gap: 6 }}>
                 <input placeholder="Nota (opz.)" value={rd.nota || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], nota: e.target.value } }))}
-                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                 <button onClick={() => addRating(fx.id)} disabled={!voterName || missingForRating(rd).length > 0}
-                  style={{ background: (voterName && missingForRating(rd).length === 0) ? colore1 : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: (voterName && missingForRating(rd).length === 0) ? "pointer" : "not-allowed" }}>+</button>
+                  style={{ background: (voterName && missingForRating(rd).length === 0) ? colore1 : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: (voterName && missingForRating(rd).length === 0) ? "pointer" : "not-allowed" }}>+</button>
               </div>
               {voterName && missingForRating(rd).length > 0 && <div style={{ fontSize: 11, color: "#e0a52c", marginTop: 4 }}>{missingForRating(rd).join(" · ")}</div>}
               {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
@@ -3641,7 +3644,7 @@ function coloreTestoContrastante(hex) {
                 </span>
                 {Array.from(new Set(votoSquadraList.map((v) => v.autore))).length > 1 && (
                   <select value={teamVoteFilter[fx.id] || ""} onChange={(e) => setTeamVoteFilter((p) => ({ ...p, [fx.id]: e.target.value }))}
-                    style={{ fontSize: 11, padding: "2px 4px", border: `1px solid ${LINE}`, borderRadius: 3, textTransform: "none", fontWeight: 400 }}>
+                    style={{ fontSize: 11, padding: "2px 4px", border: `1px solid ${LINE}`, borderRadius: 8, textTransform: "none", fontWeight: 400 }}>
                     <option value="">Tutti</option>
                     {Array.from(new Set(votoSquadraList.map((v) => v.autore))).map((a) => (
                       <option key={a} value={a}>{a}</option>
@@ -3655,19 +3658,19 @@ function coloreTestoContrastante(hex) {
                     const isEditingV = editingTeamVoto === `${fx.id}:${v.id}`;
                     const ed = teamVotoDraft[`edit-${fx.id}`] || {};
                     return isEditingV ? (
-                      <div key={v.id} style={{ display: "flex", gap: 6, alignItems: "center", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 6, padding: 8 }}>
+                      <div key={v.id} style={{ display: "flex", gap: 6, alignItems: "center", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 12, padding: 8 }}>
                         <input type="number" min="1" max="10" step="0.5" placeholder="Voto" value={ed.voto || ""} onChange={(e) => setTeamVotoDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], voto: e.target.value } }))}
-                          style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                          style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                         <input placeholder="Nota" value={ed.nota || ""} onChange={(e) => setTeamVotoDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], nota: e.target.value } }))}
-                          style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                        <button onClick={() => saveEditTeamVoto(fx.id, v.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
+                          style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
+                        <button onClick={() => saveEditTeamVoto(fx.id, v.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>Salva</button>
                         <button onClick={() => setEditingTeamVoto(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
                       </div>
                     ) : (
-                      <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 6, padding: "8px 10px", gap: 8 }}>
+                      <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 12, padding: "8px 10px", gap: 8 }}>
                         <div>
                           <div><strong>{v.voto}</strong>{v.nota ? ` · ${v.nota}` : ""}</div>
-                          <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 8 }}>{v.autore}</span>
+                          <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 14 }}>{v.autore}</span>
                         </div>
                         <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                           <button onClick={() => startEditTeamVoto(fx.id, v)} style={{ background: "none", border: "none", color: colore1, cursor: "pointer", fontSize: 12 }}>Modifica</button>
@@ -3680,10 +3683,10 @@ function coloreTestoContrastante(hex) {
               )}
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <input type="number" min="1" max="10" step="0.5" placeholder="Voto" value={tvd.voto || ""} onChange={(e) => setTeamVotoDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], voto: e.target.value } }))}
-                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                 <input placeholder="Nota (opz.)" value={tvd.nota || ""} onChange={(e) => setTeamVotoDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], nota: e.target.value } }))}
-                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                <button onClick={() => addTeamVoto(fx.id)} disabled={!voterName} style={{ background: voterName ? colore1 : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
+                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
+                <button onClick={() => addTeamVoto(fx.id)} disabled={!voterName} style={{ background: voterName ? colore1 : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
               </div>
               {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
             </div>
@@ -3726,17 +3729,17 @@ function coloreTestoContrastante(hex) {
         {isEditingF ? (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "10px 12px", alignItems: "center" }}>
             <input placeholder="Avversario" value={friendlyEditDraft.avversario || ""} onChange={(e) => setFriendlyEditDraft((p) => ({ ...p, avversario: e.target.value }))}
-              style={{ flex: 1, minWidth: 120, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+              style={{ flex: 1, minWidth: 120, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
             <input type="date" value={friendlyEditDraft.data || ""} onChange={(e) => setFriendlyEditDraft((p) => ({ ...p, data: e.target.value }))}
-              style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+              style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
             <input type="time" value={friendlyEditDraft.ora || ""} onChange={(e) => setFriendlyEditDraft((p) => ({ ...p, ora: e.target.value }))}
-              style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+              style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
             <input type="number" placeholder="Gol Cimiano" value={friendlyEditDraft.golCimiano ?? ""} onChange={(e) => setFriendlyEditDraft((p) => ({ ...p, golCimiano: e.target.value }))}
-              style={{ width: 100, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+              style={{ width: 100, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
             <span style={{ color: MUTED }}>–</span>
             <input type="number" placeholder="Gol avv." value={friendlyEditDraft.golAvv ?? ""} onChange={(e) => setFriendlyEditDraft((p) => ({ ...p, golAvv: e.target.value }))}
-              style={{ width: 90, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-            <button onClick={() => saveEditFriendly(f.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
+              style={{ width: 90, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
+            <button onClick={() => saveEditFriendly(f.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>Salva</button>
             <button onClick={() => setEditingFriendly(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
           </div>
         ) : (
@@ -3825,10 +3828,10 @@ function coloreTestoContrastante(hex) {
                     return isEditingS ? (
                       <div key={s.id} style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         <input value={ed.giocatore || ""} onChange={(e) => setScorerDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], giocatore: e.target.value } }))}
-                          style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                          style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                         <input placeholder="Min." value={ed.minuto || ""} onChange={(e) => setScorerDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], minuto: e.target.value } }))}
-                          style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                        <button onClick={() => saveEditScorerF(f.id, s.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>Salva</button>
+                          style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 8 }} />
+                        <button onClick={() => saveEditScorerF(f.id, s.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>Salva</button>
                         <button onClick={() => setEditingScorerF(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>annulla</button>
                       </div>
                     ) : (
@@ -3846,17 +3849,17 @@ function coloreTestoContrastante(hex) {
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
                 {rosterSorted.map((rp) => (
                   <button key={rp.id} onClick={() => setScorerDraftF((prev) => ({ ...prev, [f.id]: { ...prev[f.id], giocatore: rp.nome } }))}
-                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: sdF.giocatore === rp.nome ? colore1 : PANEL_BG, color: sdF.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
+                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 16, border: `1px solid ${LINE}`, background: sdF.giocatore === rp.nome ? colore1 : PANEL_BG, color: sdF.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
                     {rp.nome}
                   </button>
                 ))}
               </div>
               <div style={{ display: "flex", gap: 6 }}>
                 <input placeholder="Giocatore" value={sdF.giocatore || ""} onChange={(e) => setScorerDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], giocatore: e.target.value } }))}
-                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                 <input placeholder="Min." value={sdF.minuto || ""} onChange={(e) => setScorerDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], minuto: e.target.value } }))}
-                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                <button onClick={() => addScorerF(f.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>+</button>
+                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
+                <button onClick={() => addScorerF(f.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>+</button>
               </div>
             </div>
 
@@ -3870,14 +3873,14 @@ function coloreTestoContrastante(hex) {
                     return isEditingC ? (
                       <div key={c.id} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                         <input value={ed.giocatore || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], giocatore: e.target.value } }))}
-                          style={{ flex: 1, minWidth: 100, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                          style={{ flex: 1, minWidth: 100, padding: 5, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                         <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], colore: "giallo" } }))}
-                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 3, border: ed.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟨</button>
+                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 8, border: ed.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟨</button>
                         <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], colore: "rosso" } }))}
-                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 3, border: ed.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟥</button>
+                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 8, border: ed.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟥</button>
                         <input placeholder="Min." value={ed.minuto || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], minuto: e.target.value } }))}
-                          style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                        <button onClick={() => saveEditCardF(f.id, c.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>Salva</button>
+                          style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 8 }} />
+                        <button onClick={() => saveEditCardF(f.id, c.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>Salva</button>
                         <button onClick={() => setEditingCardF(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>annulla</button>
                       </div>
                     ) : (
@@ -3895,21 +3898,21 @@ function coloreTestoContrastante(hex) {
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
                 {rosterSorted.map((rp) => (
                   <button key={rp.id} onClick={() => setCardDraftF((prev) => ({ ...prev, [f.id]: { ...prev[f.id], giocatore: rp.nome } }))}
-                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: cdF.giocatore === rp.nome ? colore1 : PANEL_BG, color: cdF.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
+                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 16, border: `1px solid ${LINE}`, background: cdF.giocatore === rp.nome ? colore1 : PANEL_BG, color: cdF.giocatore === rp.nome ? "#fff" : INK, cursor: "pointer" }}>
                     {rp.nome}
                   </button>
                 ))}
               </div>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <input placeholder="Giocatore" value={cdF.giocatore || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], giocatore: e.target.value } }))}
-                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                 <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], colore: "giallo" } }))}
-                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 3, border: cdF.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟨</button>
+                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 8, border: cdF.colore === "giallo" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟨</button>
                 <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], colore: "rosso" } }))}
-                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 3, border: cdF.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟥</button>
+                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 8, border: cdF.colore === "rosso" ? `2px solid ${INK}` : `1px solid ${LINE}`, background: PANEL_BG, cursor: "pointer" }}>🟥</button>
                 <input placeholder="Min." value={cdF.minuto || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], minuto: e.target.value } }))}
-                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                <button onClick={() => addCardF(f.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>+</button>
+                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
+                <button onClick={() => addCardF(f.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>+</button>
               </div>
             </div>
 
@@ -3917,7 +3920,7 @@ function coloreTestoContrastante(hex) {
               <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>Voti</div>
               {Array.from(new Set(voti.map((v) => v.autore))).length > 1 && (
                 <select value={playerVoteFilter[f.id] || ""} onChange={(e) => setPlayerVoteFilter((p) => ({ ...p, [f.id]: e.target.value }))}
-                  style={{ fontSize: 11, padding: "2px 4px", border: `1px solid ${LINE}`, borderRadius: 3 }}>
+                  style={{ fontSize: 11, padding: "2px 4px", border: `1px solid ${LINE}`, borderRadius: 8 }}>
                   <option value="">Tutti</option>
                   {Array.from(new Set(voti.map((v) => v.autore))).map((a) => (
                     <option key={a} value={a}>{a}</option>
@@ -3942,12 +3945,12 @@ function coloreTestoContrastante(hex) {
                           const isEditingV = editingRatingF === `${f.id}:${v.id}`;
                           const ed = ratingDraftF[`edit-${f.id}`] || {};
                           return isEditingV ? (
-                            <div key={v.id} style={{ display: "flex", flexDirection: "column", gap: 6, background: PLAYER_BOX_BG, border: `1px solid ${PLAYER_BOX_BORDER}`, borderRadius: 6, padding: 8 }}>
+                            <div key={v.id} style={{ display: "flex", flexDirection: "column", gap: 6, background: PLAYER_BOX_BG, border: `1px solid ${PLAYER_BOX_BORDER}`, borderRadius: 12, padding: 8 }}>
                               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                                 <input value={ed.giocatore || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], giocatore: e.target.value } }))}
-                                  style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                                  style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                                 <input type="number" min="0" max="120" placeholder="Min'" value={ed.minutaggio || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], minutaggio: e.target.value } }))}
-                                  style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                                  style={{ width: 55, padding: 5, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                               </div>
                               <div style={{ display: "flex", gap: 6, alignItems: "flex-end", flexWrap: "wrap" }}>
                                 {SKILLS.map((sk) => (
@@ -3955,7 +3958,7 @@ function coloreTestoContrastante(hex) {
                                     <span style={{ fontSize: 9, color: MUTED, marginBottom: 2, textAlign: "center" }}>{sk.label}</span>
                                     <input type="number" min="1" max="10" step="0.5" value={ed[sk.key] || ""}
                                       onChange={(e) => setRatingDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], [sk.key]: e.target.value } }))}
-                                      style={{ width: 40, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3, fontSize: 12, textAlign: "center" }} />
+                                      style={{ width: 40, padding: 5, border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 12, textAlign: "center" }} />
                                   </div>
                                 ))}
                                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -3967,18 +3970,18 @@ function coloreTestoContrastante(hex) {
                               </div>
                               <div style={{ display: "flex", gap: 6 }}>
                                 <input placeholder="Nota" value={ed.nota || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], nota: e.target.value } }))}
-                                  style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                                  style={{ flex: 1, padding: 5, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                                 <button onClick={() => saveEditRatingF(f.id, v.id)} disabled={missingForRating(ed).length > 0}
-                                  style={{ background: missingForRating(ed).length > 0 ? DISABLED_BG : colore1, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 3, cursor: missingForRating(ed).length > 0 ? "not-allowed" : "pointer", fontSize: 12 }}>Salva</button>
+                                  style={{ background: missingForRating(ed).length > 0 ? DISABLED_BG : colore1, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 8, cursor: missingForRating(ed).length > 0 ? "not-allowed" : "pointer", fontSize: 12 }}>Salva</button>
                                 <button onClick={() => setEditingRatingF(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>annulla</button>
                               </div>
                               {missingForRating(ed).length > 0 && <div style={{ fontSize: 11, color: "#e0a52c", marginTop: 4 }}>{missingForRating(ed).join(" · ")}</div>}
                             </div>
                           ) : (
-                            <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: PLAYER_BOX_BG, border: `1px solid ${PLAYER_BOX_BORDER}`, borderRadius: 6, padding: "8px 10px", gap: 8 }}>
+                            <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: PLAYER_BOX_BG, border: `1px solid ${PLAYER_BOX_BORDER}`, borderRadius: 12, padding: "8px 10px", gap: 8 }}>
                               <div>
                                 <div><strong>{v.voto}</strong>{v.minutaggio ? ` (${v.minutaggio}')` : ""}{v.nota ? ` · ${v.nota}` : ""}</div>
-                                <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 8 }}>{v.autore}</span>
+                                <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 14 }}>{v.autore}</span>
                               </div>
                               <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                                 <button onClick={() => startEditRatingF(f.id, v)} style={{ background: "none", border: "none", color: colore1, cursor: "pointer", fontSize: 12 }}>Modifica</button>
@@ -3999,7 +4002,7 @@ function coloreTestoContrastante(hex) {
                 const selezionato = rd.giocatore === rp.nome;
                 return (
                   <button key={rp.id} onClick={() => setRatingDraftF((prev) => ({ ...prev, [f.id]: { ...prev[f.id], giocatore: rp.nome } }))}
-                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: `1px solid ${LINE}`, background: (selezionato || giaVotato) ? colore1 : PANEL_BG, color: (selezionato || giaVotato) ? "#fff" : INK, cursor: "pointer", opacity: giaVotato && !selezionato ? 0.7 : 1 }}>
+                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 16, border: `1px solid ${LINE}`, background: (selezionato || giaVotato) ? colore1 : PANEL_BG, color: (selezionato || giaVotato) ? "#fff" : INK, cursor: "pointer", opacity: giaVotato && !selezionato ? 0.7 : 1 }}>
                     {rp.nome}
                   </button>
                 );
@@ -4007,9 +4010,9 @@ function coloreTestoContrastante(hex) {
             </div>
             <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
               <input placeholder="Giocatore" value={rd.giocatore || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], giocatore: e.target.value } }))}
-                style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
               <input placeholder="Min'" type="number" min="0" max="120" value={rd.minutaggio || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], minutaggio: e.target.value } }))}
-                style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 6 }}>
               {SKILLS.map((sk) => (
@@ -4017,7 +4020,7 @@ function coloreTestoContrastante(hex) {
                   <span style={{ fontSize: 9, color: MUTED, marginBottom: 2, textAlign: "center" }}>{sk.label}</span>
                   <input type="number" min="1" max="10" step="0.5" value={rd[sk.key] || ""}
                     onChange={(e) => setRatingDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], [sk.key]: e.target.value } }))}
-                    style={{ width: 40, padding: 5, border: `1px solid ${LINE}`, borderRadius: 3, fontSize: 12, textAlign: "center" }} />
+                    style={{ width: 40, padding: 5, border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 12, textAlign: "center" }} />
                 </div>
               ))}
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -4029,9 +4032,9 @@ function coloreTestoContrastante(hex) {
             </div>
             <div style={{ display: "flex", gap: 6 }}>
               <input placeholder="Nota (opz.)" value={rd.nota || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], nota: e.target.value } }))}
-                style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
               <button onClick={() => addRatingFriendly(f.id)} disabled={!voterName || missingForRating(rd).length > 0}
-                style={{ background: (voterName && missingForRating(rd).length === 0) ? colore1 : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: (voterName && missingForRating(rd).length === 0) ? "pointer" : "not-allowed" }}>+</button>
+                style={{ background: (voterName && missingForRating(rd).length === 0) ? colore1 : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: (voterName && missingForRating(rd).length === 0) ? "pointer" : "not-allowed" }}>+</button>
             </div>
             {voterName && missingForRating(rd).length > 0 && <div style={{ fontSize: 11, color: "#e0a52c", marginTop: 4 }}>{missingForRating(rd).join(" · ")}</div>}
             {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
@@ -4042,7 +4045,7 @@ function coloreTestoContrastante(hex) {
                 </span>
                 {Array.from(new Set(votoSquadraListF.map((v) => v.autore))).length > 1 && (
                   <select value={teamVoteFilter[f.id] || ""} onChange={(e) => setTeamVoteFilter((p) => ({ ...p, [f.id]: e.target.value }))}
-                    style={{ fontSize: 11, padding: "2px 4px", border: `1px solid ${LINE}`, borderRadius: 3, textTransform: "none", fontWeight: 400 }}>
+                    style={{ fontSize: 11, padding: "2px 4px", border: `1px solid ${LINE}`, borderRadius: 8, textTransform: "none", fontWeight: 400 }}>
                     <option value="">Tutti</option>
                     {Array.from(new Set(votoSquadraListF.map((v) => v.autore))).map((a) => (
                       <option key={a} value={a}>{a}</option>
@@ -4056,19 +4059,19 @@ function coloreTestoContrastante(hex) {
                     const isEditingV = editingTeamVotoF === `${f.id}:${v.id}`;
                     const ed = teamVotoDraftF[`edit-${f.id}`] || {};
                     return isEditingV ? (
-                      <div key={v.id} style={{ display: "flex", gap: 6, alignItems: "center", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 6, padding: 8 }}>
+                      <div key={v.id} style={{ display: "flex", gap: 6, alignItems: "center", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 12, padding: 8 }}>
                         <input type="number" min="1" max="10" step="0.5" placeholder="Voto" value={ed.voto || ""} onChange={(e) => setTeamVotoDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], voto: e.target.value } }))}
-                          style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                          style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                         <input placeholder="Nota" value={ed.nota || ""} onChange={(e) => setTeamVotoDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], nota: e.target.value } }))}
-                          style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                        <button onClick={() => saveEditTeamVotoF(f.id, v.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
+                          style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
+                        <button onClick={() => saveEditTeamVotoF(f.id, v.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>Salva</button>
                         <button onClick={() => setEditingTeamVotoF(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
                       </div>
                     ) : (
-                      <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 6, padding: "8px 10px", gap: 8 }}>
+                      <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: TEAM_BOX_BG, border: `1px solid ${TEAM_BOX_BORDER}`, borderRadius: 12, padding: "8px 10px", gap: 8 }}>
                         <div>
                           <div><strong>{v.voto || "— (nessun voto)"}</strong>{v.nota ? ` · ${v.nota}` : ""}</div>
-                          <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 8 }}>{v.autore}</span>
+                          <span style={{ display: "inline-block", marginTop: 4, fontSize: 10, background: AUTHOR_BADGE_BG, color: AUTHOR_BADGE_TEXT, padding: "1px 7px", borderRadius: 14 }}>{v.autore}</span>
                         </div>
                         <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                           <button onClick={() => startEditTeamVotoF(f.id, v)} style={{ background: "none", border: "none", color: colore1, cursor: "pointer", fontSize: 12 }}>Modifica</button>
@@ -4081,10 +4084,10 @@ function coloreTestoContrastante(hex) {
               )}
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <input type="number" min="1" max="10" step="0.5" placeholder="Voto" value={tvdF.voto || ""} onChange={(e) => setTeamVotoDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], voto: e.target.value } }))}
-                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
+                  style={{ width: 55, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
                 <input placeholder="Nota (opz.)" value={tvdF.nota || ""} onChange={(e) => setTeamVotoDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], nota: e.target.value } }))}
-                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 3 }} />
-                <button onClick={() => addTeamVotoF(f.id)} disabled={!voterName} style={{ background: voterName ? colore1 : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 3, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
+                  style={{ flex: 1, padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }} />
+                <button onClick={() => addTeamVotoF(f.id)} disabled={!voterName} style={{ background: voterName ? colore1 : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
               </div>
               {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
             </div>
@@ -4115,8 +4118,8 @@ function coloreTestoContrastante(hex) {
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
           <div style={{ fontSize: 13, fontWeight: 500, color: "#8A8F98", letterSpacing: 0.3 }}>Caricamento in corso…</div>
-          <div style={{ width: 176, height: 3, borderRadius: 3, background: "rgba(255,255,255,0.08)", overflow: "hidden", position: "relative" }}>
-            <div style={{ position: "absolute", top: 0, left: "-40%", bottom: 0, width: "40%", borderRadius: 3, background: "linear-gradient(90deg, #00AEEF, #FF6A00)", animation: "huddleSlide 1.84s ease-in-out infinite" }} />
+          <div style={{ width: 176, height: 3, borderRadius: 8, background: "rgba(255,255,255,0.08)", overflow: "hidden", position: "relative" }}>
+            <div style={{ position: "absolute", top: 0, left: "-40%", bottom: 0, width: "40%", borderRadius: 8, background: "linear-gradient(90deg, #00AEEF, #FF6A00)", animation: "huddleSlide 1.84s ease-in-out infinite" }} />
           </div>
         </div>
         {loadingSlow && (
@@ -4136,8 +4139,8 @@ function coloreTestoContrastante(hex) {
         .body-font { font-family: 'Inter', system-ui, sans-serif; }
         .title-font { font-family: 'Fredoka', sans-serif; }
         .mono-font { font-family: 'JetBrains Mono', monospace; }
-        .chrome-box { padding: 1.5px; border-radius: 11px; background: ${CHROME_BORDER}; box-shadow: 0 14px 26px -10px rgba(0,0,0,0.55); }
-        .chrome-box-inner { border-radius: 9.5px; background: ${PANEL_BG}; }
+        .chrome-box { padding: 1.5px; border-radius: 16px; background: ${CHROME_BORDER}; box-shadow: 0 14px 26px -10px rgba(0,0,0,0.55); }
+        .chrome-box-inner { border-radius: 14.5px; background: ${PANEL_BG}; }
         .plus-btn { box-sizing: border-box; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; border: 1.5px solid; }
         .plus-shape { position: relative; width: 10px; height: 10px; flex-shrink: 0; }
         .plus-shape::before { content: ""; position: absolute; background: currentColor; width: 10px; height: 2px; top: 4px; left: 0; }
@@ -4148,7 +4151,7 @@ function coloreTestoContrastante(hex) {
         tbody tr { border-bottom: 1px solid ${LINE}; }
         input, select, textarea { font-family: 'Inter', system-ui, sans-serif; background: ${PANEL_BG}; color: ${INK}; border: 1px solid ${LINE}; }
         ::placeholder { color: ${MUTED}; opacity: 1; }
-        .score-input { width: 40px; padding: 5px; border: 1px solid ${LINE}; text-align: center; border-radius: 3px; box-sizing: border-box; }
+        .score-input { width: 40px; padding: 5px; border: 1px solid ${LINE}; text-align: center; border-radius: 8px; box-sizing: border-box; }
         .dual-pitch-wrapper { display: flex; flex-direction: column; gap: 20px; }
         @media (min-width: 700px) {
           .dual-pitch-wrapper { flex-direction: row; gap: 14px; }
@@ -4177,7 +4180,7 @@ function coloreTestoContrastante(hex) {
           <div className="title-font" style={{ fontSize: 28, fontWeight: 700, marginTop: 4, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
             {teamNome}
             {cimianoRow && cimianoRow.pg > 0 && (
-              <span className="body-font" style={{ fontSize: 14, fontWeight: 700, color: colore1, background: CREAM, border: `1px solid ${colore1}`, borderRadius: 4, padding: "2px 9px", letterSpacing: 0.5, boxShadow: `0 0 8px ${colore1}66` }}>
+              <span className="body-font" style={{ fontSize: 14, fontWeight: 700, color: colore1, background: CREAM, border: `1px solid ${colore1}`, borderRadius: 10, padding: "2px 9px", letterSpacing: 0.5, boxShadow: `0 0 8px ${colore1}66` }}>
                 {cimianoPos}° POSTO · {cimianoRow.pt} PT
               </span>
             )}
@@ -4209,11 +4212,11 @@ function coloreTestoContrastante(hex) {
                 fontSize: 12, cursor: "pointer" }}>⚙</span>
             <div className="chrome-box-inner" style={{ padding: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <img src={LOGO_ATTUALE} alt="Cimiano Calcio" width="100" height="100" onClick={handleLogoClick}
-              style={{ display: "block", borderRadius: 4, objectFit: "cover", cursor: "pointer", userSelect: "none" }} />
+              style={{ display: "block", borderRadius: 10, objectFit: "cover", cursor: "pointer", userSelect: "none" }} />
             </div>
           </div>
           <select value={voterName} onChange={(e) => setVoterNameState(e.target.value)} className="body-font"
-            style={{ width: 100, fontSize: 11, padding: "3px 4px", borderRadius: 4, border: `1px solid ${TEAM_BOX_BORDER}`, background: PANEL_BG, color: INK, fontWeight: 600, textAlign: "center" }}>
+            style={{ width: 100, fontSize: 11, padding: "3px 4px", borderRadius: 10, border: `1px solid ${TEAM_BOX_BORDER}`, background: PANEL_BG, color: INK, fontWeight: 600, textAlign: "center" }}>
             <option value="">Chi vota?</option>
             {[...VOTER_OPTIONS, ...voterOptionsExtra].map((name) => (
               <option key={name} value={name}>{name}</option>
@@ -4225,8 +4228,8 @@ function coloreTestoContrastante(hex) {
                 <input value={newVoterDraft} onChange={(e) => setNewVoterDraft(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") addVoterOption(); }}
                   placeholder="Nuovo nome" className="body-font"
-                  style={{ width: 0, flex: 1, fontSize: 11, padding: "3px 4px", borderRadius: 4, border: `1px solid ${TEAM_BOX_BORDER}` }} />
-                <button onClick={addVoterOption} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 4, border: "none", background: colore1, color: "#fff", fontWeight: 700, cursor: "pointer" }}>+</button>
+                  style={{ width: 0, flex: 1, fontSize: 11, padding: "3px 4px", borderRadius: 10, border: `1px solid ${TEAM_BOX_BORDER}` }} />
+                <button onClick={addVoterOption} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: "none", background: colore1, color: "#fff", fontWeight: 700, cursor: "pointer" }}>+</button>
               </div>
               <button onClick={() => { setShowAddVoter(false); setNewVoterDraft(""); }} style={{ fontSize: 10, background: "none", border: "none", color: MUTED, cursor: "pointer" }}>chiudi</button>
             </div>
@@ -4235,19 +4238,18 @@ function coloreTestoContrastante(hex) {
       </div>
       </div>
 
-      <div style={{ display: "flex", padding: "0 4px", background: CREAM, boxShadow: `inset 0 -1px 0 ${LINE}` }}>
+      <div style={{ display: "flex", gap: 4, padding: "8px 8px", background: CREAM, boxShadow: `inset 0 -1px 0 ${LINE}` }}>
         {[
           ["stagione", "01", "Stagione"],
           ["campionato", "02", "Campionato"],
           ["coppa", "03", "Coppa"],
         ].map(([key, num, label]) => (
           <button key={key} onClick={() => setMacroTab(key)}
-            style={{ flex: 1, textAlign: "center", padding: "12px 6px", border: "none",
-              background: macroTab === key ? `${colore1}14` : "none", cursor: "pointer",
-              borderBottom: macroTab === key ? `4px solid ${colore1}` : "4px solid transparent",
+            style={{ flex: 1, textAlign: "center", padding: "10px 6px", border: "none", borderRadius: 12,
+              background: macroTab === key ? colore1 : "transparent", cursor: "pointer",
               boxShadow: macroTab === key ? `0 3px 10px -2px ${colore1}B3` : "none" }}>
-            <span className="title-font" style={{ fontSize: 12, fontWeight: 700, marginRight: 5, color: macroTab === key ? colore1 : MUTED }}>{num}</span>
-            <span className="body-font" style={{ fontSize: 12, fontWeight: 600, letterSpacing: 0.5, color: macroTab === key ? INK : MUTED }}>{label}</span>
+            <span className="title-font" style={{ fontSize: 12, fontWeight: 700, marginRight: 5, color: macroTab === key ? "#fff" : MUTED }}>{num}</span>
+            <span className="body-font" style={{ fontSize: 12, fontWeight: 600, letterSpacing: 0.5, color: macroTab === key ? "#fff" : MUTED }}>{label}</span>
           </button>
         ))}
       </div>
@@ -4339,7 +4341,7 @@ function coloreTestoContrastante(hex) {
             </div>
 
             {positionHistory.length > 1 && (
-              <div style={{ background: PANEL_BG, border: `1px solid ${LINE}`, borderRadius: 4, padding: "12px 8px 4px", marginTop: 20 }}>
+              <div style={{ background: PANEL_BG, border: `1px solid ${LINE}`, borderRadius: 10, padding: "12px 8px 4px", marginTop: 20 }}>
                 <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, paddingLeft: 8 }}>
                   Andamento classifica Cimiano
                 </div>
@@ -4360,7 +4362,7 @@ function coloreTestoContrastante(hex) {
         {macroTab === "stagione" && stagSub === "cimiano" && (
           <div className="body-font">
             {!mostraFormPartita ? (
-              <button onClick={() => setMostraFormPartita(true)} style={{ background: colore1, color: "#fff", border: "none", padding: "8px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer", marginBottom: 20 }}>
+              <button onClick={() => setMostraFormPartita(true)} style={{ background: colore1, color: "#fff", border: "none", padding: "8px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer", marginBottom: 20 }}>
                 + Aggiungi Partita
               </button>
             ) : (
@@ -4368,7 +4370,7 @@ function coloreTestoContrastante(hex) {
               <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
                 Aggiungi Partita
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6, background: PANEL_BG, padding: 12, borderRadius: 4, border: `1px solid ${LINE}` }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6, background: PANEL_BG, padding: 12, borderRadius: 10, border: `1px solid ${LINE}` }}>
                 <select value={nuovaPartitaForm.tipo} onChange={(e) => setNuovaPartitaForm((p) => ({ ...p, tipo: e.target.value }))}
                   style={{ padding: 6, border: `1px solid ${LINE}`, fontWeight: 600 }}>
                   <option value="amichevole">Amichevole</option>
@@ -4408,7 +4410,7 @@ function coloreTestoContrastante(hex) {
                       style={{ width: 90, padding: 6, border: `1px solid ${LINE}` }} />
                   </>
                 )}
-                <button onClick={aggiungiPartita} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>
+                <button onClick={aggiungiPartita} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>
                   Aggiungi
                 </button>
                 <span onClick={() => { setMostraFormPartita(false); setErroreNuovaPartita(null); }} style={{ alignSelf: "center", color: MUTED, fontSize: 12, cursor: "pointer" }}>annulla</span>
@@ -4428,13 +4430,13 @@ function coloreTestoContrastante(hex) {
             </div>
             <div style={{ display: "flex", gap: 14, marginBottom: 10, fontSize: 11, color: MUTED, flexWrap: "wrap" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: STATUS_COLORS.played.bg, border: `1px solid ${STATUS_COLORS.played.border}`, display: "inline-block" }} /> giocata
+                <span style={{ width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS.played.bg, border: `1px solid ${STATUS_COLORS.played.border}`, display: "inline-block" }} /> giocata
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: STATUS_COLORS.next.bg, border: `1px solid ${STATUS_COLORS.next.border}`, display: "inline-block" }} /> prossima
+                <span style={{ width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS.next.bg, border: `1px solid ${STATUS_COLORS.next.border}`, display: "inline-block" }} /> prossima
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: STATUS_COLORS.upcoming.bg, border: `1px solid ${STATUS_COLORS.upcoming.border}`, display: "inline-block" }} /> in programma
+                <span style={{ width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS.upcoming.bg, border: `1px solid ${STATUS_COLORS.upcoming.border}`, display: "inline-block" }} /> in programma
               </span>
             </div>
             {allCimianoMatches.length === 0 ? (
@@ -4483,7 +4485,7 @@ function coloreTestoContrastante(hex) {
         {macroTab === "stagione" && stagSub === "giocatori" && (
           <div className="body-font">
             {teamVotoChartData.length > 1 && (
-              <div style={{ background: PANEL_BG, border: `1px solid ${LINE}`, borderRadius: 4, padding: "12px 8px 4px", marginBottom: 16 }}>
+              <div style={{ background: PANEL_BG, border: `1px solid ${LINE}`, borderRadius: 10, padding: "12px 8px 4px", marginBottom: 16 }}>
                 <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, paddingLeft: 8 }}>
                   Media voto squadra per partita
                 </div>
@@ -4502,7 +4504,7 @@ function coloreTestoContrastante(hex) {
             )}
 
             {!mostraFormAggiungi ? (
-              <button onClick={() => setMostraFormAggiungi(true)} style={{ background: colore1, color: "#fff", border: "none", padding: "8px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer", marginBottom: 16 }}>
+              <button onClick={() => setMostraFormAggiungi(true)} style={{ background: colore1, color: "#fff", border: "none", padding: "8px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer", marginBottom: 16 }}>
                 + Aggiungi giocatore
               </button>
             ) : (
@@ -4525,7 +4527,7 @@ function coloreTestoContrastante(hex) {
                   Capitano
                 </label>
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  <button onClick={() => { addRosterPlayer(); setMostraFormAggiungi(false); }} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Aggiungi</button>
+                  <button onClick={() => { addRosterPlayer(); setMostraFormAggiungi(false); }} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>Aggiungi</button>
                   <span onClick={() => setMostraFormAggiungi(false)} style={{ color: MUTED, fontSize: 12, cursor: "pointer" }}>annulla</span>
                 </div>
               </div>
@@ -4536,7 +4538,7 @@ function coloreTestoContrastante(hex) {
               Anagrafica e rendimento in un unico posto: apri "Modifica" per l'anagrafica, il pulsante rosso per lo storico voti.
             </div>
             <input value={giocRicerca} onChange={(e) => setGiocRicerca(e.target.value)} placeholder="🔍 Cerca giocatore per nome…"
-              style={{ width: "100%", padding: "8px 10px", border: `1px solid ${LINE}`, borderRadius: 6, marginBottom: 12, boxSizing: "border-box" }} />
+              style={{ width: "100%", padding: "8px 10px", border: `1px solid ${LINE}`, borderRadius: 12, marginBottom: 12, boxSizing: "border-box" }} />
             {renderFiltroOrdina({
               ruoloSel: giocFiltroRuolo, setRuoloSel: setGiocFiltroRuolo,
               latoSel: giocFiltroLato, setLatoSel: setGiocFiltroLato,
@@ -4611,7 +4613,7 @@ function coloreTestoContrastante(hex) {
                     {isEditingAnagrafica && (
                       <div style={{ borderTop: `1px solid ${LINE}`, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                          <div style={{ width: 56, height: 56, borderRadius: 8, background: PANEL_BG, border: `1px solid ${LINE}`, flexShrink: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <div style={{ width: 56, height: 56, borderRadius: 14, background: PANEL_BG, border: `1px solid ${LINE}`, flexShrink: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
                             {rp.foto ? <img src={rp.foto} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ color: MUTED, fontSize: 10 }}>Nessuna foto</span>}
                           </div>
                           <div>
@@ -4639,7 +4641,7 @@ function coloreTestoContrastante(hex) {
                           Capitano
                         </label>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                          <button onClick={() => saveEditRoster(rp.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }}>Salva</button>
+                          <button onClick={() => saveEditRoster(rp.id)} style={{ background: colore1, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>Salva</button>
                           <button onClick={() => removeRosterPlayer(rp.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>Rimuovi giocatore dalla rosa</button>
                         </div>
                       </div>
@@ -4828,17 +4830,17 @@ function coloreTestoContrastante(hex) {
           <div className="body-font">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 8, flexWrap: "wrap" }}>
               <button onClick={() => setRoundIdx((i) => Math.max(0, i - 1))} disabled={roundIdx === 0}
-                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: PANEL_BG, borderRadius: 3, cursor: "pointer" }}>‹ Prec.</button>
+                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: PANEL_BG, borderRadius: 8, cursor: "pointer" }}>‹ Prec.</button>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontWeight: 700, fontSize: 16 }}>Giornata {round.giornata} · {round.half === "andata" ? "Andata" : "Ritorno"}</div>
                 <div style={{ fontSize: 12, color: MUTED }}>{fmtDate(round.data)}</div>
               </div>
               <button onClick={() => setRoundIdx((i) => Math.min(ROUNDS.length - 1, i + 1))} disabled={roundIdx === ROUNDS.length - 1}
-                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: PANEL_BG, borderRadius: 3, cursor: "pointer" }}>Succ. ›</button>
+                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: PANEL_BG, borderRadius: 8, cursor: "pointer" }}>Succ. ›</button>
             </div>
 
             <select value={roundIdx} onChange={(e) => setRoundIdx(Number(e.target.value))}
-              style={{ width: "100%", padding: 6, border: `1px solid ${LINE}`, marginBottom: 14, borderRadius: 3 }}>
+              style={{ width: "100%", padding: 6, border: `1px solid ${LINE}`, marginBottom: 14, borderRadius: 8 }}>
               {ROUNDS.map((r, i) => (
                 <option key={r.key} value={i}>
                   Giornata {r.giornata} ({r.half === "andata" ? "A" : "R"}) — {fmtDate(r.data)}
@@ -4856,17 +4858,17 @@ function coloreTestoContrastante(hex) {
           <div className="body-font">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 8, flexWrap: "wrap" }}>
               <button onClick={() => setRoundIdx((i) => Math.max(0, i - 1))} disabled={roundIdx === 0}
-                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: PANEL_BG, borderRadius: 3, cursor: "pointer" }}>‹ Prec.</button>
+                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: PANEL_BG, borderRadius: 8, cursor: "pointer" }}>‹ Prec.</button>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontWeight: 700, fontSize: 16 }}>Giornata {round.giornata} · {round.half === "andata" ? "Andata" : "Ritorno"}</div>
                 <div style={{ fontSize: 12, color: MUTED }}>{fmtDate(round.data)}</div>
               </div>
               <button onClick={() => setRoundIdx((i) => Math.min(ROUNDS.length - 1, i + 1))} disabled={roundIdx === ROUNDS.length - 1}
-                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: PANEL_BG, borderRadius: 3, cursor: "pointer" }}>Succ. ›</button>
+                style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: PANEL_BG, borderRadius: 8, cursor: "pointer" }}>Succ. ›</button>
             </div>
 
             <select value={roundIdx} onChange={(e) => setRoundIdx(Number(e.target.value))}
-              style={{ width: "100%", padding: 6, border: `1px solid ${LINE}`, marginBottom: 14, borderRadius: 3 }}>
+              style={{ width: "100%", padding: 6, border: `1px solid ${LINE}`, marginBottom: 14, borderRadius: 8 }}>
               {ROUNDS.map((r, i) => (
                 <option key={r.key} value={i}>
                   Giornata {r.giornata} ({r.half === "andata" ? "A" : "R"}) — {fmtDate(r.data)}
@@ -4879,8 +4881,8 @@ function coloreTestoContrastante(hex) {
             </div>
             <textarea rows={8} value={bulkImportText} onChange={(e) => setBulkImportText(e.target.value)}
               placeholder={"Villa 2-1 Enotria 1908\nAldini 0-3 Cimiano\n..."}
-              style={{ width: "100%", padding: 8, border: `1px solid ${LINE}`, borderRadius: 3, fontFamily: "monospace", fontSize: 12, boxSizing: "border-box", marginBottom: 8 }} />
-            <button onClick={importBulkResults} style={{ background: colore1, color: "#fff", border: "none", padding: "8px 16px", borderRadius: 3, fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
+              style={{ width: "100%", padding: 8, border: `1px solid ${LINE}`, borderRadius: 8, fontFamily: "monospace", fontSize: 12, boxSizing: "border-box", marginBottom: 8 }} />
+            <button onClick={importBulkResults} style={{ background: colore1, color: "#fff", border: "none", padding: "8px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
               Importa risultati
             </button>
 
@@ -4987,20 +4989,20 @@ function coloreTestoContrastante(hex) {
 
       {settingsModalOpen && settingsDraft && (
         <div className="modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div className="body-font" style={{ background: PANEL_BG, borderRadius: 8, padding: 20, maxWidth: 320, width: "100%" }}>
+          <div className="body-font" style={{ background: PANEL_BG, borderRadius: 14, padding: 20, maxWidth: 320, width: "100%" }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: INK, marginBottom: 14 }}>Impostazioni società</div>
 
             <label style={{ fontSize: 11, color: MUTED, display: "block", marginBottom: 4 }}>Nome squadra</label>
             <input value={settingsDraft.nome} onChange={(e) => setSettingsDraft((d) => ({ ...d, nome: e.target.value }))}
-              style={{ width: "100%", padding: 7, border: `1px solid ${LINE}`, borderRadius: 4, marginBottom: 12, boxSizing: "border-box" }} />
+              style={{ width: "100%", padding: 7, border: `1px solid ${LINE}`, borderRadius: 10, marginBottom: 12, boxSizing: "border-box" }} />
 
             <label style={{ fontSize: 11, color: MUTED, display: "block", marginBottom: 4 }}>Categoria</label>
             <input value={settingsDraft.categoria} onChange={(e) => setSettingsDraft((d) => ({ ...d, categoria: e.target.value }))}
-              style={{ width: "100%", padding: 7, border: `1px solid ${LINE}`, borderRadius: 4, marginBottom: 14, boxSizing: "border-box" }} />
+              style={{ width: "100%", padding: 7, border: `1px solid ${LINE}`, borderRadius: 10, marginBottom: 14, boxSizing: "border-box" }} />
 
             <label style={{ fontSize: 11, color: MUTED, display: "block", marginBottom: 4 }}>Logo società</label>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-              <img src={LOGO_ATTUALE} alt="" style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 4, border: `1px solid ${LINE}` }} />
+              <img src={LOGO_ATTUALE} alt="" style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 10, border: `1px solid ${LINE}` }} />
               <label style={{ fontSize: 12, color: colore1, fontWeight: 600, cursor: "pointer" }}>
                 {logoUploading ? "Caricamento…" : "Cambia logo"}
                 <input type="file" accept="image/*" style={{ display: "none" }} disabled={logoUploading}
@@ -5014,7 +5016,7 @@ function coloreTestoContrastante(hex) {
               {[["c1", "Primario"], ["c2", "Secondario"], ["c3", "Contrasto"]].map(([key, label]) => (
                 <div key={key} style={{ textAlign: "center" }}>
                   <input type="color" value={settingsDraft[key]} onChange={(e) => setSettingsDraft((d) => ({ ...d, [key]: e.target.value }))}
-                    style={{ width: 44, height: 34, border: `1px solid ${LINE}`, borderRadius: 4, cursor: "pointer", padding: 0, background: "none" }} />
+                    style={{ width: 44, height: 34, border: `1px solid ${LINE}`, borderRadius: 10, cursor: "pointer", padding: 0, background: "none" }} />
                   <div style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>{label}</div>
                 </div>
               ))}
@@ -5027,7 +5029,7 @@ function coloreTestoContrastante(hex) {
               <span onClick={resettaImpostazioni} style={{ color: MUTED, fontSize: 12, cursor: "pointer" }}>Reset ai valori Cimiano</span>
               <div>
                 <button onClick={() => setSettingsModalOpen(false)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 13, marginRight: 14 }}>Annulla</button>
-                <button onClick={salvaImpostazioni} style={{ background: settingsDraft.c1, color: "#fff", border: "none", padding: "7px 18px", borderRadius: 4, fontWeight: 600, cursor: "pointer" }}>Salva</button>
+                <button onClick={salvaImpostazioni} style={{ background: settingsDraft.c1, color: "#fff", border: "none", padding: "7px 18px", borderRadius: 10, fontWeight: 600, cursor: "pointer" }}>Salva</button>
               </div>
             </div>
           </div>
@@ -5041,14 +5043,14 @@ function coloreTestoContrastante(hex) {
           <div key={angolo}
             onPointerDown={(e) => fotoResizeStart(e, angolo)} onPointerMove={fotoDragMove} onPointerUp={fotoDragEnd} onPointerLeave={fotoDragEnd}
             style={{ position: "absolute", width: 18, height: 18, marginLeft: -9, marginTop: -9, cursor: cursore, touchAction: "none", zIndex: 2, ...style }}>
-            <div style={{ position: "absolute", inset: 4, background: "#fff", border: `2px solid ${colore1}`, borderRadius: 3 }} />
+            <div style={{ position: "absolute", inset: 4, background: "#fff", border: `2px solid ${colore1}`, borderRadius: 8 }} />
           </div>
         );
         return (
           <div className="modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-            <div className="body-font" style={{ background: PANEL_BG, borderRadius: 8, padding: 16, maxWidth: 280, width: "100%" }}>
+            <div className="body-font" style={{ background: PANEL_BG, borderRadius: 14, padding: 16, maxWidth: 280, width: "100%" }}>
               <div style={{ fontSize: 13, color: INK, marginBottom: 10, textAlign: "center" }}>Trascina il rettangolo o i 4 angoli per ritagliare</div>
-              <div style={{ width: m.dispW, height: m.dispH, margin: "0 auto", position: "relative", overflow: "hidden", borderRadius: 6 }}>
+              <div style={{ width: m.dispW, height: m.dispH, margin: "0 auto", position: "relative", overflow: "hidden", borderRadius: 12 }}>
                 <img src={m.objectUrl} alt="" draggable={false}
                   style={{ position: "absolute", left: 0, top: 0, width: m.dispW, height: m.dispH, maxWidth: "none", userSelect: "none", pointerEvents: "none" }} />
                 {/* Il rettangolo: il box-shadow enorme scurisce tutto ciò che sta fuori da lui, un solo elemento invece di 4 bande separate */}
@@ -5067,7 +5069,7 @@ function coloreTestoContrastante(hex) {
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
                 <button onClick={annullaCropFoto} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 13 }}>Annulla</button>
-                <button onClick={confermaCropFoto} style={{ background: colore1, color: "#fff", border: "none", padding: "8px 20px", borderRadius: 4, fontWeight: 600, cursor: "pointer" }}>Conferma</button>
+                <button onClick={confermaCropFoto} style={{ background: colore1, color: "#fff", border: "none", padding: "8px 20px", borderRadius: 10, fontWeight: 600, cursor: "pointer" }}>Conferma</button>
               </div>
             </div>
           </div>
@@ -5117,7 +5119,7 @@ function coloreTestoContrastante(hex) {
                         <span className="title-font" style={{ fontSize: 70, fontWeight: 700, color: "rgba(242,240,234,0.55)" }}>{iniziali}</span>
                       )}
                     </div>
-                    <img src={LOGO_ATTUALE} alt="" style={{ position: "absolute", top: 49, left: 8, width: 36, height: 36, objectFit: "cover", borderRadius: 5, border: "1.5px solid rgba(255,255,255,0.65)", boxShadow: "0 2px 5px rgba(0,0,0,0.5)", zIndex: 4 }} />
+                    <img src={LOGO_ATTUALE} alt="" style={{ position: "absolute", top: 49, left: 8, width: 36, height: 36, objectFit: "cover", borderRadius: 10, border: "1.5px solid rgba(255,255,255,0.65)", boxShadow: "0 2px 5px rgba(0,0,0,0.5)", zIndex: 4 }} />
                     <div style={{ textAlign: "center", position: "relative" }}>
                       <span className="title-font" style={{ fontSize: 20, fontWeight: 700, color: colore1, letterSpacing: 0.5 }}>{p.name.toUpperCase()}</span>
                     </div>
@@ -5228,7 +5230,7 @@ function coloreTestoContrastante(hex) {
                 </div>
 
                 <button onClick={() => window.print()} className="no-print"
-                  style={{ marginTop: 20, background: colore1, color: "#fff", border: "none", padding: "10px 16px", borderRadius: 4, fontWeight: 600, cursor: "pointer", width: "100%", fontSize: 14 }}>
+                  style={{ marginTop: 20, background: colore1, color: "#fff", border: "none", padding: "10px 16px", borderRadius: 10, fontWeight: 600, cursor: "pointer", width: "100%", fontSize: 14 }}>
                   Stampa distinta
                 </button>
               </div>
