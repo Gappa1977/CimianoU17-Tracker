@@ -373,50 +373,53 @@ const STATUS_COLORS = {
 // Moduli disponibili: ogni modulo ha 11 slot posizionati in percentuale sul campo
 // (0,0 = alto sinistra, attacco verso l'alto, portiere in basso)
 const FORMATIONS = {
+  // Coordinate verticali riviste (10/09/2026): portiere molto più in basso (94 invece di 90,
+  // vicino al proprio fondocampo) e più distanza tra le linee di ruolo, sfruttando tutta
+  // l'altezza del campo invece di stiparle tutte tra 22 e 72.
   "352": {
     label: "3-5-2",
     slots: [
-      { id: "gk", label: "P", x: 50, y: 90 },
-      { id: "d1", label: "D", x: 18, y: 72 }, { id: "d2", label: "D", x: 50, y: 72 }, { id: "d3", label: "D", x: 82, y: 72 },
-      { id: "m1", label: "C", x: 8, y: 50 }, { id: "m2", label: "C", x: 30, y: 50 }, { id: "m3", label: "C", x: 50, y: 50 }, { id: "m4", label: "C", x: 70, y: 50 }, { id: "m5", label: "C", x: 92, y: 50 },
-      { id: "f1", label: "A", x: 35, y: 22 }, { id: "f2", label: "A", x: 65, y: 22 },
+      { id: "gk", label: "P", x: 50, y: 94 },
+      { id: "d1", label: "D", x: 18, y: 76 }, { id: "d2", label: "D", x: 50, y: 76 }, { id: "d3", label: "D", x: 82, y: 76 },
+      { id: "m1", label: "C", x: 8, y: 48 }, { id: "m2", label: "C", x: 30, y: 48 }, { id: "m3", label: "C", x: 50, y: 48 }, { id: "m4", label: "C", x: 70, y: 48 }, { id: "m5", label: "C", x: 92, y: 48 },
+      { id: "f1", label: "A", x: 35, y: 12 }, { id: "f2", label: "A", x: 65, y: 12 },
     ],
   },
   "442": {
     label: "4-4-2",
     slots: [
-      { id: "gk", label: "P", x: 50, y: 90 },
-      { id: "d1", label: "D", x: 12, y: 72 }, { id: "d2", label: "D", x: 37, y: 74 }, { id: "d3", label: "D", x: 63, y: 74 }, { id: "d4", label: "D", x: 88, y: 72 },
-      { id: "m1", label: "C", x: 15, y: 50 }, { id: "m2", label: "C", x: 40, y: 52 }, { id: "m3", label: "C", x: 60, y: 52 }, { id: "m4", label: "C", x: 85, y: 50 },
-      { id: "f1", label: "A", x: 35, y: 22 }, { id: "f2", label: "A", x: 65, y: 22 },
+      { id: "gk", label: "P", x: 50, y: 94 },
+      { id: "d1", label: "D", x: 12, y: 76 }, { id: "d2", label: "D", x: 37, y: 78 }, { id: "d3", label: "D", x: 63, y: 78 }, { id: "d4", label: "D", x: 88, y: 76 },
+      { id: "m1", label: "C", x: 15, y: 48 }, { id: "m2", label: "C", x: 40, y: 50 }, { id: "m3", label: "C", x: 60, y: 50 }, { id: "m4", label: "C", x: 85, y: 48 },
+      { id: "f1", label: "A", x: 35, y: 12 }, { id: "f2", label: "A", x: 65, y: 12 },
     ],
   },
   "433": {
     label: "4-3-3",
     slots: [
-      { id: "gk", label: "P", x: 50, y: 90 },
-      { id: "d1", label: "D", x: 12, y: 72 }, { id: "d2", label: "D", x: 37, y: 74 }, { id: "d3", label: "D", x: 63, y: 74 }, { id: "d4", label: "D", x: 88, y: 72 },
-      { id: "m1", label: "C", x: 25, y: 50 }, { id: "m2", label: "C", x: 50, y: 52 }, { id: "m3", label: "C", x: 75, y: 50 },
-      { id: "f1", label: "A", x: 20, y: 22 }, { id: "f2", label: "A", x: 50, y: 18 }, { id: "f3", label: "A", x: 80, y: 22 },
+      { id: "gk", label: "P", x: 50, y: 94 },
+      { id: "d1", label: "D", x: 12, y: 76 }, { id: "d2", label: "D", x: 37, y: 78 }, { id: "d3", label: "D", x: 63, y: 78 }, { id: "d4", label: "D", x: 88, y: 76 },
+      { id: "m1", label: "C", x: 25, y: 48 }, { id: "m2", label: "C", x: 50, y: 50 }, { id: "m3", label: "C", x: 75, y: 48 },
+      { id: "f1", label: "A", x: 20, y: 14 }, { id: "f2", label: "A", x: 50, y: 8 }, { id: "f3", label: "A", x: 80, y: 14 },
     ],
   },
   "3412": {
     label: "3-4-1-2",
     slots: [
-      { id: "gk", label: "P", x: 50, y: 90 },
-      { id: "d1", label: "D", x: 20, y: 72 }, { id: "d2", label: "D", x: 50, y: 74 }, { id: "d3", label: "D", x: 80, y: 72 },
+      { id: "gk", label: "P", x: 50, y: 94 },
+      { id: "d1", label: "D", x: 20, y: 76 }, { id: "d2", label: "D", x: 50, y: 78 }, { id: "d3", label: "D", x: 80, y: 76 },
       { id: "m1", label: "C", x: 12, y: 52 }, { id: "m2", label: "C", x: 38, y: 54 }, { id: "m3", label: "C", x: 62, y: 54 }, { id: "m4", label: "C", x: 88, y: 52 },
-      { id: "t1", label: "C", x: 50, y: 34 },
-      { id: "f1", label: "A", x: 35, y: 16 }, { id: "f2", label: "A", x: 65, y: 16 },
+      { id: "t1", label: "C", x: 50, y: 30 },
+      { id: "f1", label: "A", x: 35, y: 10 }, { id: "f2", label: "A", x: 65, y: 10 },
     ],
   },
   "343": {
     label: "3-4-3",
     slots: [
-      { id: "gk", label: "P", x: 50, y: 90 },
-      { id: "d1", label: "D", x: 20, y: 72 }, { id: "d2", label: "D", x: 50, y: 74 }, { id: "d3", label: "D", x: 80, y: 72 },
-      { id: "m1", label: "C", x: 12, y: 50 }, { id: "m2", label: "C", x: 38, y: 52 }, { id: "m3", label: "C", x: 62, y: 52 }, { id: "m4", label: "C", x: 88, y: 50 },
-      { id: "f1", label: "A", x: 20, y: 22 }, { id: "f2", label: "A", x: 50, y: 18 }, { id: "f3", label: "A", x: 80, y: 22 },
+      { id: "gk", label: "P", x: 50, y: 94 },
+      { id: "d1", label: "D", x: 20, y: 76 }, { id: "d2", label: "D", x: 50, y: 78 }, { id: "d3", label: "D", x: 80, y: 76 },
+      { id: "m1", label: "C", x: 12, y: 48 }, { id: "m2", label: "C", x: 38, y: 50 }, { id: "m3", label: "C", x: 62, y: 50 }, { id: "m4", label: "C", x: 88, y: 48 },
+      { id: "f1", label: "A", x: 20, y: 14 }, { id: "f2", label: "A", x: 50, y: 8 }, { id: "f3", label: "A", x: 80, y: 14 },
     ],
   },
 };
@@ -668,8 +671,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.16";
-const TRACKER_VERSION_DATE = "10/09/2026@20.15";
+const TRACKER_VERSION = "4.17";
+const TRACKER_VERSION_DATE = "10/09/2026@23.15";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -3405,9 +3408,9 @@ function coloreTestoContrastante(hex) {
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>1. Formazione</div>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5 }}>Formazione</div>
                     <span onClick={() => riavviandoId !== fx.id && riavviaFormazione(fx.id, false)} style={{ fontSize: 10, color: riavviandoId === fx.id ? accentUI : MUTED, cursor: riavviandoId === fx.id ? "default" : "pointer", textDecoration: riavviandoId === fx.id ? "none" : "underline", fontWeight: riavviandoId === fx.id ? 700 : 400 }}>
-                      {riavviandoId === fx.id ? "Riavviando…" : "Riavvia"}
+                      {riavviandoId === fx.id ? "Reset…" : "Reset"}
                     </span>
                   </div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: subCount > 7 ? RED : MUTED }}>
@@ -3438,7 +3441,7 @@ function coloreTestoContrastante(hex) {
             )}
 
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Marcatori {teamNome}</div>
+              <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Marcatori {teamNome}</div>
               {marcatori.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
                   {marcatori.map((s) => {
@@ -3455,7 +3458,7 @@ function coloreTestoContrastante(hex) {
                       </div>
                     ) : (
                       <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span>⚽ {s.giocatore}{s.minuto ? ` (${s.minuto}')` : ""}</span>
+                        <span>{s.rigore ? "🎯" : "⚽"} {s.giocatore}{s.minuto ? ` (${s.minuto}')` : ""}{s.rigore ? " — rig." : ""}</span>
                         <span style={{ display: "flex", gap: 8 }}>
                           <button onClick={() => startEditScorer(fx.id, s)} style={{ background: "none", border: "none", color: accentUI, cursor: "pointer", fontSize: 12 }}>Modifica</button>
                           <button onClick={() => removeScorer(fx.id, s.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
@@ -3465,20 +3468,26 @@ function coloreTestoContrastante(hex) {
                   })}
                 </div>
               )}
-              <div style={{ display: "flex", gap: 6 }}>
-                <input placeholder="Cerca giocatore…" list={`roster-marc-${fx.id}`} value={sd.giocatore || ""} onChange={(e) => setScorerDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], giocatore: e.target.value } }))}
-                  style={{ flex: 1, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
-                <datalist id={`roster-marc-${fx.id}`}>
-                  {rosterSorted.map((rp) => <option key={rp.id} value={rp.nome} />)}
-                </datalist>
-                <input placeholder="Min." value={sd.minuto || ""} onChange={(e) => setScorerDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], minuto: e.target.value } }))}
-                  style={{ width: 55, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
-                <button onClick={() => addScorer(fx.id)} style={{ background: accentUI, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>+</button>
+              <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", flex: 1 }}>
+                  <input placeholder="Cerca giocatore…" list={`roster-marc-${fx.id}`} value={sd.giocatore || ""} onChange={(e) => setScorerDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], giocatore: e.target.value } }))}
+                    style={{ width: 150, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                  <datalist id={`roster-marc-${fx.id}`}>
+                    {rosterSorted.map((rp) => <option key={rp.id} value={rp.nome} />)}
+                  </datalist>
+                  <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: MUTED, whiteSpace: "nowrap" }}>
+                    <input type="checkbox" checked={!!sd.rigore} onChange={(e) => setScorerDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], rigore: e.target.checked } }))} />
+                    Rigore
+                  </label>
+                  <input placeholder="Min." value={sd.minuto || ""} onChange={(e) => setScorerDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], minuto: e.target.value } }))}
+                    style={{ width: 55, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                </div>
+                <button onClick={() => addScorer(fx.id)} style={{ marginLeft: "auto", background: accentUI, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>+</button>
               </div>
             </div>
 
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Cartellini</div>
+              <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Cartellini</div>
               {cartellini.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
                   {cartellini.map((c) => {
@@ -3513,7 +3522,7 @@ function coloreTestoContrastante(hex) {
               )}
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <input placeholder="Cerca giocatore…" list={`roster-card-${fx.id}`} value={cd.giocatore || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], giocatore: e.target.value } }))}
-                  style={{ flex: 1, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                  style={{ width: 150, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
                 <datalist id={`roster-card-${fx.id}`}>
                   {rosterSorted.map((rp) => <option key={rp.id} value={rp.nome} />)}
                 </datalist>
@@ -3525,13 +3534,13 @@ function coloreTestoContrastante(hex) {
                 </span>
                 <input placeholder="Min." value={cd.minuto || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], minuto: e.target.value } }))}
                   style={{ width: 55, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
-                <button onClick={() => addCard(fx.id)} style={{ background: accentUI, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>+</button>
+                <button onClick={() => addCard(fx.id)} style={{ marginLeft: "auto", background: accentUI, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>+</button>
               </div>
             </div>
 
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 6 }}>
-                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>Voti</div>
+                <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5 }}>Voti</div>
               </div>
               {voti.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
@@ -3613,8 +3622,11 @@ function coloreTestoContrastante(hex) {
                 })}
               </div>
               <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-                <input placeholder="Giocatore" value={rd.giocatore || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], giocatore: e.target.value } }))}
-                  style={{ flex: 1, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                <input placeholder="Cerca giocatore…" list={`roster-voti-${fx.id}`} value={rd.giocatore || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], giocatore: e.target.value } }))}
+                  style={{ width: 150, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                <datalist id={`roster-voti-${fx.id}`}>
+                  {rosterSorted.map((rp) => <option key={rp.id} value={rp.nome} />)}
+                </datalist>
                 <input placeholder="Min'" type="number" min="0" max="120" value={rd.minutaggio || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], minutaggio: e.target.value } }))}
                   style={{ width: 55, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
               </div>
@@ -3638,13 +3650,13 @@ function coloreTestoContrastante(hex) {
                 <input placeholder="Nota (opz.)" value={rd.nota || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], nota: e.target.value } }))}
                   style={{ flex: 1, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
                 <button onClick={() => addRating(fx.id)} disabled={!voterName || missingForRating(rd).length > 0}
-                  style={{ background: (voterName && missingForRating(rd).length === 0) ? accentUI : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: (voterName && missingForRating(rd).length === 0) ? "pointer" : "not-allowed" }}>+</button>
+                  style={{ marginLeft: "auto", background: (voterName && missingForRating(rd).length === 0) ? accentUI : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: (voterName && missingForRating(rd).length === 0) ? "pointer" : "not-allowed" }}>+</button>
               </div>
               {voterName && missingForRating(rd).length > 0 && <div style={{ fontSize: 11, color: "#e0a52c", marginTop: 4 }}>{missingForRating(rd).join(" · ")}</div>}
               {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
             </div>
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                 <span>
                   Voto Squadra {votoSquadraList.length > 0 && `— media ${(votoSquadraList.reduce((s, v) => s + parseFloat(v.voto), 0) / votoSquadraList.length).toFixed(1)} (${votoSquadraList.length})`}
                 </span>
@@ -3682,7 +3694,7 @@ function coloreTestoContrastante(hex) {
                   style={{ width: 55, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
                 <input placeholder="Nota (opz.)" value={tvd.nota || ""} onChange={(e) => setTeamVotoDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], nota: e.target.value } }))}
                   style={{ flex: 1, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
-                <button onClick={() => addTeamVoto(fx.id)} disabled={!voterName} style={{ background: voterName ? accentUI : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
+                <button onClick={() => addTeamVoto(fx.id)} disabled={!voterName} style={{ marginLeft: "auto", background: voterName ? accentUI : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
               </div>
               {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
             </div>
@@ -3784,9 +3796,9 @@ function coloreTestoContrastante(hex) {
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>1. Formazione</div>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5 }}>Formazione</div>
                     <span onClick={() => riavviandoId !== f.id && riavviaFormazione(f.id, true)} style={{ fontSize: 10, color: riavviandoId === f.id ? accentUI : MUTED, cursor: riavviandoId === f.id ? "default" : "pointer", textDecoration: riavviandoId === f.id ? "none" : "underline", fontWeight: riavviandoId === f.id ? 700 : 400 }}>
-                      {riavviandoId === f.id ? "Riavviando…" : "Riavvia"}
+                      {riavviandoId === f.id ? "Reset…" : "Reset"}
                     </span>
                   </div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: subCountF > 7 ? RED : MUTED }}>
@@ -3817,7 +3829,7 @@ function coloreTestoContrastante(hex) {
             )}
 
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Marcatori {teamNome}</div>
+              <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Marcatori {teamNome}</div>
               {marcatoriF.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
                   {marcatoriF.map((s) => {
@@ -3834,7 +3846,7 @@ function coloreTestoContrastante(hex) {
                       </div>
                     ) : (
                       <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span>⚽ {s.giocatore}{s.minuto ? ` (${s.minuto}')` : ""}</span>
+                        <span>{s.rigore ? "🎯" : "⚽"} {s.giocatore}{s.minuto ? ` (${s.minuto}')` : ""}{s.rigore ? " — rig." : ""}</span>
                         <span style={{ display: "flex", gap: 8 }}>
                           <button onClick={() => startEditScorerF(f.id, s)} style={{ background: "none", border: "none", color: accentUI, cursor: "pointer", fontSize: 12 }}>Modifica</button>
                           <button onClick={() => removeScorerF(f.id, s.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>×</button>
@@ -3846,18 +3858,22 @@ function coloreTestoContrastante(hex) {
               )}
               <div style={{ display: "flex", gap: 6 }}>
                 <input placeholder="Cerca giocatore…" list={`roster-marc-${f.id}`} value={sdF.giocatore || ""} onChange={(e) => setScorerDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], giocatore: e.target.value } }))}
-                  style={{ flex: 1, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                  style={{ width: 150, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
                 <datalist id={`roster-marc-${f.id}`}>
                   {rosterSorted.map((rp) => <option key={rp.id} value={rp.nome} />)}
                 </datalist>
+                <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: MUTED, whiteSpace: "nowrap" }}>
+                  <input type="checkbox" checked={!!sdF.rigore} onChange={(e) => setScorerDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], rigore: e.target.checked } }))} />
+                  Rigore
+                </label>
                 <input placeholder="Min." value={sdF.minuto || ""} onChange={(e) => setScorerDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], minuto: e.target.value } }))}
                   style={{ width: 55, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
-                <button onClick={() => addScorerF(f.id)} style={{ background: accentUI, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>+</button>
+                <button onClick={() => addScorerF(f.id)} style={{ marginLeft: "auto", background: accentUI, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>+</button>
               </div>
             </div>
 
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Cartellini</div>
+              <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Cartellini</div>
               {cartelliniF.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
                   {cartelliniF.map((c) => {
@@ -3892,7 +3908,7 @@ function coloreTestoContrastante(hex) {
               )}
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <input placeholder="Cerca giocatore…" list={`roster-card-${f.id}`} value={cdF.giocatore || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], giocatore: e.target.value } }))}
-                  style={{ flex: 1, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                  style={{ width: 150, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
                 <datalist id={`roster-card-${f.id}`}>
                   {rosterSorted.map((rp) => <option key={rp.id} value={rp.nome} />)}
                 </datalist>
@@ -3904,12 +3920,12 @@ function coloreTestoContrastante(hex) {
                 </span>
                 <input placeholder="Min." value={cdF.minuto || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], minuto: e.target.value } }))}
                   style={{ width: 55, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
-                <button onClick={() => addCardF(f.id)} style={{ background: accentUI, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>+</button>
+                <button onClick={() => addCardF(f.id)} style={{ marginLeft: "auto", background: accentUI, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>+</button>
               </div>
             </div>
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 6 }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>Voti</div>
+              <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5 }}>Voti</div>
             </div>
             {voti.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
@@ -3991,8 +4007,11 @@ function coloreTestoContrastante(hex) {
               })}
             </div>
             <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-              <input placeholder="Giocatore" value={rd.giocatore || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], giocatore: e.target.value } }))}
-                style={{ flex: 1, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+              <input placeholder="Cerca giocatore…" list={`roster-voti-${f.id}`} value={rd.giocatore || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], giocatore: e.target.value } }))}
+                style={{ width: 150, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+              <datalist id={`roster-voti-${f.id}`}>
+                {rosterSorted.map((rp) => <option key={rp.id} value={rp.nome} />)}
+              </datalist>
               <input placeholder="Min'" type="number" min="0" max="120" value={rd.minutaggio || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], minutaggio: e.target.value } }))}
                 style={{ width: 55, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
             </div>
@@ -4016,12 +4035,12 @@ function coloreTestoContrastante(hex) {
               <input placeholder="Nota (opz.)" value={rd.nota || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], nota: e.target.value } }))}
                 style={{ flex: 1, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
               <button onClick={() => addRatingFriendly(f.id)} disabled={!voterName || missingForRating(rd).length > 0}
-                style={{ background: (voterName && missingForRating(rd).length === 0) ? accentUI : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: (voterName && missingForRating(rd).length === 0) ? "pointer" : "not-allowed" }}>+</button>
+                style={{ marginLeft: "auto", background: (voterName && missingForRating(rd).length === 0) ? accentUI : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: (voterName && missingForRating(rd).length === 0) ? "pointer" : "not-allowed" }}>+</button>
             </div>
             {voterName && missingForRating(rd).length > 0 && <div style={{ fontSize: 11, color: "#e0a52c", marginTop: 4 }}>{missingForRating(rd).join(" · ")}</div>}
             {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                 <span>
                   Voto Squadra {votoSquadraListF.length > 0 && `— media ${(votoSquadraListF.reduce((s, v) => s + parseFloat(v.voto), 0) / votoSquadraListF.length).toFixed(1)} (${votoSquadraListF.length})`}
                 </span>
@@ -4059,7 +4078,7 @@ function coloreTestoContrastante(hex) {
                   style={{ width: 55, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
                 <input placeholder="Nota (opz.)" value={tvdF.nota || ""} onChange={(e) => setTeamVotoDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], nota: e.target.value } }))}
                   style={{ flex: 1, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
-                <button onClick={() => addTeamVotoF(f.id)} disabled={!voterName} style={{ background: voterName ? accentUI : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
+                <button onClick={() => addTeamVotoF(f.id)} disabled={!voterName} style={{ marginLeft: "auto", background: voterName ? accentUI : DISABLED_BG, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: voterName ? "pointer" : "not-allowed" }}>+</button>
               </div>
               {!voterName && <div style={{ fontSize: 11, color: RED, marginTop: 4 }}>Seleziona chi sei in alto (sotto il logo) per poter votare.</div>}
             </div>
@@ -4131,6 +4150,9 @@ function coloreTestoContrastante(hex) {
         .btn-solid { background: ${accentUI}; color: #fff; border: none; padding: 5px 12px; border-radius: 8px; font-weight: 600; font-size: 11px; cursor: pointer; font-family: 'Quicksand', sans-serif; }
         .btn-ghost { background: transparent; color: ${accentUI}; border: 1px solid ${accentUI}; padding: 4px 11px; border-radius: 8px; font-weight: 600; font-size: 11px; cursor: pointer; font-family: 'Quicksand', sans-serif; }
         .btn-ghost-muted { background: transparent; color: ${MUTED}; border: 1px solid ${LINE}; padding: 4px 11px; border-radius: 8px; font-weight: 600; font-size: 11px; cursor: pointer; font-family: 'Quicksand', sans-serif; }
+        .classifica-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .classifica-row { min-width: 420px; }
+        .classifica-row > span:not(:last-child) { border-right: 1px solid ${LINE}; }
         .dual-pitch-wrapper { display: flex; flex-direction: column; gap: 20px; }
         @media (min-width: 700px) {
           .dual-pitch-wrapper { flex-direction: row; gap: 14px; }
@@ -4215,7 +4237,7 @@ function coloreTestoContrastante(hex) {
           ["coppa", "Coppa"],
         ].map(([key, label]) => (
           <button key={key} onClick={() => setMacroTab(key)}
-            style={{ flex: 1, textAlign: "center", padding: "10px 6px", border: macroTab === key ? "none" : `1.5px solid ${HUDDLE_SECONDARY}`, borderRadius: 12,
+            style={{ flex: 1, textAlign: "center", padding: "10px 6px", border: macroTab === key ? "none" : "1.5px solid transparent", borderImage: macroTab === key ? "none" : `linear-gradient(90deg, ${LINE}, ${HUDDLE_SECONDARY}) 1`, borderRadius: 12,
               background: macroTab === key ? HUDDLE_SECONDARY : "transparent", cursor: "pointer",
               boxShadow: macroTab === key ? `0 3px 10px -2px ${HUDDLE_SECONDARY}B3` : "none" }}>
             <span className="body-font" style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: macroTab === key ? "#fff" : MUTED }}>{label}</span>
@@ -4231,7 +4253,7 @@ function coloreTestoContrastante(hex) {
             ["import", "Import"],
           ].map(([key, label]) => (
             <button key={key} onClick={() => setCampSub(key)} className="body-font"
-              style={{ padding: "6px 12px", border: campSub === key ? "none" : `1.5px solid ${HUDDLE_SECONDARY}`, borderRadius: 14, cursor: "pointer",
+              style={{ padding: "6px 12px", border: campSub === key ? "none" : "1.5px solid transparent", borderImage: campSub === key ? "none" : `linear-gradient(90deg, ${LINE}, ${HUDDLE_SECONDARY}) 1`, borderRadius: 14, cursor: "pointer",
                 background: campSub === key ? HUDDLE_SECONDARY : PANEL_BG,
                 fontWeight: 600, fontSize: 12, color: campSub === key ? "#fff" : MUTED }}>
               {label}
@@ -4242,7 +4264,7 @@ function coloreTestoContrastante(hex) {
             ["risultati", "Calendario"],
           ].map(([key, label]) => (
             <button key={key} onClick={() => setCoppaSub(key)} className="body-font"
-              style={{ padding: "6px 12px", border: coppaSub === key ? "none" : `1.5px solid ${HUDDLE_SECONDARY}`, borderRadius: 14, cursor: "pointer",
+              style={{ padding: "6px 12px", border: coppaSub === key ? "none" : "1.5px solid transparent", borderImage: coppaSub === key ? "none" : `linear-gradient(90deg, ${LINE}, ${HUDDLE_SECONDARY}) 1`, borderRadius: 14, cursor: "pointer",
                 background: coppaSub === key ? HUDDLE_SECONDARY : PANEL_BG,
                 fontWeight: 600, fontSize: 12, color: coppaSub === key ? "#fff" : MUTED }}>
               {label}
@@ -4255,7 +4277,7 @@ function coloreTestoContrastante(hex) {
             ["cartellini", "Cartellini"],
           ].map(([key, label]) => (
             <button key={key} onClick={() => setStagSub(key)} className="body-font"
-              style={{ padding: "6px 12px", border: stagSub === key ? "none" : `1.5px solid ${HUDDLE_SECONDARY}`, borderRadius: 14, cursor: "pointer",
+              style={{ padding: "6px 12px", border: stagSub === key ? "none" : "1.5px solid transparent", borderImage: stagSub === key ? "none" : `linear-gradient(90deg, ${LINE}, ${HUDDLE_SECONDARY}) 1`, borderRadius: 14, cursor: "pointer",
                 background: stagSub === key ? HUDDLE_SECONDARY : PANEL_BG,
                 fontWeight: 600, fontSize: 12, color: stagSub === key ? "#fff" : MUTED }}>
               {label}
@@ -4269,8 +4291,8 @@ function coloreTestoContrastante(hex) {
         {macroTab === "campionato" && campSub === "classifica" && (
           <div className="body-font">
             <div className="chrome-box">
-              <div className="chrome-box-inner" style={{ padding: "4px 14px" }}>
-                <div className="body-font" style={{ display: "grid", gridTemplateColumns: "20px 1fr 26px 22px 22px 22px 26px 26px 30px 30px", gap: 6, padding: "10px 14px", margin: "0 -14px 4px", fontSize: 12, fontWeight: 700, color: "#fff", background: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, borderRadius: "10px 10px 0 0", textAlign: "center" }}>
+              <div className="chrome-box-inner classifica-scroll" style={{ padding: "4px 14px" }}>
+                <div className="body-font classifica-row" style={{ display: "grid", gridTemplateColumns: "24px 100px 30px 26px 26px 26px 30px 30px 34px 34px", gap: 6, padding: "10px 14px", margin: "0 -14px 4px", fontSize: 12, fontWeight: 700, color: "#fff", background: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, borderRadius: "10px 10px 0 0", textAlign: "center" }}>
                   <span style={{ textAlign: "center" }}>#</span><span style={{ textAlign: "center" }}>Squadra</span>
                   <span style={{ textAlign: "center" }}>PG</span><span style={{ textAlign: "center" }}>V</span>
                   <span style={{ textAlign: "center" }}>N</span><span style={{ textAlign: "center" }}>P</span>
@@ -4283,8 +4305,8 @@ function coloreTestoContrastante(hex) {
                   const highlighted = isCimiano || isNextOpp;
                   const accent = isCimiano ? accentUI : "#e0a52c";
                   return (
-                    <div key={s.name} className="body-font" style={{
-                      display: "grid", gridTemplateColumns: "20px 1fr 26px 22px 22px 22px 26px 26px 30px 30px", gap: 6, alignItems: "center", fontSize: 13,
+                    <div key={s.name} className="body-font classifica-row" style={{
+                      display: "grid", gridTemplateColumns: "24px 100px 30px 26px 26px 26px 30px 30px 34px 34px", gap: 6, alignItems: "center", fontSize: 13,
                       padding: highlighted ? "7px 14px" : "6px 0",
                       margin: highlighted ? "3px -14px" : 0,
                       borderBottom: !highlighted ? `1px solid ${LINE}` : "none",
@@ -4311,7 +4333,7 @@ function coloreTestoContrastante(hex) {
 
             {positionHistory.length > 1 && (
               <div style={{ background: PANEL_BG, border: `1px solid ${LINE}`, borderRadius: 10, padding: "12px 8px 4px", marginTop: 20 }}>
-                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, paddingLeft: 8 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, paddingLeft: 8 }}>
                   Andamento classifica Cimiano
                 </div>
                 <ResponsiveContainer width="100%" height={200}>
@@ -4353,7 +4375,7 @@ function coloreTestoContrastante(hex) {
               </div>
             ) : (
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
                 Aggiungi Partita
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6, background: PANEL_BG, padding: 12, borderRadius: 10, border: `1px solid ${LINE}` }}>
@@ -4411,19 +4433,8 @@ function coloreTestoContrastante(hex) {
               </div>
             </div>
             )}
-            <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+            <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
               Tutte le partite
-            </div>
-            <div style={{ display: "flex", gap: 14, marginBottom: 10, fontSize: 11, color: MUTED, flexWrap: "wrap" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS.played.bg, border: `1px solid ${STATUS_COLORS.played.border}`, display: "inline-block" }} /> giocata
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS.next.bg, border: `1px solid ${STATUS_COLORS.next.border}`, display: "inline-block" }} /> prossima
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS.upcoming.bg, border: `1px solid ${STATUS_COLORS.upcoming.border}`, display: "inline-block" }} /> in programma
-              </span>
             </div>
             {allCimianoMatches.length === 0 ? (
               <div style={{ color: MUTED, fontSize: 13 }}>Nessuna partita registrata per il Cimiano al momento.</div>
@@ -4472,7 +4483,7 @@ function coloreTestoContrastante(hex) {
           <div className="body-font">
             {teamVotoChartData.length > 1 && (
               <div style={{ background: PANEL_BG, border: `1px solid ${LINE}`, borderRadius: 10, padding: "12px 8px 4px", marginBottom: 16 }}>
-                <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, paddingLeft: 8 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, paddingLeft: 8 }}>
                   Media voto squadra per partita
                 </div>
                 <ResponsiveContainer width="100%" height={220}>
@@ -4905,12 +4916,12 @@ function coloreTestoContrastante(hex) {
 
         {macroTab === "coppa" && coppaSub === "classifica" && (
           <div className="body-font">
-            <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+            <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
               Fase a gironi · Girone {COPPA_GIRONE} · 6-30 settembre 2026
             </div>
             <div className="chrome-box">
-              <div className="chrome-box-inner" style={{ padding: "4px 14px" }}>
-                <div className="body-font" style={{ display: "grid", gridTemplateColumns: "20px 1fr 26px 22px 22px 22px 26px 26px 30px 30px", gap: 6, padding: "10px 14px", margin: "0 -14px 4px", fontSize: 12, fontWeight: 700, color: "#fff", background: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, borderRadius: "10px 10px 0 0", textAlign: "center" }}>
+              <div className="chrome-box-inner classifica-scroll" style={{ padding: "4px 14px" }}>
+                <div className="body-font classifica-row" style={{ display: "grid", gridTemplateColumns: "24px 100px 30px 26px 26px 26px 30px 30px 34px 34px", gap: 6, padding: "10px 14px", margin: "0 -14px 4px", fontSize: 12, fontWeight: 700, color: "#fff", background: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, borderRadius: "10px 10px 0 0", textAlign: "center" }}>
                   <span style={{ textAlign: "center" }}>#</span><span style={{ textAlign: "center" }}>Squadra</span>
                   <span style={{ textAlign: "center" }}>PG</span><span style={{ textAlign: "center" }}>V</span>
                   <span style={{ textAlign: "center" }}>N</span><span style={{ textAlign: "center" }}>P</span>
@@ -4923,8 +4934,8 @@ function coloreTestoContrastante(hex) {
                   const highlighted = isCimiano || isNextOpp;
                   const accent = isCimiano ? accentUI : "#e0a52c";
                   return (
-                    <div key={s.name} className="body-font" style={{
-                      display: "grid", gridTemplateColumns: "20px 1fr 26px 22px 22px 22px 26px 26px 30px 30px", gap: 6, alignItems: "center", fontSize: 13,
+                    <div key={s.name} className="body-font classifica-row" style={{
+                      display: "grid", gridTemplateColumns: "24px 100px 30px 26px 26px 26px 30px 30px 34px 34px", gap: 6, alignItems: "center", fontSize: 13,
                       padding: highlighted ? "7px 14px" : "6px 0",
                       margin: highlighted ? "3px -14px" : 0,
                       borderBottom: !highlighted ? `1px solid ${LINE}` : "none",
@@ -4953,7 +4964,7 @@ function coloreTestoContrastante(hex) {
 
         {macroTab === "coppa" && coppaSub === "risultati" && (
           <div className="body-font">
-            <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+            <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
               Fase a gironi · Girone {COPPA_GIRONE} · 6-30 settembre 2026
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
