@@ -402,7 +402,7 @@ const FORMATIONS = {
       { id: "gk", label: "P", x: 50, y: 90 },
       { id: "d1", label: "D", x: 20, y: 72 }, { id: "d2", label: "D", x: 50, y: 74 }, { id: "d3", label: "D", x: 80, y: 72 },
       { id: "m1", label: "C", x: 12, y: 52 }, { id: "m2", label: "C", x: 38, y: 54 }, { id: "m3", label: "C", x: 62, y: 54 }, { id: "m4", label: "C", x: 88, y: 52 },
-      { id: "t1", label: "T", x: 50, y: 34 },
+      { id: "t1", label: "C", x: 50, y: 34 },
       { id: "f1", label: "A", x: 35, y: 16 }, { id: "f2", label: "A", x: 65, y: 16 },
     ],
   },
@@ -664,8 +664,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.11";
-const TRACKER_VERSION_DATE = "10/09/2026@14.32";
+const TRACKER_VERSION = "4.12";
+const TRACKER_VERSION_DATE = "10/09/2026@15.30";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -2647,7 +2647,7 @@ function coloreTestoContrastante(hex) {
                     <div key={slot.id} style={{ display: "flex", alignItems: "center", gap: 3 }}>
                       <span className="mono-font" style={{ fontSize: 9, color: MUTED, width: 12, flexShrink: 0 }}>{slot.label}</span>
                       <select value={attuale} onChange={(e) => { onChangeSlot1(slot.id, e.target.value); if (e.target.value) garantisciConvocato(e.target.value); }} className="body-font"
-                        style={{ fontSize: 9, padding: "3px 2px", borderRadius: 10, border: `2px solid ${accentUI}`, background: attuale ? PANEL_BG : "transparent", color: attuale ? INK : MUTED, width: "100%", minWidth: 0 }}>
+                        style={{ fontSize: 9, padding: "3px 2px", borderRadius: 10, border: `1px solid ${LINE}`, background: attuale ? PANEL_BG : "transparent", color: attuale ? INK : MUTED, width: "100%", minWidth: 0 }}>
                         <option value="">{opzioni.length === 0 ? "nessuno con ruolo" : "scegli"}</option>
                         {opzioni.map((rp) => <option key={rp.id} value={rp.id}>{lastName(rp.nome)}</option>)}
                       </select>
@@ -2688,7 +2688,7 @@ function coloreTestoContrastante(hex) {
                         stroke={panchinaArmato ? "#ffe08a" : (player ? coloreTestoContrastante(isSub ? colore2 : colore1) : "#fff")}
                         strokeWidth={panchinaArmato ? 4 : 2.5} />
                     </svg>
-                    <div className="body-font" style={{ fontSize: cognomeFmt ? cognomeFmt.size + 1.5 : 10.5, fontWeight: 500, color: "#fff", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.6)", lineHeight: 1.15 }}>
+                    <div className="body-font" style={{ fontSize: 10.5, fontWeight: 500, color: "#fff", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.6)", lineHeight: 1.15 }}>
                       {player ? cognomeFmt.testo : slot.label}
                     </div>
                     {player && (
@@ -2780,7 +2780,7 @@ function coloreTestoContrastante(hex) {
           <div style={{ display: "flex", alignItems: "center", gap: 8, borderTop: `1px solid ${LINE}`, paddingTop: 10 }}>
             <span className="body-font" style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>Ordina per</span>
             <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setSortDir(e.target.value === "nome" ? "asc" : "desc"); }} className="body-font"
-              style={{ fontSize: 12, padding: "4px 8px", borderRadius: 10, border: `2px solid ${accentUI}` }}>
+              style={{ fontSize: 12, padding: "4px 8px", borderRadius: 10, border: `1px solid ${LINE}` }}>
               {sortOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
             <span onClick={() => setSortDir((d) => d === "asc" ? "desc" : "asc")}
@@ -3324,7 +3324,7 @@ function coloreTestoContrastante(hex) {
             <input placeholder="Avversario" value={fixtureDateDraft.avversario || ""} onChange={(e) => setFixtureDateDraft((p) => ({ ...p, avversario: e.target.value }))}
               style={{ padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8, minWidth: 140, flex: 1 }} />
             <select value={fixtureDateDraft.casa ? "casa" : "trasferta"} onChange={(e) => setFixtureDateDraft((p) => ({ ...p, casa: e.target.value === "casa" }))}
-              style={{ padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }}>
+              style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }}>
               <option value="casa">Casa</option>
               <option value="trasferta">Trasferta</option>
             </select>
@@ -3333,7 +3333,7 @@ function coloreTestoContrastante(hex) {
                 <input type="number" min="1" placeholder="Giornata" value={fixtureDateDraft.giornata || ""} onChange={(e) => setFixtureDateDraft((p) => ({ ...p, giornata: e.target.value }))}
                   style={{ padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8, width: 90 }} />
                 <select value={fixtureDateDraft.half} onChange={(e) => setFixtureDateDraft((p) => ({ ...p, half: e.target.value }))}
-                  style={{ padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }}>
+                  style={{ padding: 6, border: `1px solid ${LINE}`, borderRadius: 8 }}>
                   <option value="andata">Andata</option>
                   <option value="ritorno">Ritorno</option>
                 </select>
@@ -4129,7 +4129,8 @@ function coloreTestoContrastante(hex) {
         table { border-collapse: collapse; width: 100%; }
         th, td { padding: 8px 10px; text-align: left; }
         tbody tr { border-bottom: 1px solid ${LINE}; }
-        input, select, textarea { font-family: 'Fredoka', sans-serif; background: ${PANEL_BG}; color: ${INK}; border: 2px solid ${accentUI}; }
+        input, textarea { font-family: 'Fredoka', sans-serif; background: ${PANEL_BG}; color: ${INK}; border: 2px solid ${accentUI}; }
+        select { font-family: 'Fredoka', sans-serif; background: ${PANEL_BG}; color: ${INK}; border: 1px solid ${LINE}; }
         ::placeholder { color: ${MUTED}; opacity: 1; }
         .score-input { width: 40px; padding: 5px; border: 1px solid ${LINE}; text-align: center; border-radius: 8px; box-sizing: border-box; }
         .btn-solid { background: ${accentUI}; color: #fff; border: none; padding: 5px 12px; border-radius: 8px; font-weight: 600; font-size: 11px; cursor: pointer; font-family: 'Fredoka', sans-serif; }
@@ -4274,7 +4275,7 @@ function coloreTestoContrastante(hex) {
           <div className="body-font">
             <div className="chrome-box">
               <div className="chrome-box-inner" style={{ padding: "4px 14px" }}>
-                <div className="body-font" style={{ display: "grid", gridTemplateColumns: "20px 1fr 26px 22px 22px 22px 26px 26px 30px 30px", gap: 6, padding: "10px 14px", margin: "0 -14px 4px", fontSize: 12, fontWeight: 700, color: "#fff", background: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, borderRadius: "10px 10px 0 0", textAlign: "center", position: "sticky", top: 256, zIndex: 5 }}>
+                <div className="body-font" style={{ display: "grid", gridTemplateColumns: "20px 1fr 26px 22px 22px 22px 26px 26px 30px 30px", gap: 6, padding: "10px 14px", margin: "0 -14px 4px", fontSize: 12, fontWeight: 700, color: "#fff", background: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, borderRadius: "10px 10px 0 0", textAlign: "center" }}>
                   <span style={{ textAlign: "center" }}>#</span><span style={{ textAlign: "center" }}>Squadra</span>
                   <span style={{ textAlign: "center" }}>PG</span><span style={{ textAlign: "center" }}>V</span>
                   <span style={{ textAlign: "center" }}>N</span><span style={{ textAlign: "center" }}>P</span>
@@ -4289,7 +4290,7 @@ function coloreTestoContrastante(hex) {
                   return (
                     <div key={s.name} className="body-font" style={{
                       display: "grid", gridTemplateColumns: "20px 1fr 26px 22px 22px 22px 26px 26px 30px 30px", gap: 6, alignItems: "center", fontSize: 13,
-                      padding: highlighted ? "10px 14px" : "9px 0",
+                      padding: highlighted ? "7px 14px" : "6px 0",
                       margin: highlighted ? "3px -14px" : 0,
                       borderBottom: !highlighted ? `1px solid ${LINE}` : "none",
                       borderLeft: highlighted ? `2px solid ${accent}` : "none",
@@ -4362,7 +4363,7 @@ function coloreTestoContrastante(hex) {
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6, background: PANEL_BG, padding: 12, borderRadius: 10, border: `1px solid ${LINE}` }}>
                 <select value={nuovaPartitaForm.tipo} onChange={(e) => setNuovaPartitaForm((p) => ({ ...p, tipo: e.target.value }))}
-                  style={{ padding: 6, border: `2px solid ${accentUI}`, fontWeight: 600 }}>
+                  style={{ padding: 6, border: `1px solid ${LINE}`, fontWeight: 600 }}>
                   <option value="amichevole">Amichevole</option>
                   <option value="campionato">Campionato</option>
                   <option value="coppa">Coppa</option>
@@ -4371,7 +4372,7 @@ function coloreTestoContrastante(hex) {
                   style={{ flex: 1, minWidth: 140, padding: 6, border: `2px solid ${accentUI}` }} />
                 {nuovaPartitaForm.tipo !== "amichevole" && (
                   <select value={nuovaPartitaForm.casa ? "casa" : "trasferta"} onChange={(e) => setNuovaPartitaForm((p) => ({ ...p, casa: e.target.value === "casa" }))}
-                    style={{ padding: 6, border: `2px solid ${accentUI}` }}>
+                    style={{ padding: 6, border: `1px solid ${LINE}` }}>
                     <option value="casa">Casa</option>
                     <option value="trasferta">Trasferta</option>
                   </select>
@@ -4381,7 +4382,7 @@ function coloreTestoContrastante(hex) {
                     <input type="number" min="1" placeholder="Giornata" value={nuovaPartitaForm.giornata} onChange={(e) => setNuovaPartitaForm((p) => ({ ...p, giornata: e.target.value }))}
                       style={{ padding: 6, border: `2px solid ${accentUI}`, width: 90 }} />
                     <select value={nuovaPartitaForm.half} onChange={(e) => setNuovaPartitaForm((p) => ({ ...p, half: e.target.value }))}
-                      style={{ padding: 6, border: `2px solid ${accentUI}` }}>
+                      style={{ padding: 6, border: `1px solid ${LINE}` }}>
                       <option value="andata">Andata</option>
                       <option value="ritorno">Ritorno</option>
                     </select>
@@ -4830,7 +4831,7 @@ function coloreTestoContrastante(hex) {
             </div>
 
             <select value={roundIdx} onChange={(e) => setRoundIdx(Number(e.target.value))}
-              style={{ width: "100%", padding: 6, border: `2px solid ${accentUI}`, marginBottom: 14, borderRadius: 8 }}>
+              style={{ width: "100%", padding: 6, border: `1px solid ${LINE}`, marginBottom: 14, borderRadius: 8 }}>
               {ROUNDS.map((r, i) => (
                 <option key={r.key} value={i}>
                   Giornata {r.giornata} ({r.half === "andata" ? "A" : "R"}) — {fmtDate(r.data)}
@@ -4858,7 +4859,7 @@ function coloreTestoContrastante(hex) {
             </div>
 
             <select value={roundIdx} onChange={(e) => setRoundIdx(Number(e.target.value))}
-              style={{ width: "100%", padding: 6, border: `2px solid ${accentUI}`, marginBottom: 14, borderRadius: 8 }}>
+              style={{ width: "100%", padding: 6, border: `1px solid ${LINE}`, marginBottom: 14, borderRadius: 8 }}>
               {ROUNDS.map((r, i) => (
                 <option key={r.key} value={i}>
                   Giornata {r.giornata} ({r.half === "andata" ? "A" : "R"}) — {fmtDate(r.data)}
@@ -4914,7 +4915,7 @@ function coloreTestoContrastante(hex) {
             </div>
             <div className="chrome-box">
               <div className="chrome-box-inner" style={{ padding: "4px 14px" }}>
-                <div className="body-font" style={{ display: "grid", gridTemplateColumns: "20px 1fr 26px 22px 22px 22px 26px 26px 30px 30px", gap: 6, padding: "10px 14px", margin: "0 -14px 4px", fontSize: 12, fontWeight: 700, color: "#fff", background: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, borderRadius: "10px 10px 0 0", textAlign: "center", position: "sticky", top: 256, zIndex: 5 }}>
+                <div className="body-font" style={{ display: "grid", gridTemplateColumns: "20px 1fr 26px 22px 22px 22px 26px 26px 30px 30px", gap: 6, padding: "10px 14px", margin: "0 -14px 4px", fontSize: 12, fontWeight: 700, color: "#fff", background: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, borderRadius: "10px 10px 0 0", textAlign: "center" }}>
                   <span style={{ textAlign: "center" }}>#</span><span style={{ textAlign: "center" }}>Squadra</span>
                   <span style={{ textAlign: "center" }}>PG</span><span style={{ textAlign: "center" }}>V</span>
                   <span style={{ textAlign: "center" }}>N</span><span style={{ textAlign: "center" }}>P</span>
@@ -4929,7 +4930,7 @@ function coloreTestoContrastante(hex) {
                   return (
                     <div key={s.name} className="body-font" style={{
                       display: "grid", gridTemplateColumns: "20px 1fr 26px 22px 22px 22px 26px 26px 30px 30px", gap: 6, alignItems: "center", fontSize: 13,
-                      padding: highlighted ? "10px 14px" : "9px 0",
+                      padding: highlighted ? "7px 14px" : "6px 0",
                       margin: highlighted ? "3px -14px" : 0,
                       borderBottom: !highlighted ? `1px solid ${LINE}` : "none",
                       borderLeft: highlighted ? `2px solid ${accent}` : "none",
@@ -5104,7 +5105,7 @@ function coloreTestoContrastante(hex) {
                         </span>
                       )}
                     </div>
-                    <div style={{ width: "100%", height: 210, position: "relative",
+                    <div style={{ width: "100%", height: 220, position: "relative",
                       WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 100%)",
                       maskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 100%)",
                       display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: 6 }}>
@@ -5115,13 +5116,13 @@ function coloreTestoContrastante(hex) {
                       )}
                     </div>
                     <img src={LOGO_ATTUALE} alt="" style={{ position: "absolute", top: 49, left: 8, width: 36, height: 36, objectFit: "cover", borderRadius: 10, border: "1.5px solid rgba(255,255,255,0.65)", boxShadow: "0 2px 5px rgba(0,0,0,0.5)", zIndex: 4 }} />
-                    {/* Fascia inferiore (10/09/2026): segue la punta dello scudo grazie allo stesso
-                        clip-path della card. Più bassa/stretta di prima (65px invece di 90) per
-                        lasciare più spazio visibile alla foto sopra; il blocco testi ora sta
-                        assolutamente in fondo, su 3 righe separate, dentro questa zona ridotta. */}
+                    {/* Fascia inferiore (10/09/2026, ritocco): la foto ora riempie tutto lo spazio
+                        sopra la fascia (220px, non più un valore fisso indipendente), la fascia
+                        resta alta solo quanto serve a coprire il blocco testi, che è stato
+                        alzato un po' rispetto al giro precedente (bottom 8 -> 20). */}
                     <div style={{ position: "absolute", inset: 0, clipPath: `path('${SHIELD_PATH}')`,
-                      background: `linear-gradient(to top, ${colore1} 0px, ${colore1} 65px, transparent 65px)` }} />
-                    <div style={{ position: "absolute", left: 0, right: 0, bottom: 8, textAlign: "center" }}>
+                      background: `linear-gradient(to top, ${colore1} 0px, ${colore1} 80px, transparent 80px)` }} />
+                    <div style={{ position: "absolute", left: 0, right: 0, bottom: 20, textAlign: "center" }}>
                       <div className="title-font" style={{ fontSize: 15, fontWeight: 700, color: colore2, letterSpacing: 0.3, lineHeight: 1.25 }}>{p.name.toUpperCase()}</div>
                       <div className="body-font" style={{ fontSize: 11, color: colore2, opacity: 0.85, lineHeight: 1.3 }}>
                         {ruoloAttivo ? ruoloLabelLungo[ruoloAttivo.col.replace("ruolo", "")] : "Ruolo n.d."}
@@ -5153,20 +5154,20 @@ function coloreTestoContrastante(hex) {
                     <div className="body-font" style={{ display: "flex", justifyContent: "center", gap: 9, marginTop: 74, position: "relative" }}>
                       {skillValori.map((s) => (
                         <div key={s.key} style={{ textAlign: "center" }}>
-                          <div style={{ fontSize: 8, color: "#8A8F98" }}>{s.key.slice(0, 3).toUpperCase()}</div>
-                          <div className="mono-font" style={{ fontSize: 13, color: colore1, fontWeight: 700 }}>{s.val}</div>
+                          <div style={{ fontSize: 11, color: colore2, opacity: 0.85 }}>{s.key.slice(0, 3).toUpperCase()}</div>
+                          <div className="mono-font" style={{ fontSize: 16, color: colore1, fontWeight: 700 }}>{s.val}</div>
                         </div>
                       ))}
                     </div>
                     <div style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none",
                       background: "linear-gradient(125deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.04) 18%, transparent 32%, transparent 62%, rgba(255,255,255,0.05) 78%, rgba(255,255,255,0.18) 100%)" }} />
-                    <div style={{ textAlign: "center", marginTop: 16, position: "relative" }}>
-                      <div className="mono-font" style={{ fontSize: 40, fontWeight: 700, color: "#F4F5F7", lineHeight: 1 }}>{p.media !== null ? p.media.toFixed(1) : "—"}</div>
-                      <div className="body-font" style={{ fontSize: 9, color: "#8A8F98", letterSpacing: 1, marginTop: 2 }}>MEDIA VOTO{rp.maglia ? ` · #${rp.maglia}` : ""}</div>
+                    <div style={{ textAlign: "center", marginTop: 44, position: "relative" }}>
+                      <div className="mono-font" style={{ fontSize: 40, fontWeight: 700, color: colore2, lineHeight: 1 }}>{p.media !== null ? p.media.toFixed(1) : "—"}</div>
+                      <div className="body-font" style={{ fontSize: 9, color: colore2, opacity: 0.75, letterSpacing: 1, marginTop: 2 }}>MEDIA VOTO{rp.maglia ? ` · #${rp.maglia}` : ""}</div>
                     </div>
                     <div style={{ position: "absolute", inset: 0, clipPath: `path('${SHIELD_PATH}')`,
-                      background: `linear-gradient(to top, ${colore1} 0px, ${colore1} 65px, transparent 65px)` }} />
-                    <div style={{ position: "absolute", left: 0, right: 0, bottom: 8, textAlign: "center" }}>
+                      background: `linear-gradient(to top, ${colore1} 0px, ${colore1} 80px, transparent 80px)` }} />
+                    <div style={{ position: "absolute", left: 0, right: 0, bottom: 20, textAlign: "center" }}>
                       <div className="title-font" style={{ fontSize: 15, fontWeight: 700, color: colore2, letterSpacing: 0.3, lineHeight: 1.25 }}>{p.name.toUpperCase()}</div>
                       <div className="body-font" style={{ fontSize: 11, color: colore2, opacity: 0.85, lineHeight: 1.3 }}>
                         {ruoloAttivo ? ruoloLabelLungo[ruoloAttivo.col.replace("ruolo", "")] : "Ruolo n.d."}
