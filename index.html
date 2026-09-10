@@ -13,7 +13,7 @@
 <script src="https://unpkg.com/recharts@2/umd/Recharts.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone@7/babel.min.js" crossorigin></script>
 <style>
-  html, body { margin: 0; padding: 0; background: #2B2D33; font-family: system-ui, sans-serif; color-scheme: dark; }
+  html, body { margin: 0; padding: 0; background: #2B2D33; font-family: 'Fredoka', sans-serif; color-scheme: dark; }
   #app-root { max-width: 720px; margin: 0 auto; min-height: 100vh; }
   #loading { max-width: 720px; margin: 40px auto; padding: 20px; color: #8A8F98; text-align: center; }
   #loading .brand { font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 20px; color: #F4F5F7; margin-bottom: 14px; }
@@ -664,8 +664,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.07";
-const TRACKER_VERSION_DATE = "10/09/2026@10.45";
+const TRACKER_VERSION = "4.08";
+const TRACKER_VERSION_DATE = "10/09/2026@11.15";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -4123,7 +4123,7 @@ function coloreTestoContrastante(hex) {
     // arrivati. Mockup approvato: logo reale che ruota tutto insieme, wordmark Fredoka con le due
     // "d" colorate, barra di progresso bicolore. Font Fredoka caricato in anticipo nell'head.
     return (
-      <div style={{ fontFamily: "system-ui, sans-serif", background: "radial-gradient(circle at 50% 38%, #2B2D33 0%, #1C1D22 78%)", minHeight: "100vh", color: "#8A8F98", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 28 }}>
+      <div style={{ fontFamily: "'Fredoka', sans-serif", background: "radial-gradient(circle at 50% 38%, #2B2D33 0%, #1C1D22 78%)", minHeight: "100vh", color: "#8A8F98", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 28 }}>
         <div style={{ position: "relative", width: 140, height: 140 }}>
           <div style={{ position: "absolute", inset: -26, background: "radial-gradient(circle, rgba(255,106,0,0.18) 0%, rgba(0,174,239,0.10) 45%, transparent 72%)", filter: "blur(4px)", zIndex: -1 }} />
           <img src={HUDDLE_LOGO} alt="Huddle" style={{ width: "100%", height: "100%", objectFit: "contain", animation: "huddleSpin 4.16s linear infinite", transformOrigin: "50% 50%" }} />
@@ -4199,10 +4199,7 @@ function coloreTestoContrastante(hex) {
             </span>
             Huddle · Vers. {TRACKER_VERSION} del {TRACKER_VERSION_DATE}
           </div>
-          <div className="body-font" style={{ fontSize: 11, letterSpacing: 2.5, color: "#A9AEB8", textTransform: "uppercase", marginTop: 6 }}>
-            Girone A · {teamCategoria} · Lombardia 2026/27
-          </div>
-          <div className="title-font" style={{ fontSize: 28, fontWeight: 700, marginTop: 4, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+          <div className="title-font" style={{ fontSize: 34, fontWeight: 700, marginTop: 14, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
             {teamNome}
             {cimianoRow && cimianoRow.pg > 0 && (
               <span className="body-font" style={{ fontSize: 14, fontWeight: 700, color: accentUI, background: CREAM, border: `1px solid ${accentUI}`, borderRadius: 10, padding: "2px 9px", letterSpacing: 0.5, boxShadow: `0 0 8px ${accentUI}66` }}>
@@ -4210,6 +4207,11 @@ function coloreTestoContrastante(hex) {
               </span>
             )}
           </div>
+          {teamCategoria && (
+            <div className="body-font" style={{ fontSize: 11, letterSpacing: 2.5, color: "#A9AEB8", textTransform: "uppercase", marginTop: 6 }}>
+              {teamCategoria}
+            </div>
+          )}
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
           <div className="chrome-box" style={{ position: "relative", borderRadius: "50%" }}>
@@ -4253,8 +4255,8 @@ function coloreTestoContrastante(hex) {
         ].map(([key, num, label]) => (
           <button key={key} onClick={() => setMacroTab(key)}
             style={{ flex: 1, textAlign: "center", padding: "10px 6px", border: "none", borderRadius: 12,
-              background: macroTab === key ? accentUI : "transparent", cursor: "pointer",
-              boxShadow: macroTab === key ? `0 3px 10px -2px ${accentUI}B3` : "none" }}>
+              background: macroTab === key ? HUDDLE_SECONDARY : "transparent", cursor: "pointer",
+              boxShadow: macroTab === key ? `0 3px 10px -2px ${HUDDLE_SECONDARY}B3` : "none" }}>
             <span className="title-font" style={{ fontSize: 12, fontWeight: 700, marginRight: 5, color: macroTab === key ? "#fff" : MUTED }}>{num}</span>
             <span className="body-font" style={{ fontSize: 12, fontWeight: 600, letterSpacing: 0.5, color: macroTab === key ? "#fff" : MUTED }}>{label}</span>
           </button>
@@ -4270,7 +4272,7 @@ function coloreTestoContrastante(hex) {
           ].map(([key, label]) => (
             <button key={key} onClick={() => setCampSub(key)} className="body-font"
               style={{ padding: "6px 12px", border: "none", borderRadius: 14, cursor: "pointer",
-                background: campSub === key ? accentUI : PANEL_BG,
+                background: campSub === key ? HUDDLE_SECONDARY : PANEL_BG,
                 fontWeight: 600, fontSize: 12, color: campSub === key ? "#fff" : MUTED }}>
               {label}
             </button>
@@ -4281,7 +4283,7 @@ function coloreTestoContrastante(hex) {
           ].map(([key, label]) => (
             <button key={key} onClick={() => setCoppaSub(key)} className="body-font"
               style={{ padding: "6px 12px", border: "none", borderRadius: 14, cursor: "pointer",
-                background: coppaSub === key ? accentUI : PANEL_BG,
+                background: coppaSub === key ? HUDDLE_SECONDARY : PANEL_BG,
                 fontWeight: 600, fontSize: 12, color: coppaSub === key ? "#fff" : MUTED }}>
               {label}
             </button>
@@ -4294,7 +4296,7 @@ function coloreTestoContrastante(hex) {
           ].map(([key, label]) => (
             <button key={key} onClick={() => setStagSub(key)} className="body-font"
               style={{ padding: "6px 12px", border: "none", borderRadius: 14, cursor: "pointer",
-                background: stagSub === key ? accentUI : PANEL_BG,
+                background: stagSub === key ? HUDDLE_SECONDARY : PANEL_BG,
                 fontWeight: 600, fontSize: 12, color: stagSub === key ? "#fff" : MUTED }}>
               {label}
             </button>
@@ -4810,7 +4812,7 @@ function coloreTestoContrastante(hex) {
               {[["tutti", "Tutti"], ["giallo", "🟨 Gialli"], ["rosso", "🟥 Rossi"]].map(([key, label]) => (
                 <button key={key} onClick={() => setCartelliniFiltro(key)}
                   style={{ padding: "6px 12px", border: "none", borderRadius: 14, cursor: "pointer",
-                    background: cartelliniFiltro === key ? accentUI : PANEL_BG,
+                    background: cartelliniFiltro === key ? HUDDLE_SECONDARY : PANEL_BG,
                     fontWeight: 600, fontSize: 12, color: cartelliniFiltro === key ? "#fff" : MUTED }}>
                   {label}
                 </button>
