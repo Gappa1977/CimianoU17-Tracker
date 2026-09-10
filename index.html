@@ -664,8 +664,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.08";
-const TRACKER_VERSION_DATE = "10/09/2026@11.15";
+const TRACKER_VERSION = "4.09";
+const TRACKER_VERSION_DATE = "10/09/2026@11.50";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -2617,7 +2617,7 @@ function coloreTestoContrastante(hex) {
             <span style={{ width: 12, height: 12, borderRadius: 6, background: colore1, border: "2px solid #fff", display: "inline-block" }} /> Titolare
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ width: 12, height: 12, borderRadius: 6, background: colore2, border: "2px dashed #fff", display: "inline-block" }} /> Subentrato
+            <span style={{ width: 12, height: 12, borderRadius: 6, background: colore2, border: `2px solid ${colore3}`, display: "inline-block" }} /> Subentrato
           </span>
           {panchinaArmato && (
             <span style={{ color: colore1, fontWeight: 700 }}>
@@ -2630,7 +2630,7 @@ function coloreTestoContrastante(hex) {
           {/* COLONNA TITOLARI */}
           <div style={{ gridArea: "tit", width: colTitolariAperta ? "100%" : 22, maxWidth: colTitolariAperta ? 140 : 22, transition: "width 0.2s" }}>
             <div onClick={() => setColTitolariAperta((v) => !v)} className="body-font"
-              style={{ fontSize: 10, color: colore1, fontWeight: 700, textTransform: "uppercase", marginBottom: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              style={{ fontSize: 10, color: accentUI, fontWeight: 700, textTransform: "uppercase", marginBottom: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               {colTitolariAperta && <span>Titolari</span>}
               <span>{colTitolariAperta ? "◂" : "▸"}</span>
             </div>
@@ -2688,9 +2688,14 @@ function coloreTestoContrastante(hex) {
                         stroke={panchinaArmato ? "#ffe08a" : (player ? coloreTestoContrastante(isSub ? colore2 : colore1) : "#fff")}
                         strokeWidth={panchinaArmato ? 4 : 2.5} />
                     </svg>
-                    <div className="body-font" style={{ fontSize: cognomeFmt ? cognomeFmt.size + 1.5 : 8.5, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}>
+                    <div className="body-font" style={{ fontSize: cognomeFmt ? cognomeFmt.size + 1.5 : 8.5, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.6)", lineHeight: 1.15 }}>
                       {player ? cognomeFmt.testo : slot.label}
                     </div>
+                    {player && (
+                      <div className="body-font" style={{ fontSize: 7.5, fontWeight: 500, color: "rgba(255,255,255,0.8)", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.6)", lineHeight: 1.1 }}>
+                        {firstName(player.nome)}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -2700,7 +2705,7 @@ function coloreTestoContrastante(hex) {
           {/* COLONNA PANCHINA */}
           <div style={{ gridArea: "panch", width: colPanchinaAperta ? "100%" : 22, maxWidth: colPanchinaAperta ? 140 : 22, transition: "width 0.2s" }}>
             <div onClick={() => setColPanchinaAperta((v) => !v)} className="body-font"
-              style={{ fontSize: 10, color: colore1, fontWeight: 700, textTransform: "uppercase", marginBottom: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              style={{ fontSize: 10, color: accentUI, fontWeight: 700, textTransform: "uppercase", marginBottom: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span>{colPanchinaAperta ? "▾" : "◂"}</span>
               {colPanchinaAperta && <span>Panchina</span>}
             </div>
@@ -3381,7 +3386,7 @@ function coloreTestoContrastante(hex) {
               {played ? (
                 <button onClick={() => clearResult(fx.id)} className="btn-ghost-muted">Azzera</button>
               ) : (
-                <button onClick={() => saveResult(fx.id)} className="btn-solid">Salva</button>
+                <button onClick={() => saveResult(fx.id)} className="btn-ghost">Salva</button>
               )}
             </div>
           </div>
@@ -4267,7 +4272,7 @@ function coloreTestoContrastante(hex) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {macroTab === "campionato" && [
             ["classifica", "Classifica"],
-            ["risultati", "Calendario & risultati"],
+            ["risultati", "Calendario"],
             ["import", "Import"],
           ].map(([key, label]) => (
             <button key={key} onClick={() => setCampSub(key)} className="body-font"
@@ -4279,7 +4284,7 @@ function coloreTestoContrastante(hex) {
           ))}
           {macroTab === "coppa" && [
             ["classifica", "Classifica"],
-            ["risultati", "Calendario & risultati"],
+            ["risultati", "Calendario"],
           ].map(([key, label]) => (
             <button key={key} onClick={() => setCoppaSub(key)} className="body-font"
               style={{ padding: "6px 12px", border: "none", borderRadius: 14, cursor: "pointer",
@@ -4310,7 +4315,7 @@ function coloreTestoContrastante(hex) {
           <div className="body-font">
             <div className="chrome-box">
               <div className="chrome-box-inner" style={{ padding: "4px 14px" }}>
-                <div className="body-font" style={{ display: "grid", gridTemplateColumns: "20px 1fr 26px 22px 22px 22px 26px 26px 30px 30px", gap: 6, padding: "10px 0", fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, borderBottom: `1px solid ${LINE}` }}>
+                <div className="body-font" style={{ display: "grid", gridTemplateColumns: "20px 1fr 26px 22px 22px 22px 26px 26px 30px 30px", gap: 6, padding: "10px 14px", margin: "0 -14px 4px", fontSize: 10, color: "#fff", background: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, borderRadius: "10px 10px 0 0" }}>
                   <span>#</span><span>Squadra</span>
                   <span style={{ textAlign: "center" }}>PG</span><span style={{ textAlign: "center" }}>V</span>
                   <span style={{ textAlign: "center" }}>N</span><span style={{ textAlign: "center" }}>P</span>
@@ -4701,7 +4706,7 @@ function coloreTestoContrastante(hex) {
                                   <YAxis domain={[1, 10]} tick={{ fontSize: 10, fill: MUTED }} />
                                   <Tooltip labelFormatter={fmtDate} formatter={(v) => [v.toFixed(1), "Voto"]} />
                                   <ReferenceLine y={6} stroke={MUTED} strokeDasharray="4 4" />
-                                  <Line type="monotone" dataKey="voto" stroke={accentUI} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }}
+                                  <Line type="monotone" dataKey="voto" stroke={HUDDLE_SECONDARY} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }}
                                     label={{ position: "top", fontSize: 10, fill: INK }} />
                                 </LineChart>
                               </ResponsiveContainer>
@@ -4721,7 +4726,7 @@ function coloreTestoContrastante(hex) {
                                 <PolarAngleAxis dataKey="skill" tick={{ fontSize: 10, fill: INK }} />
                                 <PolarRadiusAxis domain={[0, 10]} tick={{ fontSize: 9, fill: MUTED }} />
                                 <Radar dataKey="soglia" name="Sufficienza (6)" stroke={MUTED} strokeDasharray="4 4" fill="none" />
-                                <Radar dataKey="valore" name="Media giocatore" stroke={accentUI} fill={accentUI} fillOpacity={0.35}
+                                <Radar dataKey="valore" name="Media giocatore" stroke={HUDDLE_SECONDARY} fill={HUDDLE_SECONDARY} fillOpacity={0.35}
                                   label={radarValueLabel(10, INK)} />
                                 <Legend wrapperStyle={{ fontSize: 11 }} />
                                 <Tooltip formatter={(v) => [v.toFixed(1), "Media"]} />
@@ -4903,7 +4908,7 @@ function coloreTestoContrastante(hex) {
             </select>
 
             <div style={{ fontSize: 12, color: MUTED, marginBottom: 8, lineHeight: 1.5 }}>
-              Incolla qui sotto i risultati della giornata selezionata, una partita per riga, nel formato <strong>Squadra1 X-Y Squadra2</strong> (es. <em>Villa 2-1 Enotria 1908</em>). Riconosco anche le sigle usate nel calendario ufficiale (es. "Accademia Inter"). Le righe non riconosciute non vengono toccate — puoi sempre completarle a mano da "Calendario & risultati".
+              Incolla qui sotto i risultati della giornata selezionata, una partita per riga, nel formato <strong>Squadra1 X-Y Squadra2</strong> (es. <em>Villa 2-1 Enotria 1908</em>). Riconosco anche le sigle usate nel calendario ufficiale (es. "Accademia Inter"). Le righe non riconosciute non vengono toccate — puoi sempre completarle a mano da "Calendario".
             </div>
             <textarea rows={8} value={bulkImportText} onChange={(e) => setBulkImportText(e.target.value)}
               placeholder={"Villa 2-1 Enotria 1908\nAldini 0-3 Cimiano\n..."}
@@ -4950,7 +4955,7 @@ function coloreTestoContrastante(hex) {
             </div>
             <div className="chrome-box">
               <div className="chrome-box-inner" style={{ padding: "4px 14px" }}>
-                <div className="body-font" style={{ display: "grid", gridTemplateColumns: "20px 1fr 26px 22px 22px 22px 26px 26px 30px 30px", gap: 6, padding: "10px 0", fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, borderBottom: `1px solid ${LINE}` }}>
+                <div className="body-font" style={{ display: "grid", gridTemplateColumns: "20px 1fr 26px 22px 22px 22px 26px 26px 30px 30px", gap: 6, padding: "10px 14px", margin: "0 -14px 4px", fontSize: 10, color: "#fff", background: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, borderRadius: "10px 10px 0 0" }}>
                   <span>#</span><span>Squadra</span>
                   <span style={{ textAlign: "center" }}>PG</span><span style={{ textAlign: "center" }}>V</span>
                   <span style={{ textAlign: "center" }}>N</span><span style={{ textAlign: "center" }}>P</span>
@@ -5128,12 +5133,17 @@ function coloreTestoContrastante(hex) {
                   <div style={facciataStile}>
                     <img src={LOGO_ATTUALE} alt="" style={{ position: "absolute", bottom: -10, left: "50%", transform: "translateX(-50%)", width: 230, opacity: 0.16, pointerEvents: "none" }} />
                     <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 20%, transparent 0%, #2B2D33 78%)" }} />
-                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 42, zIndex: 2, padding: "0 6px", boxSizing: "border-box",
+                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 54, zIndex: 2, padding: "5px 6px 4px", boxSizing: "border-box",
                       background: colore1,
-                      display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                       <span className="title-font" style={{ fontSize: formattaBannerSquadra(teamNome).size, fontWeight: 700, letterSpacing: 0.5, color: colore2, whiteSpace: "nowrap" }}>
                         {formattaBannerSquadra(teamNome).testo}
                       </span>
+                      {teamCategoria && (
+                        <span className="body-font" style={{ fontSize: 8.5, fontWeight: 500, letterSpacing: 0.5, color: colore2, opacity: 0.85, whiteSpace: "nowrap", marginTop: 1 }}>
+                          {teamCategoria}
+                        </span>
+                      )}
                     </div>
                     <div style={{ width: "100%", height: 210, position: "relative",
                       WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 100%)",
@@ -5179,6 +5189,14 @@ function coloreTestoContrastante(hex) {
                     <div style={{ textAlign: "center", marginTop: 16, position: "relative" }}>
                       <div className="mono-font" style={{ fontSize: 40, fontWeight: 700, color: "#F4F5F7", lineHeight: 1 }}>{p.media !== null ? p.media.toFixed(1) : "—"}</div>
                       <div className="body-font" style={{ fontSize: 9, color: "#8A8F98", letterSpacing: 1, marginTop: 2 }}>MEDIA VOTO{rp.maglia ? ` · #${rp.maglia}` : ""}</div>
+                    </div>
+                    <div style={{ position: "absolute", left: 30, right: 30, bottom: 22, zIndex: 2, background: colore1, borderRadius: 8, padding: "6px 8px", textAlign: "center" }}>
+                      <div className="title-font" style={{ fontSize: 13, fontWeight: 700, color: colore2, letterSpacing: 0.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {p.name.toUpperCase()}
+                      </div>
+                      <div className="body-font" style={{ fontSize: 8, color: colore2, opacity: 0.85, marginTop: 1 }}>
+                        {ruoloAttivo ? ruoloLabelLungo[ruoloAttivo.col.replace("ruolo", "")] : "Ruolo n.d."}{anno ? ` · ${anno}` : ""}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -5281,7 +5299,7 @@ function coloreTestoContrastante(hex) {
                     <YAxis domain={[1, 10]} tick={{ fontSize: 11, fill: MUTED }} />
                     <Tooltip labelFormatter={fmtDate} formatter={(v) => [v.toFixed(1), "Voto"]} />
                     <ReferenceLine y={6} stroke={MUTED} strokeDasharray="4 4" />
-                    <Line type="monotone" dataKey="voto" stroke={accentUI} strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                    <Line type="monotone" dataKey="voto" stroke={HUDDLE_SECONDARY} strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                   </LineChart>
                 ) : (
                   <RadarChart data={(chartModal.data || []).map((d) => ({ ...d, soglia: 6 }))} outerRadius="75%">
@@ -5289,7 +5307,7 @@ function coloreTestoContrastante(hex) {
                     <PolarAngleAxis dataKey="skill" tick={{ fontSize: 12, fill: INK }} />
                     <PolarRadiusAxis domain={[0, 10]} tick={{ fontSize: 10, fill: MUTED }} />
                     <Radar dataKey="soglia" name="Sufficienza (6)" stroke={MUTED} strokeDasharray="4 4" fill="none" />
-                    <Radar dataKey="valore" name="Media giocatore" stroke={accentUI} fill={accentUI} fillOpacity={0.35}
+                    <Radar dataKey="valore" name="Media giocatore" stroke={HUDDLE_SECONDARY} fill={HUDDLE_SECONDARY} fillOpacity={0.35}
                       label={radarValueLabel(12, INK)} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     <Tooltip formatter={(v) => [v.toFixed(1), "Media"]} />
