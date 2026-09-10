@@ -350,7 +350,7 @@ const PANEL_BG = "#34363D";
 // cromato grigio/bianco originale, a destra l'arancione fisso di Huddle — non più la coppia
 // azzurro/arancione del giro precedente, che non convinceva.
 const CHROME_BORDER = "linear-gradient(90deg,#eef0ee 0%,#9aa19d 22%,#3d4341 42%,#575e5b 58%,#FF6A00 100%)";
-const TITLE_FONT = "'Space Grotesk', sans-serif";
+const TITLE_FONT = "'Fredoka', sans-serif";
 const MONO_FONT = "'JetBrains Mono', monospace";
 const DISABLED_BG = "#454850";
 const TEAM_BOX_BG = "#141d17";
@@ -664,8 +664,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.06";
-const TRACKER_VERSION_DATE = "10/09/2026@10.20";
+const TRACKER_VERSION = "4.07";
+const TRACKER_VERSION_DATE = "10/09/2026@10.45";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -3045,7 +3045,7 @@ function coloreTestoContrastante(hex) {
       ctx.fillRect(0, 0, 240, 42);
       ctx.fillStyle = colore2;
       const bannerFmt = formattaBannerSquadra(teamNome);
-      ctx.font = `700 ${bannerFmt.size}px 'Space Grotesk'`;
+      ctx.font = `700 ${bannerFmt.size}px 'Fredoka'`;
       ctx.textAlign = "center";
       ctx.fillText(bannerFmt.testo, 120, 26);
       if (rp.foto) {
@@ -3055,13 +3055,13 @@ function coloreTestoContrastante(hex) {
         } catch (e) {
           setFotoErrore({ playerId: rp.id, msg: "La foto non si può includere nello scaricamento (limite di Google Drive): la card scaricata avrà le iniziali al posto suo." });
           ctx.fillStyle = "#F4F5F7";
-          ctx.font = "700 70px 'Space Grotesk'";
+          ctx.font = "700 70px 'Fredoka'";
           ctx.textAlign = "center";
           ctx.fillText(iniziali, 120, 130);
         }
       } else {
         ctx.fillStyle = "#F4F5F7";
-        ctx.font = "700 70px 'Space Grotesk'";
+        ctx.font = "700 70px 'Fredoka'";
         ctx.textAlign = "center";
         ctx.fillText(iniziali, 120, 130);
       }
@@ -3084,7 +3084,7 @@ function coloreTestoContrastante(hex) {
         ctx.stroke();
       } catch (e) { /* logo in primo piano non essenziale, si prosegue senza */ }
       ctx.fillStyle = colore1;
-      ctx.font = "700 20px 'Space Grotesk'";
+      ctx.font = "700 20px 'Fredoka'";
       ctx.textAlign = "center";
       ctx.fillText(p.name.toUpperCase(), 120, 235);
       ctx.fillStyle = "#A9AEB8";
@@ -3093,7 +3093,7 @@ function coloreTestoContrastante(hex) {
       ctx.fillText(riga2, 120, 255);
     } else {
       ctx.fillStyle = "#F4F5F7";
-      ctx.font = "700 17px 'Space Grotesk'";
+      ctx.font = "700 17px 'Fredoka'";
       ctx.textAlign = "center";
       ctx.fillText(p.name.toUpperCase(), 120, 45);
       skillValori.forEach((s, i) => {
@@ -3345,43 +3345,45 @@ function coloreTestoContrastante(hex) {
             )}
           </div>
         ) : (
-        <div style={{ padding: metaLabel ? "4px 12px 4px" : "8px 12px 4px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 10, flexWrap: "wrap" }}>
-            {canOpenDetails ? (
-              <div className={`plus-btn ${isOpen ? "plus-open" : ""}`} onClick={() => setExpanded((p) => ({ ...p, [fx.id]: !p[fx.id] }))}
-                tabIndex={0} role="button" aria-label="Apri dettagli partita"
-                style={{ borderColor: accentColor, color: accentColor, boxShadow: sc ? `0 0 8px ${accentColor}73` : "none", flexShrink: 0 }}>
-                <span className="plus-shape"></span>
-              </div>
-            ) : <span style={{ width: 22, flexShrink: 0 }} />}
-            <span style={{ fontWeight: fx.home === CIMIANO ? 700 : 400, color: fx.home === CIMIANO ? accentUI : INK }}>{fx.home}</span>
-            {played ? (
-              <span className="mono-font" style={{ fontWeight: 700, fontSize: 15 }}>{played.golHome} – {played.golAway}</span>
-            ) : (
-              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <input className="score-input" type="number" min="0" value={d.golHome ?? ""}
-                  onChange={(e) => setDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], golHome: e.target.value } }))} />
-                <span style={{ color: MUTED }}>–</span>
-                <input className="score-input" type="number" min="0" value={d.golAway ?? ""}
-                  onChange={(e) => setDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], golAway: e.target.value } }))} />
-              </span>
-            )}
-            <span style={{ fontWeight: fx.away === CIMIANO ? 700 : 400, color: fx.away === CIMIANO ? accentUI : INK }}>{fx.away}</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 18, flexWrap: "wrap", padding: "8px 0 4px" }}>
-            {canOpenDetails && (
-              <span onClick={() => setDistintaModal({
-                titolo: `${fx.home} vs ${fx.away}`,
-                sottotitolo: metaLabel || "",
-                modulo: moduloIniziale, formazione: formazioneIniziale, convocatiIds,
-              })} style={{ cursor: "pointer", color: accentUI, fontSize: 12, fontWeight: 600 }}>Distinta</span>
-            )}
-            <span onClick={() => startEditFixtureDate(fx)} title="Modifica data/ora" style={{ cursor: "pointer", color: accentUI, fontSize: 12, fontWeight: 600 }}>Modifica</span>
-            {played ? (
-              <button onClick={() => clearResult(fx.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>Azzera</button>
-            ) : (
-              <button onClick={() => saveResult(fx.id)} style={{ background: accentUI, color: "#fff", border: "none", padding: "5px 12px", borderRadius: 8, fontWeight: 600, cursor: "pointer", fontSize: 12 }}>Salva</button>
-            )}
+        <div style={{ padding: metaLabel ? "4px 12px 6px" : "8px 12px 6px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
+              {canOpenDetails ? (
+                <div className={`plus-btn ${isOpen ? "plus-open" : ""}`} onClick={() => setExpanded((p) => ({ ...p, [fx.id]: !p[fx.id] }))}
+                  tabIndex={0} role="button" aria-label="Apri dettagli partita"
+                  style={{ borderColor: accentColor, color: accentColor, boxShadow: sc ? `0 0 8px ${accentColor}73` : "none", flexShrink: 0 }}>
+                  <span className="plus-shape"></span>
+                </div>
+              ) : <span style={{ width: 22, flexShrink: 0 }} />}
+              <span style={{ fontWeight: fx.home === CIMIANO ? 700 : 400, color: fx.home === CIMIANO ? accentUI : INK }}>{fx.home}</span>
+              {played ? (
+                <span className="mono-font" style={{ fontWeight: 700, fontSize: 15 }}>{played.golHome} – {played.golAway}</span>
+              ) : (
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <input className="score-input" type="number" min="0" value={d.golHome ?? ""}
+                    onChange={(e) => setDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], golHome: e.target.value } }))} />
+                  <span style={{ color: MUTED }}>–</span>
+                  <input className="score-input" type="number" min="0" value={d.golAway ?? ""}
+                    onChange={(e) => setDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], golAway: e.target.value } }))} />
+                </span>
+              )}
+              <span style={{ fontWeight: fx.away === CIMIANO ? 700 : 400, color: fx.away === CIMIANO ? accentUI : INK }}>{fx.away}</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+              {canOpenDetails && (
+                <button onClick={() => setDistintaModal({
+                  titolo: `${fx.home} vs ${fx.away}`,
+                  sottotitolo: metaLabel || "",
+                  modulo: moduloIniziale, formazione: formazioneIniziale, convocatiIds,
+                })} className="btn-ghost">Distinta</button>
+              )}
+              <button onClick={() => startEditFixtureDate(fx)} title="Modifica data/ora" className="btn-ghost">Modifica</button>
+              {played ? (
+                <button onClick={() => clearResult(fx.id)} className="btn-ghost-muted">Azzera</button>
+              ) : (
+                <button onClick={() => saveResult(fx.id)} className="btn-solid">Salva</button>
+              )}
+            </div>
           </div>
         </div>
         )}
@@ -3754,37 +3756,39 @@ function coloreTestoContrastante(hex) {
             <button onClick={() => setEditingFriendly(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
           </div>
         ) : (
-          <div style={{ padding: "8px 12px 4px" }}>
+          <div style={{ padding: "8px 12px 6px" }}>
             <div className="body-font" style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
               Amichevole{f.data && ` · ${fmtDate(f.data)}`}{f.ora && ` · ore ${f.ora}`}
             </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 10, flexWrap: "wrap" }}>
-              {canOpenDetails ? (
-                <div className={`plus-btn ${isOpen ? "plus-open" : ""}`} onClick={() => setExpandedFriendly((p) => ({ ...p, [f.id]: !p[f.id] }))}
-                  tabIndex={0} role="button" aria-label="Apri dettagli partita"
-                  style={{ borderColor: accentColor, color: accentColor, boxShadow: sc ? `0 0 8px ${accentColor}73` : "none", flexShrink: 0 }}>
-                  <span className="plus-shape"></span>
-                </div>
-              ) : <span style={{ width: 22, flexShrink: 0 }} />}
-              <strong style={{ color: accentUI }}>Cimiano</strong>
-              {hasScore ? (
-                <span className="mono-font" style={{ fontWeight: 700, fontSize: 15 }}>{f.golCimiano} – {f.golAvv}</span>
-              ) : (
-                <span style={{ fontSize: 11, color: accentUI, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>vs</span>
-              )}
-              <strong>{f.avversario}</strong>
-              {!hasScore && <span style={{ fontSize: 11, color: accentUI, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>in programma</span>}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, flexWrap: "wrap", padding: "8px 0 4px" }}>
-              {canOpenDetails && (
-                <span onClick={() => setDistintaModal({
-                  titolo: `Cimiano vs ${f.avversario}`,
-                  sottotitolo: `Amichevole${f.data ? ` · ${fmtDate(f.data)}` : ""}${f.ora ? ` · ore ${f.ora}` : ""}`,
-                  modulo: moduloInizialeF, formazione: formazioneInizialeF, convocatiIds: convocatiIdsF,
-                })} style={{ cursor: "pointer", color: accentUI, fontSize: 11, fontWeight: 600 }}>Distinta</span>
-              )}
-              <button onClick={() => startEditFriendly(f)} style={{ background: "none", border: "none", color: accentUI, cursor: "pointer", fontSize: 11, fontWeight: 600, padding: 0 }}>Modifica</button>
-              <button onClick={() => removeFriendly(f.id)} style={{ background: "none", border: "none", color: accentUI, cursor: "pointer", fontSize: 11, fontWeight: 600, padding: 0 }}>Cancella</button>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
+                {canOpenDetails ? (
+                  <div className={`plus-btn ${isOpen ? "plus-open" : ""}`} onClick={() => setExpandedFriendly((p) => ({ ...p, [f.id]: !p[f.id] }))}
+                    tabIndex={0} role="button" aria-label="Apri dettagli partita"
+                    style={{ borderColor: accentColor, color: accentColor, boxShadow: sc ? `0 0 8px ${accentColor}73` : "none", flexShrink: 0 }}>
+                    <span className="plus-shape"></span>
+                  </div>
+                ) : <span style={{ width: 22, flexShrink: 0 }} />}
+                <strong style={{ color: accentUI }}>{CIMIANO}</strong>
+                {hasScore ? (
+                  <span className="mono-font" style={{ fontWeight: 700, fontSize: 15 }}>{f.golCimiano} – {f.golAvv}</span>
+                ) : (
+                  <span style={{ fontSize: 11, color: accentUI, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>vs</span>
+                )}
+                <strong>{f.avversario}</strong>
+                {!hasScore && <span style={{ fontSize: 11, color: accentUI, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>in programma</span>}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                {canOpenDetails && (
+                  <button onClick={() => setDistintaModal({
+                    titolo: `${CIMIANO} vs ${f.avversario}`,
+                    sottotitolo: `Amichevole${f.data ? ` · ${fmtDate(f.data)}` : ""}${f.ora ? ` · ore ${f.ora}` : ""}`,
+                    modulo: moduloInizialeF, formazione: formazioneInizialeF, convocatiIds: convocatiIdsF,
+                  })} className="btn-ghost">Distinta</button>
+                )}
+                <button onClick={() => startEditFriendly(f)} className="btn-ghost">Modifica</button>
+                <button onClick={() => removeFriendly(f.id)} className="btn-ghost">Cancella</button>
+              </div>
             </div>
           </div>
         )}
@@ -4144,9 +4148,9 @@ function coloreTestoContrastante(hex) {
   }
 
   return (
-    <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',sans-serif", background: CREAM, minHeight: "100%", color: INK }}>
+    <div style={{ fontFamily: "'Fredoka', sans-serif", background: CREAM, minHeight: "100%", color: INK }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Barlow+Condensed:wght@500;700;800&family=Space+Grotesk:wght@600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
         .body-font { font-family: 'Fredoka', sans-serif; font-weight: 400; }
         .title-font { font-family: 'Fredoka', sans-serif; }
         .mono-font { font-family: 'JetBrains Mono', monospace; }
@@ -4163,6 +4167,9 @@ function coloreTestoContrastante(hex) {
         input, select, textarea { font-family: 'Fredoka', sans-serif; background: ${PANEL_BG}; color: ${INK}; border: 1px solid ${LINE}; }
         ::placeholder { color: ${MUTED}; opacity: 1; }
         .score-input { width: 40px; padding: 5px; border: 1px solid ${LINE}; text-align: center; border-radius: 8px; box-sizing: border-box; }
+        .btn-solid { background: ${accentUI}; color: #fff; border: none; padding: 5px 12px; border-radius: 8px; font-weight: 600; font-size: 11px; cursor: pointer; font-family: 'Fredoka', sans-serif; }
+        .btn-ghost { background: transparent; color: ${accentUI}; border: 1px solid ${accentUI}; padding: 4px 11px; border-radius: 8px; font-weight: 600; font-size: 11px; cursor: pointer; font-family: 'Fredoka', sans-serif; }
+        .btn-ghost-muted { background: transparent; color: ${MUTED}; border: 1px solid ${LINE}; padding: 4px 11px; border-radius: 8px; font-weight: 600; font-size: 11px; cursor: pointer; font-family: 'Fredoka', sans-serif; }
         .dual-pitch-wrapper { display: flex; flex-direction: column; gap: 20px; }
         @media (min-width: 700px) {
           .dual-pitch-wrapper { flex-direction: row; gap: 14px; }
@@ -4185,7 +4192,14 @@ function coloreTestoContrastante(hex) {
       <div className="chrome-box" style={{ borderRadius: "0 0 20px 20px", padding: "3px 3px 4px", boxShadow: `0 4px 18px -4px rgba(255,106,0,0.5)` }}>
       <div style={{ background: "linear-gradient(160deg, #34363D 0%, #2B2D33 55%, #1C1D22 100%)", color: INK, padding: "22px 20px", borderRadius: "0 0 17px 17px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="body-font" style={{ fontSize: 11, letterSpacing: 2.5, color: "#A9AEB8", textTransform: "uppercase" }}>
+          <div className="body-font" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "rgba(255,255,255,0.35)", letterSpacing: 1 }}>
+            <span style={{ display: "inline-flex", gap: 2 }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: HUDDLE_PRIMARY, display: "inline-block" }} />
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: HUDDLE_SECONDARY, display: "inline-block" }} />
+            </span>
+            Huddle · Vers. {TRACKER_VERSION} del {TRACKER_VERSION_DATE}
+          </div>
+          <div className="body-font" style={{ fontSize: 11, letterSpacing: 2.5, color: "#A9AEB8", textTransform: "uppercase", marginTop: 6 }}>
             Girone A · {teamCategoria} · Lombardia 2026/27
           </div>
           <div className="title-font" style={{ fontSize: 28, fontWeight: 700, marginTop: 4, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
@@ -4196,28 +4210,6 @@ function coloreTestoContrastante(hex) {
               </span>
             )}
           </div>
-          <div className="body-font" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 4, letterSpacing: 1 }}>
-            <span style={{ display: "inline-flex", gap: 2 }}>
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: HUDDLE_PRIMARY, display: "inline-block" }} />
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: HUDDLE_SECONDARY, display: "inline-block" }} />
-            </span>
-            Huddle · Vers. {TRACKER_VERSION} del {TRACKER_VERSION_DATE}
-          </div>
-          {formaRecente.length > 0 && (
-            <div className="body-font" style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
-              <span style={{ fontSize: 11, color: "#A9AEB8", textTransform: "uppercase", letterSpacing: 1 }}>Forma:</span>
-              {formaRecente.map((m, i) => (
-                <span key={i} title={`${m.esito === "V" ? "Vittoria" : m.esito === "P" ? "Sconfitta" : "Pareggio"} vs ${m.opponent} (${m.golFatti}-${m.golSubiti})`}
-                  style={{
-                    width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 11, fontWeight: 700, color: "#fff",
-                    background: m.esito === "V" ? "#3aa757" : m.esito === "P" ? "#d6483f" : "#9a9a9a",
-                  }}>
-                  {m.esito}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
           <div className="chrome-box" style={{ position: "relative", borderRadius: "50%" }}>
@@ -4336,7 +4328,7 @@ function coloreTestoContrastante(hex) {
                       borderBottom: !highlighted ? `1px solid ${LINE}` : "none",
                       borderLeft: highlighted ? `2px solid ${accent}` : "none",
                       borderRadius: highlighted ? 4 : 0,
-                      background: highlighted ? (isCimiano ? "rgba(255,106,0,0.12)" : "rgba(224,165,44,0.10)") : "transparent",
+                      background: highlighted ? (isCimiano ? `${accentUI}1F` : "rgba(224,165,44,0.10)") : "transparent",
                       fontWeight: isCimiano ? 700 : 400,
                     }}>
                       <span className="mono-font" style={{ color: MUTED }}>{i + 1}</span>
@@ -4377,9 +4369,26 @@ function coloreTestoContrastante(hex) {
         {macroTab === "stagione" && stagSub === "cimiano" && (
           <div className="body-font">
             {!mostraFormPartita ? (
-              <button onClick={() => setMostraFormPartita(true)} style={{ background: accentUI, color: "#fff", border: "none", padding: "8px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer", marginBottom: 20 }}>
-                + Aggiungi Partita
-              </button>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 20 }}>
+                <button onClick={() => setMostraFormPartita(true)} style={{ background: accentUI, color: "#fff", border: "none", padding: "8px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>
+                  + Aggiungi Partita
+                </button>
+                {formaRecente.length > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 1 }}>Forma:</span>
+                    {formaRecente.map((m, i) => (
+                      <span key={i} title={`${m.esito === "V" ? "Vittoria" : m.esito === "P" ? "Sconfitta" : "Pareggio"} vs ${m.opponent} (${m.golFatti}-${m.golSubiti})`}
+                        style={{
+                          width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 11, fontWeight: 700, color: "#fff",
+                          background: m.esito === "V" ? "#3aa757" : m.esito === "P" ? "#d6483f" : "#9a9a9a",
+                        }}>
+                        {m.esito}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             ) : (
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontWeight: 700, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
@@ -4959,7 +4968,7 @@ function coloreTestoContrastante(hex) {
                       borderBottom: !highlighted ? `1px solid ${LINE}` : "none",
                       borderLeft: highlighted ? `2px solid ${accent}` : "none",
                       borderRadius: highlighted ? 4 : 0,
-                      background: highlighted ? (isCimiano ? "rgba(255,106,0,0.12)" : "rgba(224,165,44,0.10)") : "transparent",
+                      background: highlighted ? (isCimiano ? `${accentUI}1F` : "rgba(224,165,44,0.10)") : "transparent",
                       fontWeight: isCimiano ? 700 : 400,
                     }}>
                       <span className="mono-font" style={{ color: MUTED }}>{i + 1}</span>
