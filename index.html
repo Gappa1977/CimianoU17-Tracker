@@ -668,8 +668,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.14";
-const TRACKER_VERSION_DATE = "10/09/2026@18.30";
+const TRACKER_VERSION = "4.15";
+const TRACKER_VERSION_DATE = "10/09/2026@19.00";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -3573,8 +3573,8 @@ function coloreTestoContrastante(hex) {
                                     </div>
                                   ))}
                                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                                    <span style={{ fontSize: 9, color: MUTED, marginBottom: 2 }}>Media</span>
-                                    <div style={{ width: 40, padding: 5, textAlign: "center", fontWeight: 700, fontSize: 13, color: mediaSkillPreview(ed) !== null ? accentUI : MUTED }}>
+                                    <span style={{ fontSize: 12, fontWeight: 700, color: MUTED, marginBottom: 3 }}>Media</span>
+                                    <div style={{ width: 40, padding: 5, textAlign: "center", fontWeight: 700, fontSize: 13, color: mediaSkillPreview(ed) !== null ? HUDDLE_SECONDARY : MUTED }}>
                                       {mediaSkillPreview(ed) !== null ? mediaSkillPreview(ed).toFixed(1) : "—"}
                                     </div>
                                   </div>
@@ -3634,8 +3634,8 @@ function coloreTestoContrastante(hex) {
                   </div>
                 ))}
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                  <span style={{ fontSize: 9, color: MUTED, marginBottom: 2 }}>Media</span>
-                  <div style={{ width: 40, padding: 5, textAlign: "center", fontWeight: 700, fontSize: 13, color: mediaSkillPreview(rd) !== null ? accentUI : MUTED }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: MUTED, marginBottom: 3 }}>Media</span>
+                  <div style={{ width: 40, padding: 5, textAlign: "center", fontWeight: 700, fontSize: 13, color: mediaSkillPreview(rd) !== null ? HUDDLE_SECONDARY : MUTED }}>
                     {mediaSkillPreview(rd) !== null ? mediaSkillPreview(rd).toFixed(1) : "—"}
                   </div>
                 </div>
@@ -3957,8 +3957,8 @@ function coloreTestoContrastante(hex) {
                                   </div>
                                 ))}
                                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                                  <span style={{ fontSize: 9, color: MUTED, marginBottom: 2 }}>Media</span>
-                                  <div style={{ width: 40, padding: 5, textAlign: "center", fontWeight: 700, fontSize: 13, color: mediaSkillPreview(ed) !== null ? accentUI : MUTED }}>
+                                  <span style={{ fontSize: 12, fontWeight: 700, color: MUTED, marginBottom: 3 }}>Media</span>
+                                  <div style={{ width: 40, padding: 5, textAlign: "center", fontWeight: 700, fontSize: 13, color: mediaSkillPreview(ed) !== null ? HUDDLE_SECONDARY : MUTED }}>
                                     {mediaSkillPreview(ed) !== null ? mediaSkillPreview(ed).toFixed(1) : "—"}
                                   </div>
                                 </div>
@@ -4018,8 +4018,8 @@ function coloreTestoContrastante(hex) {
                 </div>
               ))}
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <span style={{ fontSize: 9, color: MUTED, marginBottom: 2 }}>Media</span>
-                <div style={{ width: 40, padding: 5, textAlign: "center", fontWeight: 700, fontSize: 13, color: mediaSkillPreview(rd) !== null ? accentUI : MUTED }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: MUTED, marginBottom: 3 }}>Media</span>
+                <div style={{ width: 40, padding: 5, textAlign: "center", fontWeight: 700, fontSize: 13, color: mediaSkillPreview(rd) !== null ? HUDDLE_SECONDARY : MUTED }}>
                   {mediaSkillPreview(rd) !== null ? mediaSkillPreview(rd).toFixed(1) : "—"}
                 </div>
               </div>
@@ -5112,7 +5112,7 @@ function coloreTestoContrastante(hex) {
                         </span>
                       )}
                     </div>
-                    <div style={{ width: "100%", height: 220, position: "relative",
+                    <div style={{ width: "calc(100% - 88px)", marginLeft: 44, height: 220, position: "relative",
                       WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 100%)",
                       maskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 100%)",
                       display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: 6 }}>
@@ -5122,7 +5122,20 @@ function coloreTestoContrastante(hex) {
                         <span className="title-font" style={{ fontSize: 70, fontWeight: 700, color: "rgba(242,240,234,0.55)" }}>{iniziali}</span>
                       )}
                     </div>
-                    <img src={LOGO_ATTUALE} alt="" style={{ position: "absolute", top: 49, left: 8, width: 36, height: 36, objectFit: "cover", borderRadius: 10, border: "1.5px solid rgba(255,255,255,0.65)", boxShadow: "0 2px 5px rgba(0,0,0,0.5)", zIndex: 4 }} />
+                    {/* Fasce verticali (10/09/2026): stessa larghezza del box logo, colori invertiti
+                        rispetto alle fasce orizzontali (qui colore2 di sfondo, colore1 per i
+                        contenuti) — sinistra il logo società, destra l'eventuale numero di maglia.
+                        zIndex più alto delle fasce orizzontali: fanno da cornice su tutti e 4 i lati. */}
+                    <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: 44, zIndex: 5, background: colore2 }} />
+                    <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: 44, zIndex: 5, background: colore2 }} />
+                    <img src={LOGO_ATTUALE} alt="" style={{ position: "absolute", top: 64, left: 4, width: 36, height: 36, objectFit: "cover", borderRadius: 10, border: `1.5px solid ${colore1}`, boxShadow: "0 2px 5px rgba(0,0,0,0.35)", zIndex: 6 }} />
+                    {rp.maglia && (
+                      <div style={{ position: "absolute", top: 64, right: 4, width: 36, height: 36, borderRadius: 10, zIndex: 6,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        border: `1.5px solid ${colore1}`, boxShadow: "0 2px 5px rgba(0,0,0,0.35)" }}>
+                        <span className="mono-font" style={{ fontSize: 16, fontWeight: 700, color: colore1 }}>{rp.maglia}</span>
+                      </div>
+                    )}
                     {/* Fascia inferiore (10/09/2026, ritocco): la foto ora riempie tutto lo spazio
                         sopra la fascia (220px, non più un valore fisso indipendente), la fascia
                         resta alta solo quanto serve a coprire il blocco testi, che è stato
@@ -5162,7 +5175,7 @@ function coloreTestoContrastante(hex) {
                       {skillValori.map((s) => (
                         <div key={s.key} style={{ textAlign: "center" }}>
                           <div style={{ fontSize: 11, color: colore2, opacity: 0.85 }}>{s.key.slice(0, 3).toUpperCase()}</div>
-                          <div className="mono-font" style={{ fontSize: 16, color: colore1, fontWeight: 700 }}>{s.val}</div>
+                          <div className="title-font" style={{ fontSize: 16, color: colore1, fontWeight: 700, letterSpacing: "normal" }}>{s.val}</div>
                         </div>
                       ))}
                     </div>
@@ -5170,7 +5183,7 @@ function coloreTestoContrastante(hex) {
                       background: "linear-gradient(125deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.04) 18%, transparent 32%, transparent 62%, rgba(255,255,255,0.05) 78%, rgba(255,255,255,0.18) 100%)" }} />
                     <div style={{ textAlign: "center", marginTop: 44, position: "relative" }}>
                       <div className="mono-font" style={{ fontSize: 40, fontWeight: 700, color: colore2, lineHeight: 1 }}>{p.media !== null ? p.media.toFixed(1) : "—"}</div>
-                      <div className="body-font" style={{ fontSize: 9, color: colore2, opacity: 0.75, letterSpacing: 1, marginTop: 2 }}>MEDIA VOTO{rp.maglia ? ` · #${rp.maglia}` : ""}</div>
+                      <div className="body-font" style={{ fontSize: 9, color: colore2, opacity: 0.75, letterSpacing: 1, marginTop: 2 }}>MEDIA VOTO</div>
                     </div>
                     <div style={{ position: "absolute", inset: 0, clipPath: `path('${SHIELD_PATH}')`,
                       background: `linear-gradient(to top, ${colore1} 0px, ${colore1} 80px, transparent 80px)` }} />
