@@ -335,18 +335,18 @@ const GREEN = "#0f2818";
 // mantengono lo stesso ruolo semantico di sempre (sfondo pagina / testo principale / testo attenuato /
 // divisori / superficie pannello), ma con valori invertiti per il nuovo sfondo scuro. Non rinominati per
 // non dover toccare le centinaia di punti del file che li usano già.
-const CREAM = "#14181a";
-const INK = "#f2f0ea";
-const MUTED = "#8a9088";
-const LINE = "#2a2f2f";
+const CREAM = "#2B2D33";
+const INK = "#F4F5F7";
+const MUTED = "#8A8F98";
+const LINE = "#3A3D45";
 const CYAN = "#2b6cb0";
-const PANEL_BG = "#181e1f";
+const PANEL_BG = "#34363D";
 // Bordo "cromato" per i box in stile scheda/distinta (Fase 1): sfumatura chiara->scura->chiara, usata come
 // background di un contenitore con padding di 1.5px, con dentro un secondo box a sfondo pieno PANEL_BG.
 const CHROME_BORDER = "linear-gradient(150deg,#eef0ee 0%,#9aa19d 18%,#3d4341 42%,#575e5b 60%,#c4cac6 78%,#4a504e 100%)";
 const TITLE_FONT = "'Space Grotesk', sans-serif";
 const MONO_FONT = "'JetBrains Mono', monospace";
-const DISABLED_BG = "#3a3f3e";
+const DISABLED_BG = "#454850";
 const TEAM_BOX_BG = "#141d17";
 const TEAM_BOX_BORDER = "#2f4a38";
 const PLAYER_BOX_BG = "#1e1a12";
@@ -415,9 +415,9 @@ const DEFAULT_MODULO = "352";
 // riga ancora salvata su Impostazioni) sia dal pulsante "Reset" nelle Impostazioni.
 const DEFAULT_TEAM_NOME = "Cimiano Calcio";
 const DEFAULT_TEAM_CATEGORIA = "Allievi U17 Élite";
-const DEFAULT_COLORE_1 = "#c8102e";
-const DEFAULT_COLORE_2 = "#f6f1e4";
-const DEFAULT_COLORE_3 = "#14181a";
+const DEFAULT_COLORE_1 = "#FF6A00";
+const DEFAULT_COLORE_2 = "#00AEEF";
+const DEFAULT_COLORE_3 = "#2B2D33";
 
 // Ritaglio foto giocatore (08/09/2026, v2): le proporzioni dell'anteprima e dell'immagine finale
 // ora corrispondono ESATTAMENTE allo spazio reale in cui la foto viene poi mostrata sulla card
@@ -653,8 +653,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.03";
-const TRACKER_VERSION_DATE = "10/09/2026@08.00";
+const TRACKER_VERSION = "4.04";
+const TRACKER_VERSION_DATE = "10/09/2026@09.30";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -2550,10 +2550,10 @@ function formattaCognomeUnaRiga(cognome) {
 // così una società che imposta un colore sociale chiaro (es. bianco) non si ritrova un testo bianco
 // su bianco illeggibile dentro la maglietta.
 function coloreTestoContrastante(hex) {
-  const c = (hex || "#c8102e").replace("#", "");
+  const c = (hex || "#FF6A00").replace("#", "");
   const r = parseInt(c.substr(0, 2), 16) || 0, g = parseInt(c.substr(2, 2), 16) || 0, b = parseInt(c.substr(4, 2), 16) || 0;
   const luminanza = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminanza > 0.6 ? "#14181a" : "#ffffff";
+  return luminanza > 0.6 ? "#2B2D33" : "#ffffff";
 }
 
   // Sistema formazione v2 (07/09/2026): sostituisce le due mappe fianco a fianco con un'unica mappa
@@ -2738,7 +2738,7 @@ function coloreTestoContrastante(hex) {
               className="body-font"
               style={{ cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 12,
                 border: `1px solid ${active ? colore1 : LINE}`, color: active ? "#fff" : MUTED,
-                background: active ? colore1 : "transparent", boxShadow: active ? "0 0 6px rgba(200,16,46,0.5)" : "none" }}>
+                background: active ? colore1 : "transparent", boxShadow: active ? "0 0 6px rgba(255,106,0,0.5)" : "none" }}>
               {d.label}
             </span>
           );
@@ -3016,7 +3016,7 @@ function coloreTestoContrastante(hex) {
 
     ctx.save();
     ctx.clip(shield);
-    ctx.fillStyle = "#14181a";
+    ctx.fillStyle = "#2B2D33";
     ctx.fillRect(0, 0, 240, 300);
     try {
       const logoImg = await caricaImmagine(LOGO_ATTUALE, false);
@@ -3040,13 +3040,13 @@ function coloreTestoContrastante(hex) {
           ctx.drawImage(fotoImg, 0, 42, 240, 210);
         } catch (e) {
           setFotoErrore({ playerId: rp.id, msg: "La foto non si può includere nello scaricamento (limite di Google Drive): la card scaricata avrà le iniziali al posto suo." });
-          ctx.fillStyle = "#f2f0ea";
+          ctx.fillStyle = "#F4F5F7";
           ctx.font = "700 70px 'Space Grotesk'";
           ctx.textAlign = "center";
           ctx.fillText(iniziali, 120, 130);
         }
       } else {
-        ctx.fillStyle = "#f2f0ea";
+        ctx.fillStyle = "#F4F5F7";
         ctx.font = "700 70px 'Space Grotesk'";
         ctx.textAlign = "center";
         ctx.fillText(iniziali, 120, 130);
@@ -3073,34 +3073,34 @@ function coloreTestoContrastante(hex) {
       ctx.font = "700 20px 'Space Grotesk'";
       ctx.textAlign = "center";
       ctx.fillText(p.name.toUpperCase(), 120, 235);
-      ctx.fillStyle = "#9fb5a5";
+      ctx.fillStyle = "#A9AEB8";
       ctx.font = "400 12px Inter";
       const riga2 = [anno, ruoloAttivo ? ruoloLabelLungo[ruoloAttivo.col.replace("ruolo", "")] : null].filter(Boolean).join(" · ");
       ctx.fillText(riga2, 120, 255);
     } else {
-      ctx.fillStyle = "#f2f0ea";
+      ctx.fillStyle = "#F4F5F7";
       ctx.font = "700 17px 'Space Grotesk'";
       ctx.textAlign = "center";
       ctx.fillText(p.name.toUpperCase(), 120, 45);
       skillValori.forEach((s, i) => {
         const x = 40 + i * 40;
-        ctx.fillStyle = "#8a9088";
+        ctx.fillStyle = "#8A8F98";
         ctx.font = "400 9px Inter";
         ctx.fillText(s.key.slice(0, 3).toUpperCase(), x, 100);
         ctx.fillStyle = colore1;
         ctx.font = "700 15px 'JetBrains Mono'";
         ctx.fillText(s.val, x, 118);
       });
-      ctx.fillStyle = "#f2f0ea";
+      ctx.fillStyle = "#F4F5F7";
       ctx.font = "700 46px 'JetBrains Mono'";
       ctx.fillText(p.media !== null ? p.media.toFixed(1) : "—", 120, 200);
-      ctx.fillStyle = "#8a9088";
+      ctx.fillStyle = "#8A8F98";
       ctx.font = "700 10px Inter";
       ctx.fillText("MEDIA VOTO" + (rp.maglia ? ` · #${rp.maglia}` : ""), 120, 220);
     }
     ctx.restore();
 
-    ctx.strokeStyle = "rgba(200,16,46,0.7)";
+    ctx.strokeStyle = "rgba(255,106,0,0.7)";
     ctx.lineWidth = 1;
     ctx.stroke(shield);
 
@@ -4132,9 +4132,9 @@ function coloreTestoContrastante(hex) {
   return (
     <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',sans-serif", background: CREAM, minHeight: "100%", color: INK }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700;800&family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Barlow+Condensed:wght@500;700;800&family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap');
         .body-font { font-family: 'Inter', system-ui, sans-serif; }
-        .title-font { font-family: 'Space Grotesk', sans-serif; }
+        .title-font { font-family: 'Fredoka', sans-serif; }
         .mono-font { font-family: 'JetBrains Mono', monospace; }
         .chrome-box { padding: 1.5px; border-radius: 11px; background: ${CHROME_BORDER}; box-shadow: 0 14px 26px -10px rgba(0,0,0,0.55); }
         .chrome-box-inner { border-radius: 9.5px; background: ${PANEL_BG}; }
@@ -4168,10 +4168,10 @@ function coloreTestoContrastante(hex) {
       `}</style>
 
       <div style={{ position: "sticky", top: 0, zIndex: 50 }}>
-      <div className="chrome-box" style={{ borderRadius: 0, padding: "3px 0", boxShadow: `0 4px 18px -4px rgba(200,16,46,0.5)` }}>
-      <div style={{ background: "linear-gradient(160deg, #16351f 0%, #0f2818 55%, #0a1c11 100%)", color: INK, padding: "22px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+      <div className="chrome-box" style={{ borderRadius: 0, padding: "3px 0", boxShadow: `0 4px 18px -4px rgba(255,106,0,0.5)` }}>
+      <div style={{ background: "linear-gradient(160deg, #34363D 0%, #2B2D33 55%, #1C1D22 100%)", color: INK, padding: "22px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="body-font" style={{ fontSize: 11, letterSpacing: 2.5, color: "#9fb5a5", textTransform: "uppercase" }}>
+          <div className="body-font" style={{ fontSize: 11, letterSpacing: 2.5, color: "#A9AEB8", textTransform: "uppercase" }}>
             Girone A · {teamCategoria} · Lombardia 2026/27
           </div>
           <div className="title-font" style={{ fontSize: 28, fontWeight: 700, marginTop: 4, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
@@ -4187,7 +4187,7 @@ function coloreTestoContrastante(hex) {
           </div>
           {formaRecente.length > 0 && (
             <div className="body-font" style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
-              <span style={{ fontSize: 11, color: "#9fb5a5", textTransform: "uppercase", letterSpacing: 1 }}>Forma:</span>
+              <span style={{ fontSize: 11, color: "#A9AEB8", textTransform: "uppercase", letterSpacing: 1 }}>Forma:</span>
               {formaRecente.map((m, i) => (
                 <span key={i} title={`${m.esito === "V" ? "Vittoria" : m.esito === "P" ? "Sconfitta" : "Pareggio"} vs ${m.opponent} (${m.golFatti}-${m.golSubiti})`}
                   style={{
@@ -4319,7 +4319,7 @@ function coloreTestoContrastante(hex) {
                       borderBottom: !highlighted ? `1px solid ${LINE}` : "none",
                       borderLeft: highlighted ? `2px solid ${accent}` : "none",
                       borderRadius: highlighted ? 4 : 0,
-                      background: highlighted ? (isCimiano ? "rgba(200,16,46,0.12)" : "rgba(224,165,44,0.10)") : "transparent",
+                      background: highlighted ? (isCimiano ? "rgba(255,106,0,0.12)" : "rgba(224,165,44,0.10)") : "transparent",
                       fontWeight: isCimiano ? 700 : 400,
                     }}>
                       <span className="mono-font" style={{ color: MUTED }}>{i + 1}</span>
@@ -4942,7 +4942,7 @@ function coloreTestoContrastante(hex) {
                       borderBottom: !highlighted ? `1px solid ${LINE}` : "none",
                       borderLeft: highlighted ? `2px solid ${accent}` : "none",
                       borderRadius: highlighted ? 4 : 0,
-                      background: highlighted ? (isCimiano ? "rgba(200,16,46,0.12)" : "rgba(224,165,44,0.10)") : "transparent",
+                      background: highlighted ? (isCimiano ? "rgba(255,106,0,0.12)" : "rgba(224,165,44,0.10)") : "transparent",
                       fontWeight: isCimiano ? 700 : 400,
                     }}>
                       <span className="mono-font" style={{ color: MUTED }}>{i + 1}</span>
@@ -4980,7 +4980,7 @@ function coloreTestoContrastante(hex) {
           title="Torna in cima" role="button" tabIndex={0}
           style={{ position: "fixed", bottom: 20, right: 20, zIndex: 900, width: 44, height: 44, borderRadius: "50%",
             background: colore1, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer", boxShadow: "0 4px 14px rgba(0,0,0,0.5), 0 0 10px rgba(200,16,46,0.5)", fontSize: 20 }}>
+            cursor: "pointer", boxShadow: "0 4px 14px rgba(0,0,0,0.5), 0 0 10px rgba(255,106,0,0.5)", fontSize: 20 }}>
           ↑
         </div>
       )}
@@ -5086,7 +5086,7 @@ function coloreTestoContrastante(hex) {
         });
         const facciataStile = {
           position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden",
-          clipPath: `path('${SHIELD_PATH}')`, background: "#14181a", overflow: "hidden",
+          clipPath: `path('${SHIELD_PATH}')`, background: "#2B2D33", overflow: "hidden",
         };
         return (
           <div onClick={() => setPlayerCardModal(null)} className="modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -5099,7 +5099,7 @@ function coloreTestoContrastante(hex) {
                   {/* FRONTE: foto, nome, squadra, ruolo, anno */}
                   <div style={facciataStile}>
                     <img src={LOGO_ATTUALE} alt="" style={{ position: "absolute", bottom: -10, left: "50%", transform: "translateX(-50%)", width: 230, opacity: 0.16, pointerEvents: "none" }} />
-                    <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 20%, transparent 0%, #14181a 78%)" }} />
+                    <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 20%, transparent 0%, #2B2D33 78%)" }} />
                     <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 42, zIndex: 2, padding: "0 6px", boxSizing: "border-box",
                       background: colore1,
                       display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
@@ -5121,7 +5121,7 @@ function coloreTestoContrastante(hex) {
                     <div style={{ textAlign: "center", position: "relative" }}>
                       <span className="title-font" style={{ fontSize: 20, fontWeight: 700, color: colore1, letterSpacing: 0.5 }}>{p.name.toUpperCase()}</span>
                     </div>
-                    <div className="body-font" style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 2, fontSize: 11, color: "#9fb5a5", position: "relative" }}>
+                    <div className="body-font" style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 2, fontSize: 11, color: "#A9AEB8", position: "relative" }}>
                       {anno && <span>{anno}</span>}
                       {anno && ruoloAttivo && <span style={{ color: "#3a4140" }}>·</span>}
                       {ruoloAttivo && <span>{ruoloLabelLungo[ruoloAttivo.col.replace("ruolo", "")]}</span>}
@@ -5134,14 +5134,14 @@ function coloreTestoContrastante(hex) {
                   {/* RETRO: le 5 skill e la media voto */}
                   <div style={{ ...facciataStile, transform: "rotateY(180deg)" }}>
                     <img src={LOGO_ATTUALE} alt="" style={{ position: "absolute", bottom: -10, left: "50%", transform: "translateX(-50%)", width: 230, opacity: 0.16, pointerEvents: "none" }} />
-                    <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 20%, transparent 0%, #14181a 78%)" }} />
+                    <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 20%, transparent 0%, #2B2D33 78%)" }} />
                     <div style={{ textAlign: "center", marginTop: 30, position: "relative" }}>
-                      <span className="title-font" style={{ fontSize: 17, fontWeight: 700, color: "#f2f0ea" }}>{p.name.toUpperCase()}</span>
+                      <span className="title-font" style={{ fontSize: 17, fontWeight: 700, color: "#F4F5F7" }}>{p.name.toUpperCase()}</span>
                     </div>
                     <div className="body-font" style={{ display: "flex", justifyContent: "center", gap: 9, marginTop: 30, position: "relative" }}>
                       {skillValori.map((s) => (
                         <div key={s.key} style={{ textAlign: "center" }}>
-                          <div style={{ fontSize: 8, color: "#8a9088" }}>{s.key.slice(0, 3).toUpperCase()}</div>
+                          <div style={{ fontSize: 8, color: "#8A8F98" }}>{s.key.slice(0, 3).toUpperCase()}</div>
                           <div className="mono-font" style={{ fontSize: 13, color: colore1, fontWeight: 700 }}>{s.val}</div>
                         </div>
                       ))}
@@ -5149,8 +5149,8 @@ function coloreTestoContrastante(hex) {
                     <div style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none",
                       background: "linear-gradient(125deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.04) 18%, transparent 32%, transparent 62%, rgba(255,255,255,0.05) 78%, rgba(255,255,255,0.18) 100%)" }} />
                     <div style={{ textAlign: "center", marginTop: 16, position: "relative" }}>
-                      <div className="mono-font" style={{ fontSize: 40, fontWeight: 700, color: "#f2f0ea", lineHeight: 1 }}>{p.media !== null ? p.media.toFixed(1) : "—"}</div>
-                      <div className="body-font" style={{ fontSize: 9, color: "#8a9088", letterSpacing: 1, marginTop: 2 }}>MEDIA VOTO{rp.maglia ? ` · #${rp.maglia}` : ""}</div>
+                      <div className="mono-font" style={{ fontSize: 40, fontWeight: 700, color: "#F4F5F7", lineHeight: 1 }}>{p.media !== null ? p.media.toFixed(1) : "—"}</div>
+                      <div className="body-font" style={{ fontSize: 9, color: "#8A8F98", letterSpacing: 1, marginTop: 2 }}>MEDIA VOTO{rp.maglia ? ` · #${rp.maglia}` : ""}</div>
                     </div>
                   </div>
                 </div>
