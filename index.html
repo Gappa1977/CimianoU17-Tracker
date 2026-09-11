@@ -402,15 +402,16 @@ const STATUS_COLORS = {
 // Moduli disponibili: ogni modulo ha 11 slot posizionati in percentuale sul campo
 // (0,0 = alto sinistra, attacco verso l'alto, portiere in basso)
 const FORMATIONS = {
-  // Coordinate verticali riviste (10/09/2026): portiere molto più in basso (94 invece di 90,
-  // vicino al proprio fondocampo) e più distanza tra le linee di ruolo, sfruttando tutta
-  // l'altezza del campo invece di stiparle tutte tra 22 e 72.
+  // Coordinate verticali riviste (11/09/2026, seconda correzione): il portiere a y=94 andava bene,
+  // ma i difensori troppo vicini (76-78) finivano con l'etichetta a due righe coperta dalla maglia
+  // del portiere sotto — troppo poco spazio tra le due linee. Difensori alzati a 68, centrocampisti
+  // ricalcolati esattamente a metà tra difensori e attaccanti (non più un valore fisso a occhio).
   "352": {
     label: "3-5-2",
     slots: [
       { id: "gk", label: "P", x: 50, y: 94 },
-      { id: "d1", label: "D", x: 18, y: 76 }, { id: "d2", label: "D", x: 50, y: 76 }, { id: "d3", label: "D", x: 82, y: 76 },
-      { id: "m1", label: "C", x: 8, y: 48 }, { id: "m2", label: "C", x: 30, y: 48 }, { id: "m3", label: "C", x: 50, y: 48 }, { id: "m4", label: "C", x: 70, y: 48 }, { id: "m5", label: "C", x: 92, y: 48 },
+      { id: "d1", label: "D", x: 18, y: 68 }, { id: "d2", label: "D", x: 50, y: 68 }, { id: "d3", label: "D", x: 82, y: 68 },
+      { id: "m1", label: "C", x: 8, y: 40 }, { id: "m2", label: "C", x: 30, y: 40 }, { id: "m3", label: "C", x: 50, y: 40 }, { id: "m4", label: "C", x: 70, y: 40 }, { id: "m5", label: "C", x: 92, y: 40 },
       { id: "f1", label: "A", x: 35, y: 12 }, { id: "f2", label: "A", x: 65, y: 12 },
     ],
   },
@@ -418,8 +419,8 @@ const FORMATIONS = {
     label: "4-4-2",
     slots: [
       { id: "gk", label: "P", x: 50, y: 94 },
-      { id: "d1", label: "D", x: 12, y: 76 }, { id: "d2", label: "D", x: 37, y: 78 }, { id: "d3", label: "D", x: 63, y: 78 }, { id: "d4", label: "D", x: 88, y: 76 },
-      { id: "m1", label: "C", x: 15, y: 48 }, { id: "m2", label: "C", x: 40, y: 50 }, { id: "m3", label: "C", x: 60, y: 50 }, { id: "m4", label: "C", x: 85, y: 48 },
+      { id: "d1", label: "D", x: 12, y: 68 }, { id: "d2", label: "D", x: 37, y: 68 }, { id: "d3", label: "D", x: 63, y: 68 }, { id: "d4", label: "D", x: 88, y: 68 },
+      { id: "m1", label: "C", x: 15, y: 40 }, { id: "m2", label: "C", x: 40, y: 40 }, { id: "m3", label: "C", x: 60, y: 40 }, { id: "m4", label: "C", x: 85, y: 40 },
       { id: "f1", label: "A", x: 35, y: 12 }, { id: "f2", label: "A", x: 65, y: 12 },
     ],
   },
@@ -427,8 +428,8 @@ const FORMATIONS = {
     label: "4-3-3",
     slots: [
       { id: "gk", label: "P", x: 50, y: 94 },
-      { id: "d1", label: "D", x: 12, y: 76 }, { id: "d2", label: "D", x: 37, y: 78 }, { id: "d3", label: "D", x: 63, y: 78 }, { id: "d4", label: "D", x: 88, y: 76 },
-      { id: "m1", label: "C", x: 25, y: 48 }, { id: "m2", label: "C", x: 50, y: 50 }, { id: "m3", label: "C", x: 75, y: 48 },
+      { id: "d1", label: "D", x: 12, y: 68 }, { id: "d2", label: "D", x: 37, y: 68 }, { id: "d3", label: "D", x: 63, y: 68 }, { id: "d4", label: "D", x: 88, y: 68 },
+      { id: "m1", label: "C", x: 25, y: 41 }, { id: "m2", label: "C", x: 50, y: 41 }, { id: "m3", label: "C", x: 75, y: 41 },
       { id: "f1", label: "A", x: 20, y: 14 }, { id: "f2", label: "A", x: 50, y: 8 }, { id: "f3", label: "A", x: 80, y: 14 },
     ],
   },
@@ -436,9 +437,9 @@ const FORMATIONS = {
     label: "3-4-1-2",
     slots: [
       { id: "gk", label: "P", x: 50, y: 94 },
-      { id: "d1", label: "D", x: 20, y: 76 }, { id: "d2", label: "D", x: 50, y: 78 }, { id: "d3", label: "D", x: 80, y: 76 },
-      { id: "m1", label: "C", x: 12, y: 52 }, { id: "m2", label: "C", x: 38, y: 54 }, { id: "m3", label: "C", x: 62, y: 54 }, { id: "m4", label: "C", x: 88, y: 52 },
-      { id: "t1", label: "C", x: 50, y: 30 },
+      { id: "d1", label: "D", x: 20, y: 68 }, { id: "d2", label: "D", x: 50, y: 68 }, { id: "d3", label: "D", x: 80, y: 68 },
+      { id: "m1", label: "C", x: 12, y: 44 }, { id: "m2", label: "C", x: 38, y: 44 }, { id: "m3", label: "C", x: 62, y: 44 }, { id: "m4", label: "C", x: 88, y: 44 },
+      { id: "t1", label: "C", x: 50, y: 25 },
       { id: "f1", label: "A", x: 35, y: 10 }, { id: "f2", label: "A", x: 65, y: 10 },
     ],
   },
@@ -446,8 +447,8 @@ const FORMATIONS = {
     label: "3-4-3",
     slots: [
       { id: "gk", label: "P", x: 50, y: 94 },
-      { id: "d1", label: "D", x: 20, y: 76 }, { id: "d2", label: "D", x: 50, y: 78 }, { id: "d3", label: "D", x: 80, y: 76 },
-      { id: "m1", label: "C", x: 12, y: 48 }, { id: "m2", label: "C", x: 38, y: 50 }, { id: "m3", label: "C", x: 62, y: 50 }, { id: "m4", label: "C", x: 88, y: 48 },
+      { id: "d1", label: "D", x: 20, y: 68 }, { id: "d2", label: "D", x: 50, y: 68 }, { id: "d3", label: "D", x: 80, y: 68 },
+      { id: "m1", label: "C", x: 12, y: 41 }, { id: "m2", label: "C", x: 38, y: 41 }, { id: "m3", label: "C", x: 62, y: 41 }, { id: "m4", label: "C", x: 88, y: 41 },
       { id: "f1", label: "A", x: 20, y: 14 }, { id: "f2", label: "A", x: 50, y: 8 }, { id: "f3", label: "A", x: 80, y: 14 },
     ],
   },
@@ -700,8 +701,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.24";
-const TRACKER_VERSION_DATE = "11/09/2026@17.52";
+const TRACKER_VERSION = "4.25";
+const TRACKER_VERSION_DATE = "11/09/2026@18.07";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -2853,7 +2854,7 @@ function coloreTestoContrastante(hex) {
                   <div key={slot.id} onClick={() => tapJersey(slot.id)} style={{
                     position: "absolute",
                     left: `calc(23px + (100% - 46px) * ${slot.x / 100})`,
-                    top: `calc(21.5px + (100% - 43px) * ${slot.y / 100})`,
+                    top: `calc(38px + (100% - 76px) * ${slot.y / 100})`,
                     transform: "translate(-50%,-50%)",
                     textAlign: "center", cursor: panchinaArmato ? "pointer" : "default",
                   }}>
@@ -3635,7 +3636,7 @@ function coloreTestoContrastante(hex) {
               <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", flex: 1 }}>
                   <input placeholder="Cerca giocatore…" list={`roster-marc-${fx.id}`} value={sd.giocatore || ""} onChange={(e) => setScorerDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], giocatore: e.target.value } }))}
-                    style={{ width: 150, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                    style={{ width: 105, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
                   <datalist id={`roster-marc-${fx.id}`}>
                     {rosterSorted.map((rp) => <option key={rp.id} value={rp.nome} />)}
                   </datalist>
@@ -3661,12 +3662,8 @@ function coloreTestoContrastante(hex) {
                       <div key={c.id} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                         <input value={ed.giocatore || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], giocatore: e.target.value } }))}
                           style={{ flex: 1, minWidth: 100, padding: 5, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
-                        <span style={{ display: "flex", gap: 2 }}>
-                        <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], colore: "giallo" } }))}
-                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 8, border: ed.colore === "giallo" ? `2px solid ${INK}` : `1.5px solid ${accentUI}`, background: PANEL_BG, cursor: "pointer" }}>🟨</button>
-                        <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], colore: "rosso" } }))}
-                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 8, border: ed.colore === "rosso" ? `2px solid ${INK}` : `1.5px solid ${accentUI}`, background: PANEL_BG, cursor: "pointer" }}>🟥</button>
-                        </span>
+                        <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], colore: ed.colore === "rosso" ? "giallo" : "rosso" } }))}
+                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 8, border: `1.5px solid ${accentUI}`, background: ed.colore === "rosso" ? "#c0392b" : "#e0a800", cursor: "pointer" }}>{ed.colore === "rosso" ? "🟥" : "🟨"}</button>
                         <input placeholder="Min." value={ed.minuto || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], minuto: e.target.value } }))}
                           style={{ width: 55, padding: 5, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
                         <button onClick={() => saveEditCard(fx.id, c.id)} style={{ background: accentUI, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>Salva</button>
@@ -3686,16 +3683,12 @@ function coloreTestoContrastante(hex) {
               )}
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <input placeholder="Cerca giocatore…" list={`roster-card-${fx.id}`} value={cd.giocatore || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], giocatore: e.target.value } }))}
-                  style={{ width: 150, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                  style={{ width: 105, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
                 <datalist id={`roster-card-${fx.id}`}>
                   {rosterSorted.map((rp) => <option key={rp.id} value={rp.nome} />)}
                 </datalist>
-                <span style={{ display: "flex", gap: 2 }}>
-                <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], colore: "giallo" } }))}
-                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 8, border: cd.colore === "giallo" ? `2px solid ${INK}` : `1.5px solid ${accentUI}`, background: PANEL_BG, cursor: "pointer" }}>🟨</button>
-                <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], colore: "rosso" } }))}
-                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 8, border: cd.colore === "rosso" ? `2px solid ${INK}` : `1.5px solid ${accentUI}`, background: PANEL_BG, cursor: "pointer" }}>🟥</button>
-                </span>
+                <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], colore: cd.colore === "rosso" ? "giallo" : "rosso" } }))}
+                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 8, border: `1.5px solid ${accentUI}`, background: cd.colore === "rosso" ? "#c0392b" : "#e0a800", cursor: "pointer" }}>{cd.colore === "rosso" ? "🟥" : "🟨"}</button>
                 <input placeholder="Min." value={cd.minuto || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], minuto: e.target.value } }))}
                   style={{ width: 55, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
                 <button onClick={() => addCard(fx.id)} style={{ marginLeft: "auto", background: accentUI, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>+</button>
@@ -3787,7 +3780,7 @@ function coloreTestoContrastante(hex) {
               </div>
               <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
                 <input placeholder="Cerca giocatore…" list={`roster-voti-${fx.id}`} value={rd.giocatore || ""} onChange={(e) => setRatingDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], giocatore: e.target.value } }))}
-                  style={{ width: 150, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                  style={{ width: 105, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
                 <datalist id={`roster-voti-${fx.id}`}>
                   {rosterSorted.map((rp) => <option key={rp.id} value={rp.nome} />)}
                 </datalist>
@@ -4039,7 +4032,7 @@ function coloreTestoContrastante(hex) {
               )}
               <div style={{ display: "flex", gap: 6 }}>
                 <input placeholder="Cerca giocatore…" list={`roster-marc-${f.id}`} value={sdF.giocatore || ""} onChange={(e) => setScorerDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], giocatore: e.target.value } }))}
-                  style={{ width: 150, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                  style={{ width: 105, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
                 <datalist id={`roster-marc-${f.id}`}>
                   {rosterSorted.map((rp) => <option key={rp.id} value={rp.nome} />)}
                 </datalist>
@@ -4064,12 +4057,8 @@ function coloreTestoContrastante(hex) {
                       <div key={c.id} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                         <input value={ed.giocatore || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], giocatore: e.target.value } }))}
                           style={{ flex: 1, minWidth: 100, padding: 5, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
-                        <span style={{ display: "flex", gap: 2 }}>
-                        <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], colore: "giallo" } }))}
-                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 8, border: ed.colore === "giallo" ? `2px solid ${INK}` : `1.5px solid ${accentUI}`, background: PANEL_BG, cursor: "pointer" }}>🟨</button>
-                        <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], colore: "rosso" } }))}
-                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 8, border: ed.colore === "rosso" ? `2px solid ${INK}` : `1.5px solid ${accentUI}`, background: PANEL_BG, cursor: "pointer" }}>🟥</button>
-                        </span>
+                        <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], colore: ed.colore === "rosso" ? "giallo" : "rosso" } }))}
+                          style={{ fontSize: 16, padding: "2px 6px", borderRadius: 8, border: `1.5px solid ${accentUI}`, background: ed.colore === "rosso" ? "#c0392b" : "#e0a800", cursor: "pointer" }}>{ed.colore === "rosso" ? "🟥" : "🟨"}</button>
                         <input placeholder="Min." value={ed.minuto || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], minuto: e.target.value } }))}
                           style={{ width: 55, padding: 5, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
                         <button onClick={() => saveEditCardF(f.id, c.id)} style={{ background: accentUI, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>Salva</button>
@@ -4089,16 +4078,12 @@ function coloreTestoContrastante(hex) {
               )}
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <input placeholder="Cerca giocatore…" list={`roster-card-${f.id}`} value={cdF.giocatore || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], giocatore: e.target.value } }))}
-                  style={{ width: 150, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                  style={{ width: 105, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
                 <datalist id={`roster-card-${f.id}`}>
                   {rosterSorted.map((rp) => <option key={rp.id} value={rp.nome} />)}
                 </datalist>
-                <span style={{ display: "flex", gap: 2 }}>
-                <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], colore: "giallo" } }))}
-                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 8, border: cdF.colore === "giallo" ? `2px solid ${INK}` : `1.5px solid ${accentUI}`, background: PANEL_BG, cursor: "pointer" }}>🟨</button>
-                <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], colore: "rosso" } }))}
-                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 8, border: cdF.colore === "rosso" ? `2px solid ${INK}` : `1.5px solid ${accentUI}`, background: PANEL_BG, cursor: "pointer" }}>🟥</button>
-                </span>
+                <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], colore: cdF.colore === "rosso" ? "giallo" : "rosso" } }))}
+                  style={{ fontSize: 18, padding: "3px 8px", borderRadius: 8, border: `1.5px solid ${accentUI}`, background: cdF.colore === "rosso" ? "#c0392b" : "#e0a800", cursor: "pointer" }}>{cdF.colore === "rosso" ? "🟥" : "🟨"}</button>
                 <input placeholder="Min." value={cdF.minuto || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], minuto: e.target.value } }))}
                   style={{ width: 55, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
                 <button onClick={() => addCardF(f.id)} style={{ marginLeft: "auto", background: accentUI, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>+</button>
@@ -4189,7 +4174,7 @@ function coloreTestoContrastante(hex) {
             </div>
             <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
               <input placeholder="Cerca giocatore…" list={`roster-voti-${f.id}`} value={rd.giocatore || ""} onChange={(e) => setRatingDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], giocatore: e.target.value } }))}
-                style={{ width: 150, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                style={{ width: 105, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
               <datalist id={`roster-voti-${f.id}`}>
                 {rosterSorted.map((rp) => <option key={rp.id} value={rp.nome} />)}
               </datalist>
