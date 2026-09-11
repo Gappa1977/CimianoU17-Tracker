@@ -700,8 +700,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.22";
-const TRACKER_VERSION_DATE = "11/09/2026@13.00";
+const TRACKER_VERSION = "4.23";
+const TRACKER_VERSION_DATE = "11/09/2026@16.30";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -1050,7 +1050,7 @@ function GironeATracker() {
       const tutti = await window.rows.listAll();
       const get = (nome) => (tutti ? tutti[nome] || [] : null);
       const rosaRows = get("Rosa"), amichevoliRows = get("Amichevoli"), risultatiRows = get("RisultatiUfficiali");
-      const votiRows = get("Voti"), marcatoriRows = get("Marcatori"), cartelliniRows = get("Cartellini"), votoSquadraRows = get("VotoSquadra");
+      const votiRows = get("Voti"), marcatoriRows = get("Goal"), cartelliniRows = get("Cartellini"), votoSquadraRows = get("VotoSquadra");
       const convocatiRows = get("Convocati"), formazioniRows = get("Formazioni"), moduliRows = get("Moduli");
       const impostazioniRows = get("Impostazioni");
       const calendarioCampionatoRows = get("CalendarioCampionato"), calendarioCoppaRows = get("CalendarioCoppa");
@@ -1883,14 +1883,14 @@ function GironeATracker() {
     const d = scorerDraft[fixtureId];
     if (!d || !d.giocatore) return;
     const id = Date.now().toString();
-    // Aggiornamento ottimistico locale, poi scrittura sul foglio "Marcatori" (Fase 3).
+    // Aggiornamento ottimistico locale, poi scrittura sul foglio "Goal" (Fase 3).
     setDetailsShared((prev) => {
       const cur = prev[fixtureId] || {};
       const list = cur.marcatori || [];
       return { ...prev, [fixtureId]: { ...cur, marcatori: [...list, { id, giocatore: d.giocatore, minuto: d.minuto || "" }] } };
     });
     setScorerDraft((prev) => ({ ...prev, [fixtureId]: { giocatore: "", minuto: "" } }));
-    window.rows.insert("Marcatori", { id, fixtureId, tipo: tipoDaFixtureId(fixtureId), giocatore: d.giocatore, giocatoreId: idDaNome(d.giocatore), minuto: d.minuto || "" }).catch(() => {});
+    window.rows.insert("Goal", { id, fixtureId, tipo: tipoDaFixtureId(fixtureId), giocatore: d.giocatore, giocatoreId: idDaNome(d.giocatore), minuto: d.minuto || "" }).catch(() => {});
   }
 
   function removeScorer(fixtureId, id) {
@@ -1898,7 +1898,7 @@ function GironeATracker() {
       const cur = prev[fixtureId] || {};
       return { ...prev, [fixtureId]: { ...cur, marcatori: (cur.marcatori || []).filter((s) => s.id !== id) } };
     });
-    window.rows.remove("Marcatori", { id }).catch(() => {});
+    window.rows.remove("Goal", { id }).catch(() => {});
   }
 
   function startEditScorer(fixtureId, s) {
@@ -1915,7 +1915,7 @@ function GironeATracker() {
       return { ...prev, [fixtureId]: { ...cur, marcatori: list } };
     });
     setEditingScorer(null);
-    window.rows.upsert("Marcatori", { id }, { fixtureId, tipo: tipoDaFixtureId(fixtureId), giocatore: d.giocatore, minuto: d.minuto || "" }).catch(() => {});
+    window.rows.upsert("Goal", { id }, { fixtureId, tipo: tipoDaFixtureId(fixtureId), giocatore: d.giocatore, minuto: d.minuto || "" }).catch(() => {});
   }
 
   // --- CARTELLINI (campionato/coppa) ---
@@ -2118,7 +2118,7 @@ function GironeATracker() {
     (async () => {
       await window.rows.remove("Amichevoli", { id }).catch(() => {});
       await window.rows.remove("Voti", { fixtureId: id }).catch(() => {});
-      await window.rows.remove("Marcatori", { fixtureId: id }).catch(() => {});
+      await window.rows.remove("Goal", { fixtureId: id }).catch(() => {});
       await window.rows.remove("Cartellini", { fixtureId: id }).catch(() => {});
       await window.rows.remove("VotoSquadra", { fixtureId: id }).catch(() => {});
       await window.rows.remove("Convocati", { fixtureId: id }).catch(() => {});
@@ -2257,12 +2257,12 @@ function GironeATracker() {
       return { ...prev, [friendlyId]: [...list, { id, giocatore: d.giocatore, minuto: d.minuto || "" }] };
     });
     setScorerDraftF((prev) => ({ ...prev, [friendlyId]: { giocatore: "", minuto: "" } }));
-    window.rows.insert("Marcatori", { id, fixtureId: friendlyId, tipo: "amichevole", giocatore: d.giocatore, giocatoreId: idDaNome(d.giocatore), minuto: d.minuto || "" }).catch(() => {});
+    window.rows.insert("Goal", { id, fixtureId: friendlyId, tipo: "amichevole", giocatore: d.giocatore, giocatoreId: idDaNome(d.giocatore), minuto: d.minuto || "" }).catch(() => {});
   }
 
   function removeScorerF(friendlyId, id) {
     setFriendlyMarcatori((prev) => ({ ...prev, [friendlyId]: (prev[friendlyId] || []).filter((s) => s.id !== id) }));
-    window.rows.remove("Marcatori", { id }).catch(() => {});
+    window.rows.remove("Goal", { id }).catch(() => {});
   }
 
   function startEditScorerF(friendlyId, s) {
@@ -2278,7 +2278,7 @@ function GironeATracker() {
       [friendlyId]: (prev[friendlyId] || []).map((s) => (s.id === id ? { ...s, giocatore: d.giocatore, minuto: d.minuto || "" } : s)),
     }));
     setEditingScorerF(null);
-    window.rows.upsert("Marcatori", { id }, { fixtureId: friendlyId, tipo: "amichevole", giocatore: d.giocatore, minuto: d.minuto || "" }).catch(() => {});
+    window.rows.upsert("Goal", { id }, { fixtureId: friendlyId, tipo: "amichevole", giocatore: d.giocatore, minuto: d.minuto || "" }).catch(() => {});
   }
 
   // --- CARTELLINI (amichevoli) ---
