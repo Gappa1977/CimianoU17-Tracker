@@ -671,8 +671,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.17";
-const TRACKER_VERSION_DATE = "10/09/2026@23.15";
+const TRACKER_VERSION = "4.19";
+const TRACKER_VERSION_DATE = "11/09/2026@09.26";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -1959,8 +1959,8 @@ function GironeATracker() {
     } else if (d.tipo === "coppa") {
       const canonico = squadraRiconosciuta(d.avversario, COPPA_TEAMS);
       if (!canonico) { setErroreNuovaPartita(`"${d.avversario}" non è tra le squadre della Coppa (${COPPA_TEAMS.filter((t) => t !== CIMIANO).join(", ")}). Controlla il nome.`); return; }
-      const home = d.casa ? "Cimiano" : canonico;
-      const away = d.casa ? canonico : "Cimiano";
+      const home = d.casa ? CIMIANO : canonico;
+      const away = d.casa ? canonico : CIMIANO;
       const id = `Copp-manual-${Date.now()}`;
       const nuova = { id, home, away, data: d.data, ora: d.ora };
       setCOPPA_FIXTURES((prev) => [...prev, nuova].sort((a, b) => a.data.localeCompare(b.data)));
@@ -1968,8 +1968,8 @@ function GironeATracker() {
     } else {
       const canonico = squadraRiconosciuta(d.avversario, TEAMS);
       if (!canonico) { setErroreNuovaPartita(`"${d.avversario}" non è tra le squadre del girone. Controlla il nome (deve corrispondere esattamente a una squadra del Campionato).`); return; }
-      const home = d.casa ? "Cimiano" : canonico;
-      const away = d.casa ? canonico : "Cimiano";
+      const home = d.casa ? CIMIANO : canonico;
+      const away = d.casa ? canonico : CIMIANO;
       const giornataNum = Number(d.giornata) || 1;
       const half = d.half === "ritorno" ? "ritorno" : "andata";
       const id = `manual-${giornataNum}${half === "ritorno" ? "R" : "A"}-${Date.now()}`;
@@ -2077,7 +2077,7 @@ function GironeATracker() {
   function startEditFixtureDate(fx) {
     setEditingFixtureDate(fx.id);
     const tipo = tipoDaFixtureId(fx.id);
-    const casaCimiano = fx.home === "Cimiano";
+    const casaCimiano = fx.home === CIMIANO;
     const avversario = casaCimiano ? fx.away : fx.home;
     if (tipo === "coppa") {
       setFixtureDateDraft({ data: fx.data || "", ora: fx.ora || "", avversario, casa: casaCimiano });
@@ -2101,8 +2101,8 @@ function GironeATracker() {
       setErroreModificaPartita(`"${d.avversario}" non è tra le squadre ${tipo === "coppa" ? "della Coppa" : "del girone"}. Controlla il nome.`);
       return;
     }
-    const home = d.casa ? "Cimiano" : canonico;
-    const away = d.casa ? canonico : "Cimiano";
+    const home = d.casa ? CIMIANO : canonico;
+    const away = d.casa ? canonico : CIMIANO;
     if (tipo === "coppa") {
       setCOPPA_FIXTURES((prev) => prev.map((f) => (f.id === fx.id ? { ...f, home, away, data: d.data, ora: d.ora } : f)));
       window.rows.upsert("CalendarioCoppa", { id: fx.id }, { home, away, data: d.data, ora: d.ora }).catch(() => {});
