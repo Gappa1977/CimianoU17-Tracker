@@ -28,6 +28,8 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
@@ -293,6 +295,33 @@ const TEAMS = [
   "Franco Scarioni 1925",
   "Villa",
 ];
+
+// Indirizzi ufficiali dei campi di casa (11/09/2026), dal documento del girone. Usati sia per il
+// link "Indicazioni" di ogni partita, sia per la mappa d'insieme del girone.
+const TEAM_ADDRESSES = {
+  "Accademia Internazionale": "Via Cilea 51, Milano",
+  "Accademia Pavese": "Via Vialone snc, Sant'Alessio con Vialone",
+  "Calvairate 1946": "Via Vismara 3, Milano",
+  "Aldini": "Via Orsini 78/84, Milano",
+  "Ausonia 1931": "Via Bonfadini 18, Milano",
+  "Casatese Merate": "Via Volta, Casatenovo",
+  "Cimiano Calcio": "Via Don Calabria 16, Milano",
+  "Enotria 1908": "Via C. Cazzaniga 26, Milano",
+  "Leon": "Via degli Atleti 1, Vimercate",
+  "Rozzano Calcio": "Via Monte Amiata 34, Rozzano",
+  "Sant'Angelo": "Via Francesco Cortese, Sant'Angelo Lodigiano",
+  "Seguro": "Via Sandro Pertini 13, Settimo Milanese",
+  "Sempione Half 1919": "Via Arturo Graf 4, Milano",
+  "Speranza Agrate": "Via Archimede 2, Agrate Brianza",
+  "Franco Scarioni 1925": "Via Tucidide 10, Milano",
+  "Villa": "Via Ussi 18, Milano",
+};
+
+// Link universale Google Maps: su cellulare apre l'app (con tasto "Avvia" per la navigazione),
+// su computer apre maps.google.com nel browser. Non serve una chiave API.
+function mapsSearchUrl(indirizzo) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(indirizzo)}`;
+}
 
 // Mappa nomi come compaiono nel calendario ufficiale -> nomi canonici
 const NAME_MAP = {
@@ -671,8 +700,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.19";
-const TRACKER_VERSION_DATE = "11/09/2026@09.26";
+const TRACKER_VERSION = "4.20";
+const TRACKER_VERSION_DATE = "11/09/2026@10.30";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -905,6 +934,10 @@ function GironeATracker() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
   const [voterOptionsExtra, setVoterOptionsExtra] = useState([]); // nominativi votanti aggiunti a mano, si fondono con VOTER_OPTIONS — CONDIVISO
+  const [friendlyIndirizzi, setFriendlyIndirizzi] = useState({}); // { "Nome Squadra Avversaria": "indirizzo" } — solo per avversari di Amichevoli fuori dalle 16 squadre del girone
+  const [indirizzoDraftF, setIndirizzoDraftF] = useState({}); // { [friendlyId]: "testo in corso di digitazione" }
+  const [mostraMappaCamp, setMostraMappaCamp] = useState(false);
+  const [mostraMappaCoppa, setMostraMappaCoppa] = useState(false);
   const [showAddVoter, setShowAddVoter] = useState(false); // form nascosto "aggiungi votante", si apre con 5 click sul logo
   const [newVoterDraft, setNewVoterDraft] = useState("");
   const logoClickCountRef = useRef(0);
@@ -1175,6 +1208,7 @@ function GironeATracker() {
 
       // --- IMPOSTAZIONI: votanti extra + flag "mappa 2 sganciata" (formazione2Touched) + tema società ---
       const voterOptionsExtraFinal = [];
+      const friendlyIndirizziFinal = {};
       const friendlyFormazione2TouchedFinal = {};
       let teamNomeFinal = DEFAULT_TEAM_NOME, teamCategoriaFinal = DEFAULT_TEAM_CATEGORIA;
       let colore1Final = DEFAULT_COLORE_1, colore2Final = DEFAULT_COLORE_2, colore3Final = DEFAULT_COLORE_3;
@@ -1184,6 +1218,8 @@ function GironeATracker() {
           const chiave = String(r.chiave || "");
           if (chiave.indexOf("voterOption:") === 0) {
             voterOptionsExtraFinal.push(r.valore);
+          } else if (chiave.indexOf("indirizzo:") === 0) {
+            friendlyIndirizziFinal[chiave.slice("indirizzo:".length)] = r.valore;
           } else if (chiave.indexOf("formazione2Touched:") === 0) {
             const fixtureId = chiave.slice("formazione2Touched:".length);
             // Punto 08/09/2026 (v2): ogni riga impone il PROPRIO valore, true o false — non solo
@@ -1233,6 +1269,7 @@ function GironeATracker() {
       }
       if (impostazioniRows) {
         setVoterOptionsExtra(voterOptionsExtraFinal);
+        setFriendlyIndirizzi(friendlyIndirizziFinal);
         setFriendlyFormazione2Touched(friendlyFormazione2TouchedFinal);
         setTeamNome(teamNomeFinal);
         setTeamCategoria(teamCategoriaFinal);
@@ -2266,6 +2303,19 @@ function GironeATracker() {
   }
 
   // --- SEDE PARTITA (campionato/coppa) ---
+  // Indirizzo del campo per il link "Indicazioni": le 16 squadre del girone (e Coppa, sottoinsieme
+  // delle stesse) hanno l'indirizzo già noto in TEAM_ADDRESSES; per le Amichevoli contro squadre
+  // esterne l'indirizzo viene salvato a mano una volta sola (indirizzoSquadra) e resta in memoria
+  // per tutte le prossime partite contro quella squadra.
+  function indirizzoSquadra(nomeSquadra) {
+    return TEAM_ADDRESSES[nomeSquadra] || friendlyIndirizzi[nomeSquadra] || null;
+  }
+  function salvaIndirizzoAmichevole(nomeSquadra, indirizzo) {
+    const testo = (indirizzo || "").trim();
+    if (!testo || !nomeSquadra) return;
+    setFriendlyIndirizzi((prev) => ({ ...prev, [nomeSquadra]: testo }));
+    window.rows.upsert("Impostazioni", { chiave: "indirizzo:" + nomeSquadra }, { valore: testo }).catch(() => {});
+  }
   // --- PRESENZE ---
   // --- CONVOCATI (campionato & coppa) ---
   // I "titolari" non sono più un'etichetta separata: chi viene piazzato sul campo (formazione) è titolare,
@@ -2546,6 +2596,75 @@ function GironeATracker() {
 // Banner nome squadra nella Card (08/09/2026): il font si adatta alla lunghezza del nome, pensato
 // per occupare quasi tutta la larghezza disponibile del banner (~220px) qualunque sia il nome scelto
 // nelle Impostazioni società, da "Cimiano Calcio" a nomi più lunghi.
+// Mappa d'insieme del girone (11/09/2026): geocodifica gli indirizzi via Nominatim (il servizio
+// gratuito di ricerca indirizzi di OpenStreetMap, nessuna chiave richiesta) e mostra i campi su una
+// mappa Leaflet/OpenStreetMap — niente Google Maps qui perché non offre un modo semplice di mostrare
+// più pin insieme, solo percorsi punto-a-punto (il tasto "Indicazioni" della singola partita invece
+// apre proprio Google Maps, i due usi sono volutamente diversi). La geocodifica parte solo quando
+// questo componente viene davvero mostrato (tab Calendario aperto), non ad ogni avvio dell'app, e
+// rispetta il limite di Nominatim (una richiesta al secondo).
+function MappaGirone({ addresses, cimianoNome }) {
+  const mapDivRef = React.useRef(null);
+  const mapRef = React.useRef(null);
+  const [coords, setCoords] = React.useState({});
+  const [caricando, setCaricando] = React.useState(true);
+
+  React.useEffect(() => {
+    let annullato = false;
+    async function geocodifica() {
+      const risultati = {};
+      for (const [nome, indirizzo] of Object.entries(addresses)) {
+        if (annullato) return;
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(indirizzo)}`);
+          const dati = await res.json();
+          if (dati && dati[0]) risultati[nome] = { lat: parseFloat(dati[0].lat), lon: parseFloat(dati[0].lon) };
+        } catch (e) { /* un indirizzo non trovato non blocca gli altri */ }
+        if (!annullato) setCoords({ ...risultati });
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+      if (!annullato) setCaricando(false);
+    }
+    geocodifica();
+    return () => { annullato = true; };
+  }, [addresses]);
+
+  React.useEffect(() => {
+    if (!mapDivRef.current || mapRef.current || typeof L === "undefined") return;
+    const map = L.map(mapDivRef.current).setView([45.48, 9.25], 10);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors", maxZoom: 18,
+    }).addTo(map);
+    mapRef.current = map;
+  }, []);
+
+  React.useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    (map._pinGirone || []).forEach((m) => map.removeLayer(m));
+    const pins = [];
+    const punti = [];
+    Object.entries(coords).forEach(([nome, c]) => {
+      const isCimiano = nome === cimianoNome;
+      const marker = L.circleMarker([c.lat, c.lon], {
+        radius: isCimiano ? 11 : 7, fillColor: isCimiano ? "#FF6A00" : "#00AEEF",
+        color: "#fff", weight: 2, fillOpacity: 0.9,
+      }).addTo(map).bindPopup(`<b>${nome}</b>${isCimiano ? " (noi)" : ""}`);
+      pins.push(marker);
+      punti.push([c.lat, c.lon]);
+    });
+    map._pinGirone = pins;
+    if (punti.length > 0) map.fitBounds(punti, { padding: [30, 30] });
+  }, [coords, cimianoNome]);
+
+  return (
+    <div>
+      <div ref={mapDivRef} style={{ width: "100%", height: 300, borderRadius: 10, overflow: "hidden" }} />
+      {caricando && <div className="body-font" style={{ fontSize: 11, color: MUTED, marginTop: 6 }}>Sto localizzando i campi… ({Object.keys(coords).length}/{Object.keys(addresses).length})</div>}
+    </div>
+  );
+}
+
 function formattaBannerSquadra(nome) {
   const testo = (nome || "").toUpperCase();
   const L = testo.length;
@@ -3382,6 +3501,9 @@ function coloreTestoContrastante(hex) {
               <span style={{ fontWeight: fx.away === CIMIANO ? 700 : 400, color: fx.away === CIMIANO ? accentUI : INK }}>{fx.away}</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+              {indirizzoSquadra(fx.home) && (
+                <a href={mapsSearchUrl(indirizzoSquadra(fx.home))} target="_blank" rel="noopener noreferrer" title={indirizzoSquadra(fx.home)} className="btn-ghost" style={{ textDecoration: "none" }}>📍</a>
+              )}
               {canOpenDetails && (
                 <button onClick={() => setDistintaModal({
                   titolo: `${fx.home} vs ${fx.away}`,
@@ -3774,6 +3896,19 @@ function coloreTestoContrastante(hex) {
                 {!hasScore && <span style={{ fontSize: 11, color: accentUI, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>in programma</span>}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                {indirizzoSquadra(f.avversario) ? (
+                  <a href={mapsSearchUrl(indirizzoSquadra(f.avversario))} target="_blank" rel="noopener noreferrer" title={indirizzoSquadra(f.avversario)} className="btn-ghost" style={{ textDecoration: "none" }}>📍</a>
+                ) : indirizzoDraftF[f.id] !== undefined ? (
+                  <>
+                    <input placeholder="Indirizzo campo" value={indirizzoDraftF[f.id]}
+                      onChange={(e) => setIndirizzoDraftF((p) => ({ ...p, [f.id]: e.target.value }))}
+                      style={{ width: 140, padding: 4, border: `2px solid ${accentUI}`, borderRadius: 8, fontSize: 12 }} />
+                    <button onClick={() => { salvaIndirizzoAmichevole(f.avversario, indirizzoDraftF[f.id]); setIndirizzoDraftF((p) => { const n = { ...p }; delete n[f.id]; return n; }); }}
+                      className="btn-solid">Salva</button>
+                  </>
+                ) : (
+                  <button onClick={() => setIndirizzoDraftF((p) => ({ ...p, [f.id]: "" }))} className="btn-ghost-muted" title="Aggiungi l'indirizzo del campo per abilitare le indicazioni">📍 +</button>
+                )}
                 {canOpenDetails && (
                   <button onClick={() => setDistintaModal({
                     titolo: `${CIMIANO} vs ${f.avversario}`,
@@ -4825,6 +4960,14 @@ function coloreTestoContrastante(hex) {
 
         {macroTab === "campionato" && campSub === "risultati" && (
           <div className="body-font">
+            <button onClick={() => setMostraMappaCamp((v) => !v)} className="btn-ghost" style={{ marginBottom: 12 }}>
+              🗺️ {mostraMappaCamp ? "Nascondi mappa del girone" : "Mostra mappa del girone"}
+            </button>
+            {mostraMappaCamp && (
+              <div style={{ marginBottom: 16 }}>
+                <MappaGirone addresses={TEAM_ADDRESSES} cimianoNome={CIMIANO} />
+              </div>
+            )}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 8, flexWrap: "wrap" }}>
               <button onClick={() => setRoundIdx((i) => Math.max(0, i - 1))} disabled={roundIdx === 0}
                 style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: PANEL_BG, borderRadius: 8, cursor: "pointer" }}>‹ Prec.</button>
@@ -4967,6 +5110,14 @@ function coloreTestoContrastante(hex) {
             <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
               Fase a gironi · Girone {COPPA_GIRONE} · 6-30 settembre 2026
             </div>
+            <button onClick={() => setMostraMappaCoppa((v) => !v)} className="btn-ghost" style={{ marginBottom: 12 }}>
+              🗺️ {mostraMappaCoppa ? "Nascondi mappa del girone" : "Mostra mappa del girone"}
+            </button>
+            {mostraMappaCoppa && (
+              <div style={{ marginBottom: 16 }}>
+                <MappaGirone addresses={Object.fromEntries(COPPA_TEAMS.map((t) => [t, TEAM_ADDRESSES[t]]))} cimianoNome={CIMIANO} />
+              </div>
+            )}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {COPPA_FIXTURES.map((fx) => renderCampionatoRow(fx, `${fmtDate(fx.data)} ore ${fx.ora}`))}
             </div>
