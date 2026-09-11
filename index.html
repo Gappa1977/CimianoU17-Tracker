@@ -700,8 +700,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.20";
-const TRACKER_VERSION_DATE = "11/09/2026@10.30";
+const TRACKER_VERSION = "4.21";
+const TRACKER_VERSION_DATE = "11/09/2026@10.53";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -935,6 +935,7 @@ function GironeATracker() {
   }, []);
   const [voterOptionsExtra, setVoterOptionsExtra] = useState([]); // nominativi votanti aggiunti a mano, si fondono con VOTER_OPTIONS — CONDIVISO
   const [friendlyIndirizzi, setFriendlyIndirizzi] = useState({}); // { "Nome Squadra Avversaria": "indirizzo" } — solo per avversari di Amichevoli fuori dalle 16 squadre del girone
+  const [friendlyCasa, setFriendlyCasa] = useState({}); // { [friendlyId]: true=casa nostra, false/assente=trasferta (default) }
   const [indirizzoDraftF, setIndirizzoDraftF] = useState({}); // { [friendlyId]: "testo in corso di digitazione" }
   const [mostraMappaCamp, setMostraMappaCamp] = useState(false);
   const [mostraMappaCoppa, setMostraMappaCoppa] = useState(false);
@@ -1209,6 +1210,7 @@ function GironeATracker() {
       // --- IMPOSTAZIONI: votanti extra + flag "mappa 2 sganciata" (formazione2Touched) + tema società ---
       const voterOptionsExtraFinal = [];
       const friendlyIndirizziFinal = {};
+      const friendlyCasaFinal = {};
       const friendlyFormazione2TouchedFinal = {};
       let teamNomeFinal = DEFAULT_TEAM_NOME, teamCategoriaFinal = DEFAULT_TEAM_CATEGORIA;
       let colore1Final = DEFAULT_COLORE_1, colore2Final = DEFAULT_COLORE_2, colore3Final = DEFAULT_COLORE_3;
@@ -1220,6 +1222,8 @@ function GironeATracker() {
             voterOptionsExtraFinal.push(r.valore);
           } else if (chiave.indexOf("indirizzo:") === 0) {
             friendlyIndirizziFinal[chiave.slice("indirizzo:".length)] = r.valore;
+          } else if (chiave.indexOf("casaAmichevole:") === 0) {
+            friendlyCasaFinal[chiave.slice("casaAmichevole:".length)] = String(r.valore) === "1";
           } else if (chiave.indexOf("formazione2Touched:") === 0) {
             const fixtureId = chiave.slice("formazione2Touched:".length);
             // Punto 08/09/2026 (v2): ogni riga impone il PROPRIO valore, true o false — non solo
@@ -1270,6 +1274,7 @@ function GironeATracker() {
       if (impostazioniRows) {
         setVoterOptionsExtra(voterOptionsExtraFinal);
         setFriendlyIndirizzi(friendlyIndirizziFinal);
+        setFriendlyCasa(friendlyCasaFinal);
         setFriendlyFormazione2Touched(friendlyFormazione2TouchedFinal);
         setTeamNome(teamNomeFinal);
         setTeamCategoria(teamCategoriaFinal);
@@ -2315,6 +2320,13 @@ function GironeATracker() {
     if (!testo || !nomeSquadra) return;
     setFriendlyIndirizzi((prev) => ({ ...prev, [nomeSquadra]: testo }));
     window.rows.upsert("Impostazioni", { chiave: "indirizzo:" + nomeSquadra }, { valore: testo }).catch(() => {});
+  }
+  // Casa/Trasferta per le Amichevoli (11/09/2026): la tabella Amichevoli non ha mai registrato questo
+  // dato, quindi si salva a parte in Impostazioni invece di toccare lo schema del foglio (rimandato
+  // alla migrazione ID). Di default si presume "trasferta" (mostra l'indirizzo dell'avversario).
+  function toggleCasaAmichevole(friendlyId, valore) {
+    setFriendlyCasa((prev) => ({ ...prev, [friendlyId]: valore }));
+    window.rows.upsert("Impostazioni", { chiave: "casaAmichevole:" + friendlyId }, { valore: valore ? "1" : "0" }).catch(() => {});
   }
   // --- PRESENZE ---
   // --- CONVOCATI (campionato & coppa) ---
@@ -3896,19 +3908,26 @@ function coloreTestoContrastante(hex) {
                 {!hasScore && <span style={{ fontSize: 11, color: accentUI, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>in programma</span>}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                {indirizzoSquadra(f.avversario) ? (
-                  <a href={mapsSearchUrl(indirizzoSquadra(f.avversario))} target="_blank" rel="noopener noreferrer" title={indirizzoSquadra(f.avversario)} className="btn-ghost" style={{ textDecoration: "none" }}>📍</a>
-                ) : indirizzoDraftF[f.id] !== undefined ? (
-                  <>
-                    <input placeholder="Indirizzo campo" value={indirizzoDraftF[f.id]}
-                      onChange={(e) => setIndirizzoDraftF((p) => ({ ...p, [f.id]: e.target.value }))}
-                      style={{ width: 140, padding: 4, border: `2px solid ${accentUI}`, borderRadius: 8, fontSize: 12 }} />
-                    <button onClick={() => { salvaIndirizzoAmichevole(f.avversario, indirizzoDraftF[f.id]); setIndirizzoDraftF((p) => { const n = { ...p }; delete n[f.id]; return n; }); }}
-                      className="btn-solid">Salva</button>
-                  </>
-                ) : (
-                  <button onClick={() => setIndirizzoDraftF((p) => ({ ...p, [f.id]: "" }))} className="btn-ghost-muted" title="Aggiungi l'indirizzo del campo per abilitare le indicazioni">📍 +</button>
-                )}
+                <button onClick={() => toggleCasaAmichevole(f.id, !friendlyCasa[f.id])} className="btn-ghost-muted" style={{ fontSize: 10 }} title="Cambia se questa amichevole è in casa nostra o in trasferta">
+                  {friendlyCasa[f.id] ? "Casa" : "Trasferta"}
+                </button>
+                {(() => {
+                  const indirizzoAttuale = friendlyCasa[f.id] ? indirizzoSquadra(CIMIANO) : indirizzoSquadra(f.avversario);
+                  const chiaveIndirizzo = friendlyCasa[f.id] ? CIMIANO : f.avversario;
+                  return indirizzoAttuale ? (
+                    <a href={mapsSearchUrl(indirizzoAttuale)} target="_blank" rel="noopener noreferrer" title={indirizzoAttuale} className="btn-ghost" style={{ textDecoration: "none" }}>📍</a>
+                  ) : indirizzoDraftF[f.id] !== undefined ? (
+                    <>
+                      <input placeholder="Indirizzo campo" value={indirizzoDraftF[f.id]}
+                        onChange={(e) => setIndirizzoDraftF((p) => ({ ...p, [f.id]: e.target.value }))}
+                        style={{ width: 140, padding: 4, border: `2px solid ${accentUI}`, borderRadius: 8, fontSize: 12 }} />
+                      <button onClick={() => { salvaIndirizzoAmichevole(chiaveIndirizzo, indirizzoDraftF[f.id]); setIndirizzoDraftF((p) => { const n = { ...p }; delete n[f.id]; return n; }); }}
+                        className="btn-solid">Salva</button>
+                    </>
+                  ) : (
+                    <button onClick={() => setIndirizzoDraftF((p) => ({ ...p, [f.id]: "" }))} className="btn-ghost-muted" title="Aggiungi l'indirizzo del campo per abilitare le indicazioni">📍 +</button>
+                  );
+                })()}
                 {canOpenDetails && (
                   <button onClick={() => setDistintaModal({
                     titolo: `${CIMIANO} vs ${f.avversario}`,
