@@ -700,8 +700,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.21";
-const TRACKER_VERSION_DATE = "11/09/2026@10.53";
+const TRACKER_VERSION = "4.22";
+const TRACKER_VERSION_DATE = "11/09/2026@13.00";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -1393,10 +1393,15 @@ function GironeATracker() {
 
   const playerStats = useMemo(() => {
     const map = {};
-    function addEntry(giocatore, entry) {
+    const mapById = {}; // Migrazione unificazione ID (11/09/2026): stessa lista, ma per giocatoreId
+    function addEntry(giocatore, giocatoreId, entry) {
       if (!giocatore) return;
       if (!map[giocatore]) map[giocatore] = [];
       map[giocatore].push(entry);
+      if (giocatoreId) {
+        if (!mapById[giocatoreId]) mapById[giocatoreId] = [];
+        mapById[giocatoreId].push(entry);
+      }
     }
     ROUNDS.forEach((r) => {
       r.matches.forEach((fx) => {
@@ -1410,7 +1415,7 @@ function GironeATracker() {
             voto: v.voto, minutaggio: v.minutaggio, nota: v.nota, autore: v.autore,
           };
           SKILLS.forEach((sk) => { entry[sk.key] = v[sk.key]; });
-          addEntry(v.giocatore, entry);
+          addEntry(v.giocatore, v.giocatoreId, entry);
         });
       });
     });
@@ -1422,11 +1427,14 @@ function GironeATracker() {
           voto: v.voto, minutaggio: v.minutaggio, nota: v.nota, autore: v.autore,
         };
         SKILLS.forEach((sk) => { entry[sk.key] = v[sk.key]; });
-        addEntry(v.giocatore, entry);
+        addEntry(v.giocatore, v.giocatoreId, entry);
       });
     });
     Object.keys(map).forEach((name) => {
       map[name].sort((a, b) => (b.date || "0000").localeCompare(a.date || "0000"));
+    });
+    Object.keys(mapById).forEach((id) => {
+      mapById[id].sort((a, b) => (b.date || "0000").localeCompare(a.date || "0000"));
     });
     // Punto 13: le "presenze" non devono dipendere dal fatto che qualcuno abbia scritto un voto — un
     // titolare/subentrato che nessuno ha votato ha comunque giocato. Si incrociano le formazioni reali
@@ -1461,26 +1469,38 @@ function GironeATracker() {
     });
     // Cartellini: conteggio gialli/rossi per giocatore, campionato+coppa+amichevoli insieme.
     const cartelliniCount = {};
-    function addCartellino(nome, colore) {
+    const cartelliniCountById = {};
+    function addCartellino(nome, giocatoreId, colore) {
       if (!nome) return;
       if (!cartelliniCount[nome]) cartelliniCount[nome] = { gialli: 0, rossi: 0 };
       if (colore === "rosso") cartelliniCount[nome].rossi += 1;
       else cartelliniCount[nome].gialli += 1;
+      if (giocatoreId) {
+        if (!cartelliniCountById[giocatoreId]) cartelliniCountById[giocatoreId] = { gialli: 0, rossi: 0 };
+        if (colore === "rosso") cartelliniCountById[giocatoreId].rossi += 1;
+        else cartelliniCountById[giocatoreId].gialli += 1;
+      }
     }
     ROUNDS.forEach((r) => {
       r.matches.forEach((fx) => {
         if (fx.home !== CIMIANO && fx.away !== CIMIANO) return;
-        ((detailsShared[fx.id] && detailsShared[fx.id].cartellini) || []).forEach((c) => addCartellino(c.giocatore, c.colore));
+        ((detailsShared[fx.id] && detailsShared[fx.id].cartellini) || []).forEach((c) => addCartellino(c.giocatore, c.giocatoreId, c.colore));
       });
     });
     friendlies.forEach((f) => {
-      (friendlyCartellini[f.id] || []).forEach((c) => addCartellino(c.giocatore, c.colore));
+      (friendlyCartellini[f.id] || []).forEach((c) => addCartellino(c.giocatore, c.giocatoreId, c.colore));
     });
     // Ordinati per cognome, come tutti gli altri elenchi giocatori del Tracker (punto 15).
     const names = Array.from(new Set([...roster.map((p) => p.nome), ...Object.keys(map)]))
       .sort((a, b) => lastName(a).localeCompare(lastName(b), "it", { sensitivity: "base" }));
     return names.map((name) => {
-      const entries = groupEntriesByMatch(map[name] || []);
+      // Migrazione unificazione ID: per un giocatore ancora in Rosa si preferisce la lista agganciata
+      // al suo ID (rinomina-proof); solo se quella manca (righe storiche senza giocatoreId, o un
+      // giocatore ormai fuori Rosa) si ripiega sulla lista storica per nome.
+      const rpAttuale = roster.find((p) => p.nome === name);
+      const listaVoti = (rpAttuale && mapById[rpAttuale.id] && mapById[rpAttuale.id].length) ? mapById[rpAttuale.id] : (map[name] || []);
+      const cartelliniPerId = rpAttuale ? cartelliniCountById[rpAttuale.id] : null;
+      const entries = groupEntriesByMatch(listaVoti);
       const voti = entries.map((e) => parseFloat(e.voto)).filter((n) => !isNaN(n));
       const minuti = entries.map((e) => parseInt(e.minutaggio, 10)).filter((n) => !isNaN(n));
       const media = voti.length ? (voti.reduce((s, x) => s + x, 0) / voti.length) : null;
@@ -1488,7 +1508,7 @@ function GironeATracker() {
       // Non scende mai sotto al conteggio basato sui voti (se per qualche partita vecchia mancasse
       // il dato di formazione), aggiunge solo le presenze reali che i voti da soli non intercettano.
       const presenze = Math.max(entries.length, presenzeCount[name] || 0);
-      const cartellini = cartelliniCount[name] || { gialli: 0, rossi: 0 };
+      const cartellini = cartelliniPerId || cartelliniCount[name] || { gialli: 0, rossi: 0 };
       // Media per skill: solo sulle entry (voti) che hanno quella skill compilata — i voti storici
       // pre-Vers. 2.4, senza skill, semplicemente non contribuiscono al radar.
       let skillAvg = null;
@@ -1537,23 +1557,30 @@ function GironeATracker() {
   // separato in friendlyMarcatori. Nessun cambio di schema sul foglio: stessi dati di sempre.
   const cannonieri = useMemo(() => {
     const counts = {};
-    function add(nome, tipo) {
-      if (!nome) return;
-      if (!counts[nome]) counts[nome] = { amichevole: 0, campionato: 0, coppa: 0 };
-      counts[nome][tipo] += 1;
+    // Migrazione unificazione ID (11/09/2026): si raggruppa per giocatoreId (stabile) invece che per
+    // nome — se un giocatore viene rinominato in Rosa, i suoi gol storici restano suoi e il nome
+    // mostrato si aggiorna da solo. "nome" resta solo come riserva per righe senza giocatoreId.
+    function add(nome, giocatoreId, tipo) {
+      const chiave = giocatoreId || nome;
+      if (!chiave) return;
+      if (!counts[chiave]) counts[chiave] = { nomeStorico: nome, amichevole: 0, campionato: 0, coppa: 0 };
+      counts[chiave][tipo] += 1;
     }
     Object.keys(detailsShared).forEach((fixtureId) => {
       const tipo = tipoDaFixtureId(fixtureId);
-      ((detailsShared[fixtureId] && detailsShared[fixtureId].marcatori) || []).forEach((s) => add(s.giocatore, tipo));
+      ((detailsShared[fixtureId] && detailsShared[fixtureId].marcatori) || []).forEach((s) => add(s.giocatore, s.giocatoreId, tipo));
     });
     Object.keys(friendlyMarcatori).forEach((friendlyId) => {
-      (friendlyMarcatori[friendlyId] || []).forEach((s) => add(s.giocatore, "amichevole"));
+      (friendlyMarcatori[friendlyId] || []).forEach((s) => add(s.giocatore, s.giocatoreId, "amichevole"));
     });
-    return Object.entries(counts).map(([name, c]) => ({
-      name, amichevole: c.amichevole, campionato: c.campionato, coppa: c.coppa,
-      totale: c.amichevole + c.campionato + c.coppa,
-    }));
-  }, [detailsShared, friendlyMarcatori]);
+    return Object.entries(counts).map(([chiave, c]) => {
+      const rp = roster.find((r) => r.id === chiave);
+      return {
+        name: rp ? rp.nome : c.nomeStorico, amichevole: c.amichevole, campionato: c.campionato, coppa: c.coppa,
+        totale: c.amichevole + c.campionato + c.coppa,
+      };
+    });
+  }, [detailsShared, friendlyMarcatori, roster]);
 
   // Stessa fonte di "cannonieri" ma come mappa nome->totale, comoda per l'ordinamento di Giocatori
   // (evita di dover ricercare in un array ogni volta).
@@ -1578,34 +1605,37 @@ function GironeATracker() {
   // card giocatore), che invece somma tutte le competizioni insieme: nessun rischio di rompere quella.
   const cartelliniPerCompetizione = useMemo(() => {
     const counts = {};
-    function add(nome, tipo, colore) {
-      if (!nome) return;
-      if (!counts[nome]) counts[nome] = { amichevole: { giallo: 0, rosso: 0 }, campionato: { giallo: 0, rosso: 0 }, coppa: { giallo: 0, rosso: 0 } };
+    function add(nome, giocatoreId, tipo, colore) {
+      const chiave = giocatoreId || nome;
+      if (!chiave) return;
+      if (!counts[chiave]) counts[chiave] = { nomeStorico: nome, amichevole: { giallo: 0, rosso: 0 }, campionato: { giallo: 0, rosso: 0 }, coppa: { giallo: 0, rosso: 0 } };
       const key = colore === "rosso" ? "rosso" : "giallo";
-      counts[nome][tipo][key] += 1;
+      counts[chiave][tipo][key] += 1;
     }
     Object.keys(detailsShared).forEach((fixtureId) => {
       const tipo = tipoDaFixtureId(fixtureId);
-      ((detailsShared[fixtureId] && detailsShared[fixtureId].cartellini) || []).forEach((c) => add(c.giocatore, tipo, c.colore));
+      ((detailsShared[fixtureId] && detailsShared[fixtureId].cartellini) || []).forEach((c) => add(c.giocatore, c.giocatoreId, tipo, c.colore));
     });
     Object.keys(friendlyCartellini).forEach((friendlyId) => {
-      (friendlyCartellini[friendlyId] || []).forEach((c) => add(c.giocatore, "amichevole", c.colore));
+      (friendlyCartellini[friendlyId] || []).forEach((c) => add(c.giocatore, c.giocatoreId, "amichevole", c.colore));
     });
     // Con il filtro corrente (tutti/giallo/rosso) calcola il numero per cella e il totale: la somma
     // permette l'ordinamento numerico (un formato "3G · 1R" non sarebbe ordinabile).
-    function perCompetizione(nome, tipo) {
-      const c = (counts[nome] || {})[tipo] || { giallo: 0, rosso: 0 };
+    function perCompetizione(chiave, tipo) {
+      const c = (counts[chiave] || {})[tipo] || { giallo: 0, rosso: 0 };
       if (cartelliniFiltro === "giallo") return c.giallo;
       if (cartelliniFiltro === "rosso") return c.rosso;
       return c.giallo + c.rosso;
     }
-    return Object.keys(counts).map((name) => {
-      const amichevole = perCompetizione(name, "amichevole");
-      const campionato = perCompetizione(name, "campionato");
-      const coppa = perCompetizione(name, "coppa");
+    return Object.keys(counts).map((chiave) => {
+      const amichevole = perCompetizione(chiave, "amichevole");
+      const campionato = perCompetizione(chiave, "campionato");
+      const coppa = perCompetizione(chiave, "coppa");
+      const rp = roster.find((r) => r.id === chiave);
+      const name = rp ? rp.nome : counts[chiave].nomeStorico;
       return { name, amichevole, campionato, coppa, totale: amichevole + campionato + coppa };
     }).filter((r) => r.totale > 0);
-  }, [detailsShared, friendlyCartellini, cartelliniFiltro]);
+  }, [detailsShared, friendlyCartellini, cartelliniFiltro, roster]);
 
   const cartelliniOrdinati = useMemo(() => {
     const { col, dir } = cartelliniSort;
@@ -1860,7 +1890,7 @@ function GironeATracker() {
       return { ...prev, [fixtureId]: { ...cur, marcatori: [...list, { id, giocatore: d.giocatore, minuto: d.minuto || "" }] } };
     });
     setScorerDraft((prev) => ({ ...prev, [fixtureId]: { giocatore: "", minuto: "" } }));
-    window.rows.insert("Marcatori", { id, fixtureId, tipo: tipoDaFixtureId(fixtureId), giocatore: d.giocatore, minuto: d.minuto || "" }).catch(() => {});
+    window.rows.insert("Marcatori", { id, fixtureId, tipo: tipoDaFixtureId(fixtureId), giocatore: d.giocatore, giocatoreId: idDaNome(d.giocatore), minuto: d.minuto || "" }).catch(() => {});
   }
 
   function removeScorer(fixtureId, id) {
@@ -1899,7 +1929,7 @@ function GironeATracker() {
       return { ...prev, [fixtureId]: { ...cur, cartellini: [...list, { id, giocatore: d.giocatore, colore: d.colore, minuto: d.minuto || "" }] } };
     });
     setCardDraft((prev) => ({ ...prev, [fixtureId]: { giocatore: "", colore: "", minuto: "" } }));
-    window.rows.insert("Cartellini", { id, fixtureId, tipo: tipoDaFixtureId(fixtureId), giocatore: d.giocatore, colore: d.colore, minuto: d.minuto || "" }).catch(() => {});
+    window.rows.insert("Cartellini", { id, fixtureId, tipo: tipoDaFixtureId(fixtureId), giocatore: d.giocatore, giocatoreId: idDaNome(d.giocatore), colore: d.colore, minuto: d.minuto || "" }).catch(() => {});
   }
 
   function removeCard(fixtureId, id) {
@@ -1943,7 +1973,7 @@ function GironeATracker() {
       return { ...prev, [fixtureId]: { ...cur, voti: [...list, entry] } };
     });
     setRatingDraft((prev) => ({ ...prev, [fixtureId]: { giocatore: "", minutaggio: "", nota: "" } }));
-    window.rows.insert("Voti", { id, fixtureId, tipo: tipoDaFixtureId(fixtureId), giocatore: d.giocatore, voto: String(voto), minutaggio: d.minutaggio || "", nota: d.nota || "", autore: voterName, ...skillColsFromDraft(d) }).catch(() => {});
+    window.rows.insert("Voti", { id, fixtureId, tipo: tipoDaFixtureId(fixtureId), giocatore: d.giocatore, giocatoreId: idDaNome(d.giocatore), voto: String(voto), minutaggio: d.minutaggio || "", nota: d.nota || "", autore: voterName, ...skillColsFromDraft(d) }).catch(() => {});
   }
 
   function removeRating(fixtureId, id) {
@@ -2183,7 +2213,7 @@ function GironeATracker() {
       return { ...prev, [friendlyId]: [...list, entry] };
     });
     setRatingDraftF((prev) => ({ ...prev, [friendlyId]: { giocatore: "", minutaggio: "", nota: "" } }));
-    window.rows.insert("Voti", { id, fixtureId: friendlyId, tipo: "amichevole", giocatore: d.giocatore, voto: String(voto), minutaggio: d.minutaggio || "", nota: d.nota || "", autore: voterName, ...skillColsFromDraft(d) }).catch(() => {});
+    window.rows.insert("Voti", { id, fixtureId: friendlyId, tipo: "amichevole", giocatore: d.giocatore, giocatoreId: idDaNome(d.giocatore), voto: String(voto), minutaggio: d.minutaggio || "", nota: d.nota || "", autore: voterName, ...skillColsFromDraft(d) }).catch(() => {});
   }
 
   function removeRatingFriendly(friendlyId, id) {
@@ -2227,7 +2257,7 @@ function GironeATracker() {
       return { ...prev, [friendlyId]: [...list, { id, giocatore: d.giocatore, minuto: d.minuto || "" }] };
     });
     setScorerDraftF((prev) => ({ ...prev, [friendlyId]: { giocatore: "", minuto: "" } }));
-    window.rows.insert("Marcatori", { id, fixtureId: friendlyId, tipo: "amichevole", giocatore: d.giocatore, minuto: d.minuto || "" }).catch(() => {});
+    window.rows.insert("Marcatori", { id, fixtureId: friendlyId, tipo: "amichevole", giocatore: d.giocatore, giocatoreId: idDaNome(d.giocatore), minuto: d.minuto || "" }).catch(() => {});
   }
 
   function removeScorerF(friendlyId, id) {
@@ -2261,7 +2291,7 @@ function GironeATracker() {
       return { ...prev, [friendlyId]: [...list, { id, giocatore: d.giocatore, colore: d.colore, minuto: d.minuto || "" }] };
     });
     setCardDraftF((prev) => ({ ...prev, [friendlyId]: { giocatore: "", colore: "", minuto: "" } }));
-    window.rows.insert("Cartellini", { id, fixtureId: friendlyId, tipo: "amichevole", giocatore: d.giocatore, colore: d.colore, minuto: d.minuto || "" }).catch(() => {});
+    window.rows.insert("Cartellini", { id, fixtureId: friendlyId, tipo: "amichevole", giocatore: d.giocatore, giocatoreId: idDaNome(d.giocatore), colore: d.colore, minuto: d.minuto || "" }).catch(() => {});
   }
 
   function removeCardF(friendlyId, id) {
@@ -2312,6 +2342,13 @@ function GironeATracker() {
   // delle stesse) hanno l'indirizzo già noto in TEAM_ADDRESSES; per le Amichevoli contro squadre
   // esterne l'indirizzo viene salvato a mano una volta sola (indirizzoSquadra) e resta in memoria
   // per tutte le prossime partite contro quella squadra.
+  // Migrazione unificazione ID, priorità 1 (11/09/2026): Voti/Marcatori/Cartellini salvavano il
+  // giocatore solo per nome, fragile se un nome viene corretto in futuro. Da qui in poi ogni nuova
+  // riga porta anche l'ID vero (idDaNome), mentre "giocatore" resta per leggibilità/compatibilità.
+  function idDaNome(nome) {
+    const rp = roster.find((r) => r.nome === nome);
+    return rp ? rp.id : "";
+  }
   function indirizzoSquadra(nomeSquadra) {
     return TEAM_ADDRESSES[nomeSquadra] || friendlyIndirizzi[nomeSquadra] || null;
   }
