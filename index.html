@@ -700,8 +700,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.23";
-const TRACKER_VERSION_DATE = "11/09/2026@16.30";
+const TRACKER_VERSION = "4.24";
+const TRACKER_VERSION_DATE = "11/09/2026@17.52";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -3553,13 +3553,6 @@ function coloreTestoContrastante(hex) {
               {indirizzoSquadra(fx.home) && (
                 <a href={mapsSearchUrl(indirizzoSquadra(fx.home))} target="_blank" rel="noopener noreferrer" title={indirizzoSquadra(fx.home)} className="btn-ghost" style={{ textDecoration: "none" }}>📍</a>
               )}
-              {canOpenDetails && (
-                <button onClick={() => setDistintaModal({
-                  titolo: `${fx.home} vs ${fx.away}`,
-                  sottotitolo: metaLabel || "",
-                  modulo: moduloIniziale, formazione: formazioneIniziale, convocatiIds,
-                })} className="btn-ghost">Distinta</button>
-              )}
               <button onClick={() => startEditFixtureDate(fx)} title="Modifica data/ora" className="btn-ghost">Modifica</button>
               {played ? (
                 <button onClick={() => clearResult(fx.id)} className="btn-ghost-muted">Azzera</button>
@@ -3919,6 +3912,7 @@ function coloreTestoContrastante(hex) {
             <input type="number" placeholder="Gol avv." value={friendlyEditDraft.golAvv ?? ""} onChange={(e) => setFriendlyEditDraft((p) => ({ ...p, golAvv: e.target.value }))}
               style={{ width: 90, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
             <button onClick={() => saveEditFriendly(f.id)} style={{ background: accentUI, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>Salva</button>
+            <button onClick={() => removeFriendly(f.id)} className="btn-ghost">Cancella</button>
             <button onClick={() => setEditingFriendly(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>annulla</button>
           </div>
         ) : (
@@ -3945,42 +3939,38 @@ function coloreTestoContrastante(hex) {
                 {!hasScore && <span style={{ fontSize: 11, color: accentUI, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>in programma</span>}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                <button onClick={() => toggleCasaAmichevole(f.id, !friendlyCasa[f.id])} className="btn-ghost-muted" style={{ fontSize: 10 }} title="Cambia se questa amichevole è in casa nostra o in trasferta">
-                  {friendlyCasa[f.id] ? "Casa" : "Trasferta"}
-                </button>
-                {(() => {
-                  const indirizzoAttuale = friendlyCasa[f.id] ? indirizzoSquadra(CIMIANO) : indirizzoSquadra(f.avversario);
-                  const chiaveIndirizzo = friendlyCasa[f.id] ? CIMIANO : f.avversario;
-                  return indirizzoAttuale ? (
-                    <a href={mapsSearchUrl(indirizzoAttuale)} target="_blank" rel="noopener noreferrer" title={indirizzoAttuale} className="btn-ghost" style={{ textDecoration: "none" }}>📍</a>
-                  ) : indirizzoDraftF[f.id] !== undefined ? (
-                    <>
-                      <input placeholder="Indirizzo campo" value={indirizzoDraftF[f.id]}
-                        onChange={(e) => setIndirizzoDraftF((p) => ({ ...p, [f.id]: e.target.value }))}
-                        style={{ width: 140, padding: 4, border: `2px solid ${accentUI}`, borderRadius: 8, fontSize: 12 }} />
-                      <button onClick={() => { salvaIndirizzoAmichevole(chiaveIndirizzo, indirizzoDraftF[f.id]); setIndirizzoDraftF((p) => { const n = { ...p }; delete n[f.id]; return n; }); }}
-                        className="btn-solid">Salva</button>
-                    </>
-                  ) : (
-                    <button onClick={() => setIndirizzoDraftF((p) => ({ ...p, [f.id]: "" }))} className="btn-ghost-muted" title="Aggiungi l'indirizzo del campo per abilitare le indicazioni">📍 +</button>
-                  );
-                })()}
-                {canOpenDetails && (
-                  <button onClick={() => setDistintaModal({
-                    titolo: `${CIMIANO} vs ${f.avversario}`,
-                    sottotitolo: `Amichevole${f.data ? ` · ${fmtDate(f.data)}` : ""}${f.ora ? ` · ore ${f.ora}` : ""}`,
-                    modulo: moduloInizialeF, formazione: formazioneInizialeF, convocatiIds: convocatiIdsF,
-                  })} className="btn-ghost">Distinta</button>
-                )}
                 <button onClick={() => startEditFriendly(f)} className="btn-ghost">Modifica</button>
-                <button onClick={() => removeFriendly(f.id)} className="btn-ghost">Cancella</button>
               </div>
             </div>
           </div>
         )}
-
         {isOpen && canOpenDetails && (
           <div style={{ borderTop: `1px solid ${LINE}`, padding: "10px 12px" }}>
+
+            {/* Sede (11/9/2026): spostata qui dalla riga principale, si imposta una volta e non
+                serve vederla sempre — libera spazio nella riga per Modifica/Cancella. */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+              <button onClick={() => toggleCasaAmichevole(f.id, !friendlyCasa[f.id])} className="btn-ghost-muted" style={{ fontSize: 10 }} title="Cambia se questa amichevole è in casa nostra o in trasferta">
+                {friendlyCasa[f.id] ? "Casa" : "Trasferta"}
+              </button>
+              {(() => {
+                const indirizzoAttuale = friendlyCasa[f.id] ? indirizzoSquadra(CIMIANO) : indirizzoSquadra(f.avversario);
+                const chiaveIndirizzo = friendlyCasa[f.id] ? CIMIANO : f.avversario;
+                return indirizzoAttuale ? (
+                  <a href={mapsSearchUrl(indirizzoAttuale)} target="_blank" rel="noopener noreferrer" title={indirizzoAttuale} className="btn-ghost" style={{ textDecoration: "none" }}>📍 Indicazioni</a>
+                ) : indirizzoDraftF[f.id] !== undefined ? (
+                  <>
+                    <input placeholder="Indirizzo campo" value={indirizzoDraftF[f.id]}
+                      onChange={(e) => setIndirizzoDraftF((p) => ({ ...p, [f.id]: e.target.value }))}
+                      style={{ width: 160, padding: 4, border: `2px solid ${accentUI}`, borderRadius: 8, fontSize: 12 }} />
+                    <button onClick={() => { salvaIndirizzoAmichevole(chiaveIndirizzo, indirizzoDraftF[f.id]); setIndirizzoDraftF((p) => { const n = { ...p }; delete n[f.id]; return n; }); }}
+                      className="btn-solid">Salva</button>
+                  </>
+                ) : (
+                  <button onClick={() => setIndirizzoDraftF((p) => ({ ...p, [f.id]: "" }))} className="btn-ghost-muted" title="Aggiungi l'indirizzo del campo per abilitare le indicazioni">📍 Aggiungi indirizzo</button>
+                );
+              })()}
+            </div>
 
             {/* Formazione, cambi, marcatori, cartellini, voti: accessibili anche prima di inserire il risultato finale */}
             {roster.length > 0 && (
@@ -4426,14 +4416,26 @@ function coloreTestoContrastante(hex) {
           ["stagione", "Stagione"],
           ["campionato", "Campionato"],
           ["coppa", "Coppa"],
-        ].map(([key, label]) => (
-          <button key={key} onClick={() => setMacroTab(key)}
-            style={{ flex: 1, textAlign: "center", padding: "10px 6px", border: macroTab === key ? "none" : "1.5px solid transparent", borderImage: macroTab === key ? "none" : `linear-gradient(90deg, ${LINE}, ${HUDDLE_SECONDARY}) 1`, borderRadius: 12,
-              background: macroTab === key ? HUDDLE_SECONDARY : "transparent", cursor: "pointer",
-              boxShadow: macroTab === key ? `0 3px 10px -2px ${HUDDLE_SECONDARY}B3` : "none" }}>
-            <span className="body-font" style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: macroTab === key ? "#fff" : MUTED }}>{label}</span>
-          </button>
-        ))}
+        ].map(([key, label]) => {
+          const attivo = macroTab === key;
+          const contenuto = (
+            <button onClick={() => setMacroTab(key)}
+              style={{ width: "100%", textAlign: "center", padding: "10px 6px", border: "none", borderRadius: attivo ? 12 : 10.5,
+                background: attivo ? HUDDLE_SECONDARY : CREAM, cursor: "pointer",
+                boxShadow: attivo ? `0 3px 10px -2px ${HUDDLE_SECONDARY}B3` : "none" }}>
+              <span className="body-font" style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: attivo ? "#fff" : MUTED }}>{label}</span>
+            </button>
+          );
+          // Tab non attivi (11/9/2026, correzione 0B): niente più border-image (non rispettava gli
+          // angoli arrotondati, restavano squadrati). Stessa tecnica "a cornice" già usata per il
+          // bordo cromato dei box partite: un contenitore con un filo di padding e sfondo sfumato,
+          // il bottone vero dentro — gli angoli restano coerenti ovunque.
+          return attivo ? (
+            <div key={key} style={{ flex: 1 }}>{contenuto}</div>
+          ) : (
+            <div key={key} style={{ flex: 1, padding: 1.5, borderRadius: 12, background: `linear-gradient(90deg, ${LINE}, ${HUDDLE_SECONDARY})` }}>{contenuto}</div>
+          );
+        })}
       </div>
 
       <div style={{ background: CREAM, borderBottom: `1px solid ${LINE}`, padding: "8px 12px" }}>
@@ -4442,38 +4444,56 @@ function coloreTestoContrastante(hex) {
             ["classifica", "Classifica"],
             ["risultati", "Calendario"],
             ["import", "Import"],
-          ].map(([key, label]) => (
-            <button key={key} onClick={() => setCampSub(key)} className="body-font"
-              style={{ padding: "6px 12px", border: campSub === key ? "none" : "1.5px solid transparent", borderImage: campSub === key ? "none" : `linear-gradient(90deg, ${LINE}, ${HUDDLE_SECONDARY}) 1`, borderRadius: 14, cursor: "pointer",
-                background: campSub === key ? HUDDLE_SECONDARY : PANEL_BG,
-                fontWeight: 600, fontSize: 12, color: campSub === key ? "#fff" : MUTED }}>
-              {label}
-            </button>
-          ))}
+          ].map(([key, label]) => {
+            const attivo = campSub === key;
+            const btn = (
+              <button onClick={() => setCampSub(key)} className="body-font"
+                style={{ padding: "6px 12px", border: "none", borderRadius: attivo ? 14 : 12.5, cursor: "pointer",
+                  background: attivo ? HUDDLE_SECONDARY : PANEL_BG,
+                  fontWeight: 600, fontSize: 12, color: attivo ? "#fff" : MUTED }}>
+                {label}
+              </button>
+            );
+            return attivo ? <div key={key}>{btn}</div> : (
+              <div key={key} style={{ padding: 1.5, borderRadius: 14, background: `linear-gradient(90deg, ${LINE}, ${HUDDLE_SECONDARY})` }}>{btn}</div>
+            );
+          })}
           {macroTab === "coppa" && [
             ["classifica", "Classifica"],
             ["risultati", "Calendario"],
-          ].map(([key, label]) => (
-            <button key={key} onClick={() => setCoppaSub(key)} className="body-font"
-              style={{ padding: "6px 12px", border: coppaSub === key ? "none" : "1.5px solid transparent", borderImage: coppaSub === key ? "none" : `linear-gradient(90deg, ${LINE}, ${HUDDLE_SECONDARY}) 1`, borderRadius: 14, cursor: "pointer",
-                background: coppaSub === key ? HUDDLE_SECONDARY : PANEL_BG,
-                fontWeight: 600, fontSize: 12, color: coppaSub === key ? "#fff" : MUTED }}>
-              {label}
-            </button>
-          ))}
+          ].map(([key, label]) => {
+            const attivo = coppaSub === key;
+            const btn = (
+              <button onClick={() => setCoppaSub(key)} className="body-font"
+                style={{ padding: "6px 12px", border: "none", borderRadius: attivo ? 14 : 12.5, cursor: "pointer",
+                  background: attivo ? HUDDLE_SECONDARY : PANEL_BG,
+                  fontWeight: 600, fontSize: 12, color: attivo ? "#fff" : MUTED }}>
+                {label}
+              </button>
+            );
+            return attivo ? <div key={key}>{btn}</div> : (
+              <div key={key} style={{ padding: 1.5, borderRadius: 14, background: `linear-gradient(90deg, ${LINE}, ${HUDDLE_SECONDARY})` }}>{btn}</div>
+            );
+          })}
           {macroTab === "stagione" && [
             ["cimiano", "Partite"],
             ["giocatori", "Giocatori"],
             ["cannonieri", "Goal"],
             ["cartellini", "Cartellini"],
-          ].map(([key, label]) => (
-            <button key={key} onClick={() => setStagSub(key)} className="body-font"
-              style={{ padding: "6px 12px", border: stagSub === key ? "none" : "1.5px solid transparent", borderImage: stagSub === key ? "none" : `linear-gradient(90deg, ${LINE}, ${HUDDLE_SECONDARY}) 1`, borderRadius: 14, cursor: "pointer",
-                background: stagSub === key ? HUDDLE_SECONDARY : PANEL_BG,
-                fontWeight: 600, fontSize: 12, color: stagSub === key ? "#fff" : MUTED }}>
-              {label}
-            </button>
-          ))}
+          ].map(([key, label]) => {
+            const attivo = stagSub === key;
+            const btn = (
+              <button onClick={() => setStagSub(key)} className="body-font"
+                style={{ padding: "6px 12px", border: "none", borderRadius: attivo ? 14 : 12.5, cursor: "pointer",
+                  background: attivo ? HUDDLE_SECONDARY : PANEL_BG,
+                  fontWeight: 600, fontSize: 12, color: attivo ? "#fff" : MUTED }}>
+                {label}
+              </button>
+            );
+            return attivo ? <div key={key}>{btn}</div> : (
+              <div key={key} style={{ padding: 1.5, borderRadius: 14, background: `linear-gradient(90deg, ${LINE}, ${HUDDLE_SECONDARY})` }}>{btn}</div>
+            );
+          })}
         </div>
       </div>
       </div>
