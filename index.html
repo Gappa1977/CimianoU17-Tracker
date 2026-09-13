@@ -701,8 +701,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.26";
-const TRACKER_VERSION_DATE = "13/09/2026@11.15";
+const TRACKER_VERSION = "4.27";
+const TRACKER_VERSION_DATE = "13/09/2026@15.58";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -2757,11 +2757,16 @@ function coloreTestoContrastante(hex) {
     const slots = FORMATIONS[moduloKey].slots;
     const poolRoster = rosterSorted.filter((r) => poolIniziale.includes(String(r.id)));
     const startersIds = new Set(Object.values(formazione1 || {}).filter(Boolean).map(String));
-    // Effettivo in campo per ogni slot: se la mappa 2 non è ancora stata toccata manualmente, rispecchia
-    // la formazione iniziale; una volta toccata (anche una sola sostituzione fatta) usa i suoi valori.
+    // Effettivo in campo per ogni slot (11/09/2026, corretto): PRIMA guardava un interruttore
+    // globale "touched" — appena avvenuta anche una sola sostituzione in tutta la partita, OGNI
+    // slot smetteva di rispecchiare i titolari, quindi un titolare aggiunto dopo con la tendina
+    // restava invisibile in campo (nessuna maglia). Ora si guarda slot per slot: se quello slot
+    // specifico ha già una sostituzione vera (mappa2), si mostra quella; altrimenti si rispecchia
+    // sempre il titolare di quello slot (mappa1) — impostare i titolari resta così sempre
+    // indipendente dalle sostituzioni, che si "agganciano" solo sullo slot che toccano davvero.
     const effectiveBySlot = {};
     slots.forEach((s) => {
-      effectiveBySlot[s.id] = touched ? (formazione2[s.id] ? String(formazione2[s.id]) : "") : (formazione1[s.id] ? String(formazione1[s.id]) : "");
+      effectiveBySlot[s.id] = (formazione2 && formazione2[s.id]) ? String(formazione2[s.id]) : (formazione1[s.id] ? String(formazione1[s.id]) : "");
     });
     // Chi conta come "in campo" per escluderlo dalla panchina (11/09/2026, corretto): sempre
     // l'unione dei titolari attuali (mappa1) E di chi è effettivamente in campo tenendo conto delle
@@ -4277,6 +4282,7 @@ function coloreTestoContrastante(hex) {
     // insieme, wordmark Quicksand Bold con "ON" colorato, barra di progresso bicolore.
     return (
       <div style={{ fontFamily: "'Quicksand', sans-serif", background: "radial-gradient(circle at 50% 38%, #2B2D33 0%, #1C1D22 78%)", minHeight: "100vh", color: "#8A8F98", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 28 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "#8A8F98", letterSpacing: 1, marginBottom: -18 }}>V.{TRACKER_VERSION}</div>
         <div style={{ position: "relative", width: 140, height: 140 }}>
           <div style={{ position: "absolute", inset: -26, background: "radial-gradient(circle, rgba(255,106,0,0.18) 0%, rgba(0,174,239,0.10) 45%, transparent 72%)", filter: "blur(4px)", zIndex: -1 }} />
           <img src={HUDDLE_LOGO} alt="ON The Ball" style={{ width: "100%", height: "100%", objectFit: "contain", animation: "huddleSpin 4.16s linear infinite", transformOrigin: "50% 50%" }} />
