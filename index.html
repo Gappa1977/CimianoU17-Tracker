@@ -701,8 +701,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.25";
-const TRACKER_VERSION_DATE = "11/09/2026@18.07";
+const TRACKER_VERSION = "4.26";
+const TRACKER_VERSION_DATE = "13/09/2026@11.15";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -2763,7 +2763,18 @@ function coloreTestoContrastante(hex) {
     slots.forEach((s) => {
       effectiveBySlot[s.id] = touched ? (formazione2[s.id] ? String(formazione2[s.id]) : "") : (formazione1[s.id] ? String(formazione1[s.id]) : "");
     });
-    const idsInCampo = new Set(Object.values(effectiveBySlot).filter(Boolean));
+    // Chi conta come "in campo" per escluderlo dalla panchina (11/09/2026, corretto): sempre
+    // l'unione dei titolari attuali (mappa1) E di chi è effettivamente in campo tenendo conto delle
+    // sostituzioni (mappa2 se ci sono state). Prima si guardava SOLO la mappa delle sostituzioni:
+    // se non ancora "toccata" andava bene (rispecchia i titolari), ma appena veniva toccata da una
+    // sostituzione vera, aggiungere un NUOVO titolare in uno slot ancora vuoto non vi arrivava più
+    // — quel titolare restava "invisibile" a questo calcolo e finiva per comparire anche in
+    // panchina. Impostare titolari e gestire la panchina, in fase di preparazione, devono restare
+    // due cose indipendenti: si collegano solo nel momento vero di una sostituzione.
+    const idsInCampo = new Set([
+      ...Object.values(formazione1 || {}).filter(Boolean).map(String),
+      ...Object.values(effectiveBySlot).filter(Boolean),
+    ]);
     const panchina = (convocatiIds || []).filter((id) => !idsInCampo.has(String(id)));
     const jerseyPath = "M20,2 L20,0 L36,0 L36,2 L44,7 L56,16 L48,26 L42,21 L42,50 L14,50 L14,21 L8,26 L0,16 L12,7 Z";
 
