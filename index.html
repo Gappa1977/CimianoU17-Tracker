@@ -402,54 +402,55 @@ const STATUS_COLORS = {
 // Moduli disponibili: ogni modulo ha 11 slot posizionati in percentuale sul campo
 // (0,0 = alto sinistra, attacco verso l'alto, portiere in basso)
 const FORMATIONS = {
-  // Coordinate verticali riviste (11/09/2026, seconda correzione): il portiere a y=94 andava bene,
-  // ma i difensori troppo vicini (76-78) finivano con l'etichetta a due righe coperta dalla maglia
-  // del portiere sotto — troppo poco spazio tra le due linee. Difensori alzati a 68, centrocampisti
-  // ricalcolati esattamente a metà tra difensori e attaccanti (non più un valore fisso a occhio).
+  // Coordinate verticali riviste ancora (11/09/2026, terza correzione): gli spazi precedenti (26-28
+  // unità tra linee adiacenti) bastavano su schermi larghi ma non su cellulari stretti, dove il
+  // campo (quadrato) diventa anche più basso in pixel assoluti — margini troppo risicati causavano
+  // ancora sovrapposizioni tra maglietta+nome di righe vicine. Ora ~30-32 unità ovunque, portiere
+  // sceso un po' (94->96), attaccanti alzati (8 invece di 10-14).
   "352": {
     label: "3-5-2",
     slots: [
-      { id: "gk", label: "P", x: 50, y: 94 },
-      { id: "d1", label: "D", x: 18, y: 68 }, { id: "d2", label: "D", x: 50, y: 68 }, { id: "d3", label: "D", x: 82, y: 68 },
-      { id: "m1", label: "C", x: 8, y: 40 }, { id: "m2", label: "C", x: 30, y: 40 }, { id: "m3", label: "C", x: 50, y: 40 }, { id: "m4", label: "C", x: 70, y: 40 }, { id: "m5", label: "C", x: 92, y: 40 },
-      { id: "f1", label: "A", x: 35, y: 12 }, { id: "f2", label: "A", x: 65, y: 12 },
+      { id: "gk", label: "P", x: 50, y: 96 },
+      { id: "d1", label: "D", x: 18, y: 64 }, { id: "d2", label: "D", x: 50, y: 64 }, { id: "d3", label: "D", x: 82, y: 64 },
+      { id: "m1", label: "C", x: 8, y: 36 }, { id: "m2", label: "C", x: 30, y: 36 }, { id: "m3", label: "C", x: 50, y: 36 }, { id: "m4", label: "C", x: 70, y: 36 }, { id: "m5", label: "C", x: 92, y: 36 },
+      { id: "f1", label: "A", x: 35, y: 8 }, { id: "f2", label: "A", x: 65, y: 8 },
     ],
   },
   "442": {
     label: "4-4-2",
     slots: [
-      { id: "gk", label: "P", x: 50, y: 94 },
-      { id: "d1", label: "D", x: 12, y: 68 }, { id: "d2", label: "D", x: 37, y: 68 }, { id: "d3", label: "D", x: 63, y: 68 }, { id: "d4", label: "D", x: 88, y: 68 },
-      { id: "m1", label: "C", x: 15, y: 40 }, { id: "m2", label: "C", x: 40, y: 40 }, { id: "m3", label: "C", x: 60, y: 40 }, { id: "m4", label: "C", x: 85, y: 40 },
-      { id: "f1", label: "A", x: 35, y: 12 }, { id: "f2", label: "A", x: 65, y: 12 },
+      { id: "gk", label: "P", x: 50, y: 96 },
+      { id: "d1", label: "D", x: 12, y: 64 }, { id: "d2", label: "D", x: 37, y: 64 }, { id: "d3", label: "D", x: 63, y: 64 }, { id: "d4", label: "D", x: 88, y: 64 },
+      { id: "m1", label: "C", x: 15, y: 36 }, { id: "m2", label: "C", x: 40, y: 36 }, { id: "m3", label: "C", x: 60, y: 36 }, { id: "m4", label: "C", x: 85, y: 36 },
+      { id: "f1", label: "A", x: 35, y: 8 }, { id: "f2", label: "A", x: 65, y: 8 },
     ],
   },
   "433": {
     label: "4-3-3",
     slots: [
-      { id: "gk", label: "P", x: 50, y: 94 },
-      { id: "d1", label: "D", x: 12, y: 68 }, { id: "d2", label: "D", x: 37, y: 68 }, { id: "d3", label: "D", x: 63, y: 68 }, { id: "d4", label: "D", x: 88, y: 68 },
-      { id: "m1", label: "C", x: 25, y: 41 }, { id: "m2", label: "C", x: 50, y: 41 }, { id: "m3", label: "C", x: 75, y: 41 },
-      { id: "f1", label: "A", x: 20, y: 14 }, { id: "f2", label: "A", x: 50, y: 8 }, { id: "f3", label: "A", x: 80, y: 14 },
+      { id: "gk", label: "P", x: 50, y: 96 },
+      { id: "d1", label: "D", x: 12, y: 64 }, { id: "d2", label: "D", x: 37, y: 64 }, { id: "d3", label: "D", x: 63, y: 64 }, { id: "d4", label: "D", x: 88, y: 64 },
+      { id: "m1", label: "C", x: 25, y: 36 }, { id: "m2", label: "C", x: 50, y: 36 }, { id: "m3", label: "C", x: 75, y: 36 },
+      { id: "f1", label: "A", x: 20, y: 8 }, { id: "f2", label: "A", x: 50, y: 3 }, { id: "f3", label: "A", x: 80, y: 8 },
     ],
   },
   "3412": {
     label: "3-4-1-2",
     slots: [
-      { id: "gk", label: "P", x: 50, y: 94 },
-      { id: "d1", label: "D", x: 20, y: 68 }, { id: "d2", label: "D", x: 50, y: 68 }, { id: "d3", label: "D", x: 80, y: 68 },
-      { id: "m1", label: "C", x: 12, y: 44 }, { id: "m2", label: "C", x: 38, y: 44 }, { id: "m3", label: "C", x: 62, y: 44 }, { id: "m4", label: "C", x: 88, y: 44 },
-      { id: "t1", label: "C", x: 50, y: 25 },
-      { id: "f1", label: "A", x: 35, y: 10 }, { id: "f2", label: "A", x: 65, y: 10 },
+      { id: "gk", label: "P", x: 50, y: 96 },
+      { id: "d1", label: "D", x: 20, y: 64 }, { id: "d2", label: "D", x: 50, y: 64 }, { id: "d3", label: "D", x: 80, y: 64 },
+      { id: "m1", label: "C", x: 12, y: 39 }, { id: "m2", label: "C", x: 38, y: 39 }, { id: "m3", label: "C", x: 62, y: 39 }, { id: "m4", label: "C", x: 88, y: 39 },
+      { id: "t1", label: "C", x: 50, y: 21 },
+      { id: "f1", label: "A", x: 35, y: 6 }, { id: "f2", label: "A", x: 65, y: 6 },
     ],
   },
   "343": {
     label: "3-4-3",
     slots: [
-      { id: "gk", label: "P", x: 50, y: 94 },
-      { id: "d1", label: "D", x: 20, y: 68 }, { id: "d2", label: "D", x: 50, y: 68 }, { id: "d3", label: "D", x: 80, y: 68 },
-      { id: "m1", label: "C", x: 12, y: 41 }, { id: "m2", label: "C", x: 38, y: 41 }, { id: "m3", label: "C", x: 62, y: 41 }, { id: "m4", label: "C", x: 88, y: 41 },
-      { id: "f1", label: "A", x: 20, y: 14 }, { id: "f2", label: "A", x: 50, y: 8 }, { id: "f3", label: "A", x: 80, y: 14 },
+      { id: "gk", label: "P", x: 50, y: 96 },
+      { id: "d1", label: "D", x: 20, y: 64 }, { id: "d2", label: "D", x: 50, y: 64 }, { id: "d3", label: "D", x: 80, y: 64 },
+      { id: "m1", label: "C", x: 12, y: 36 }, { id: "m2", label: "C", x: 38, y: 36 }, { id: "m3", label: "C", x: 62, y: 36 }, { id: "m4", label: "C", x: 88, y: 36 },
+      { id: "f1", label: "A", x: 20, y: 8 }, { id: "f2", label: "A", x: 50, y: 3 }, { id: "f3", label: "A", x: 80, y: 8 },
     ],
   },
 };
@@ -701,8 +702,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.30";
-const TRACKER_VERSION_DATE = "13/09/2026@20.00";
+const TRACKER_VERSION = "4.31";
+const TRACKER_VERSION_DATE = "13/09/2026@22.30";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -810,6 +811,20 @@ const COPPA_FIXTURES_DEFAULT = [
 function fmtDate(iso) {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y}`;
+}
+
+// Una giornata di Campionato si gioca su 2 giorni (sabato e domenica, squadre diverse in giorni
+// diversi): "round.data" è sempre il sabato — qui si aggiunge un giorno per la domenica e si
+// mostrano entrambi insieme (11/09/2026, 0K). Usa un vero oggetto Date per gestire correttamente
+// il cambio di mese o d'anno (es. 30/09 -> 1/10).
+function fmtDoppioGiorno(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const sabato = new Date(y, m - 1, d);
+  const domenica = new Date(y, m - 1, d + 1);
+  const dd2 = String(domenica.getDate()).padStart(2, "0");
+  const mmFinale = String(domenica.getMonth() + 1).padStart(2, "0");
+  const yyyyFinale = domenica.getFullYear();
+  return `${String(d).padStart(2, "0")} e ${dd2} / ${mmFinale} / ${yyyyFinale}`;
 }
 
 // Etichetta del valore su ogni punta del grafico radar: renderizzata "a mano" invece di usare il
@@ -2883,13 +2898,12 @@ function coloreTestoContrastante(hex) {
 
         <div className="formazione-grid">
           {/* COLONNA TITOLARI */}
-          <div style={{ gridArea: "tit", width: colTitolariAperta ? "100%" : 22, maxWidth: colTitolariAperta ? 140 : 22, transition: "width 0.2s" }}>
-            <div onClick={() => setColTitolariAperta((v) => !v)} className="body-font"
-              style={{ fontSize: 10, color: accentUI, fontWeight: 700, textTransform: "uppercase", marginBottom: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              {colTitolariAperta && <span>Titolari</span>}
-              <span>{colTitolariAperta ? "◂" : "▸"}</span>
+          <div style={{ gridArea: "tit", width: "100%", maxWidth: 140 }}>
+            <div className="body-font"
+              style={{ fontSize: 10, color: accentUI, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>
+              Titolari
             </div>
-            {colTitolariAperta && (
+            {(
               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                 {slots.map((slot) => {
                   const attuale = formazione1[slot.id] ? String(formazione1[slot.id]) : "";
@@ -2958,13 +2972,12 @@ function coloreTestoContrastante(hex) {
           </div>
 
           {/* COLONNA PANCHINA */}
-          <div style={{ gridArea: "panch", width: colPanchinaAperta ? "100%" : 22, maxWidth: colPanchinaAperta ? 140 : 22, transition: "width 0.2s" }}>
-            <div onClick={() => setColPanchinaAperta((v) => !v)} className="body-font"
-              style={{ fontSize: 10, color: accentUI, fontWeight: 700, textTransform: "uppercase", marginBottom: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span>{colPanchinaAperta ? "▾" : "◂"}</span>
-              {colPanchinaAperta && <span>Panchina</span>}
+          <div style={{ gridArea: "panch", width: "100%", maxWidth: 140 }}>
+            <div className="body-font"
+              style={{ fontSize: 10, color: accentUI, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>
+              Panchina
             </div>
-            {colPanchinaAperta && (
+            {(
               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                 {panchina.length === 0 && <div style={{ fontSize: 9, color: MUTED, fontStyle: "italic" }}>Nessuno</div>}
                 {panchina.map((id) => {
@@ -3003,34 +3016,41 @@ function coloreTestoContrastante(hex) {
   // dentro la categoria; il confronto fra categorie diverse è gestito da matchesIdentikit (AND).
   function renderChipGroup(label, defs, selected, setSelected) {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <span className="body-font" style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</span>
-        {defs.map((d) => {
-          const active = selected.includes(d.label);
-          return (
-            <span key={d.label} onClick={() => setSelected((prev) => active ? prev.filter((x) => x !== d.label) : [...prev, d.label])}
-              className="body-font"
-              style={{ cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 12,
-                border: `1px solid ${active ? accentUI : LINE}`, color: active ? "#fff" : MUTED,
-                background: active ? accentUI : "transparent", boxShadow: active ? "0 0 6px rgba(255,106,0,0.5)" : "none" }}>
-              {d.label}
-            </span>
-          );
-        })}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {defs.map((d) => {
+            const active = selected.includes(d.label);
+            return (
+              <span key={d.label} onClick={() => setSelected((prev) => active ? prev.filter((x) => x !== d.label) : [...prev, d.label])}
+                className="body-font"
+                style={{ cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 12,
+                  border: `1px solid ${active ? accentUI : LINE}`, color: active ? "#fff" : MUTED,
+                  background: active ? accentUI : "transparent", boxShadow: active ? "0 0 6px rgba(255,106,0,0.5)" : "none" }}>
+                {d.label}
+              </span>
+            );
+          })}
+        </div>
       </div>
     );
   }
 
   // Filtro identikit (Ruolo/Lato/Piede) + menù ordina per, riusato identico sia in Rosa che in
-  // Giocatori: cambia solo lo stato passato e le opzioni dell'ordinamento.
+  // Giocatori: cambia solo lo stato passato e le opzioni dell'ordinamento. Ruolo/Lato/Piede in una
+  // griglia (11/09/2026, 0F): prima uno sotto l'altro a piena larghezza, occupava troppo spazio in
+  // verticale — ora affiancati su più colonne quando lo spazio lo consente, si dispongono da soli
+  // su meno colonne quando lo schermo è stretto.
   function renderFiltroOrdina(opts) {
     const { ruoloSel, setRuoloSel, latoSel, setLatoSel, piedeSel, setPiedeSel, sortBy, setSortBy, sortDir, setSortDir, sortOptions, extra } = opts;
     return (
       <div className="chrome-box" style={{ marginBottom: 16 }}>
         <div className="chrome-box-inner" style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-          {renderChipGroup("Ruolo", RUOLI, ruoloSel, setRuoloSel)}
-          {renderChipGroup("Lato", LATI, latoSel, setLatoSel)}
-          {renderChipGroup("Piede", PIEDI, piedeSel, setPiedeSel)}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10 }}>
+            {renderChipGroup("Ruolo", RUOLI, ruoloSel, setRuoloSel)}
+            {renderChipGroup("Lato", LATI, latoSel, setLatoSel)}
+            {renderChipGroup("Piede", PIEDI, piedeSel, setPiedeSel)}
+          </div>
           {extra}
           <div style={{ display: "flex", alignItems: "center", gap: 8, borderTop: `1px solid ${LINE}`, paddingTop: 10 }}>
             <span className="body-font" style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>Ordina per</span>
@@ -3694,9 +3714,9 @@ function coloreTestoContrastante(hex) {
                     return isEditing ? (
                       <div key={s.id} style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         <input value={ed.giocatore || ""} onChange={(e) => setScorerDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], giocatore: e.target.value } }))}
-                          style={{ flex: 1, padding: 5, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                          style={{ flex: 1, padding: 5, background: `linear-gradient(${CREAM}, ${CREAM}) padding-box, linear-gradient(90deg, ${LINE}, ${accentUI}) border-box`, border: "2px solid transparent", borderRadius: 8 }} />
                         <input placeholder="Min." value={ed.minuto || ""} onChange={(e) => setScorerDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], minuto: e.target.value } }))}
-                          style={{ width: 55, padding: 5, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                          style={{ width: 55, padding: 5, background: `linear-gradient(${CREAM}, ${CREAM}) padding-box, linear-gradient(90deg, ${LINE}, ${accentUI}) border-box`, border: "2px solid transparent", borderRadius: 8 }} />
                         <button onClick={() => saveEditScorer(fx.id, s.id)} style={{ background: accentUI, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>Salva</button>
                         <button onClick={() => setEditingScorer(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>annulla</button>
                       </div>
@@ -3715,7 +3735,7 @@ function coloreTestoContrastante(hex) {
               <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", flex: 1 }}>
                   <input placeholder="Cerca giocatore…" list={`roster-marc-${fx.id}`} value={sd.giocatore || ""} onChange={(e) => setScorerDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], giocatore: e.target.value } }))}
-                    style={{ width: 105, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                    style={{ width: 105, padding: 6, background: `linear-gradient(${CREAM}, ${CREAM}) padding-box, linear-gradient(90deg, ${LINE}, ${accentUI}) border-box`, border: "2px solid transparent", borderRadius: 8 }} />
                   <datalist id={`roster-marc-${fx.id}`}>
                     {rosterSorted.map((rp) => <option key={rp.id} value={rp.nome} />)}
                   </datalist>
@@ -3724,7 +3744,7 @@ function coloreTestoContrastante(hex) {
                     Rigore
                   </label>
                   <input placeholder="Min." value={sd.minuto || ""} onChange={(e) => setScorerDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], minuto: e.target.value } }))}
-                    style={{ width: 55, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                    style={{ width: 55, padding: 6, background: `linear-gradient(${CREAM}, ${CREAM}) padding-box, linear-gradient(90deg, ${LINE}, ${accentUI}) border-box`, border: "2px solid transparent", borderRadius: 8 }} />
                 </div>
                 <button onClick={() => addScorer(fx.id)} style={{ marginLeft: "auto", background: accentUI, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>+</button>
               </div>
@@ -3740,11 +3760,11 @@ function coloreTestoContrastante(hex) {
                     return isEditing ? (
                       <div key={c.id} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                         <input value={ed.giocatore || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], giocatore: e.target.value } }))}
-                          style={{ flex: 1, minWidth: 100, padding: 5, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                          style={{ flex: 1, minWidth: 100, padding: 5, background: `linear-gradient(${CREAM}, ${CREAM}) padding-box, linear-gradient(90deg, ${LINE}, ${accentUI}) border-box`, border: "2px solid transparent", borderRadius: 8 }} />
                         <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], colore: ed.colore === "rosso" ? "giallo" : "rosso" } }))}
                           style={{ fontSize: 16, padding: "2px 6px", borderRadius: 8, border: `1.5px solid ${accentUI}`, background: ed.colore === "rosso" ? "#c0392b" : "#e0a800", cursor: "pointer" }}>{ed.colore === "rosso" ? "🟥" : "🟨"}</button>
                         <input placeholder="Min." value={ed.minuto || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [`edit-${fx.id}`]: { ...p[`edit-${fx.id}`], minuto: e.target.value } }))}
-                          style={{ width: 55, padding: 5, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                          style={{ width: 55, padding: 5, background: `linear-gradient(${CREAM}, ${CREAM}) padding-box, linear-gradient(90deg, ${LINE}, ${accentUI}) border-box`, border: "2px solid transparent", borderRadius: 8 }} />
                         <button onClick={() => saveEditCard(fx.id, c.id)} style={{ background: accentUI, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>Salva</button>
                         <button onClick={() => setEditingCard(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>annulla</button>
                       </div>
@@ -3762,14 +3782,14 @@ function coloreTestoContrastante(hex) {
               )}
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <input placeholder="Cerca giocatore…" list={`roster-card-${fx.id}`} value={cd.giocatore || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], giocatore: e.target.value } }))}
-                  style={{ width: 105, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                  style={{ width: 105, padding: 6, background: `linear-gradient(${CREAM}, ${CREAM}) padding-box, linear-gradient(90deg, ${LINE}, ${accentUI}) border-box`, border: "2px solid transparent", borderRadius: 8 }} />
                 <datalist id={`roster-card-${fx.id}`}>
                   {rosterSorted.map((rp) => <option key={rp.id} value={rp.nome} />)}
                 </datalist>
                 <button type="button" onClick={() => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], colore: cd.colore === "rosso" ? "giallo" : "rosso" } }))}
                   style={{ fontSize: 18, padding: "3px 8px", borderRadius: 8, border: `1.5px solid ${accentUI}`, background: cd.colore === "rosso" ? "#c0392b" : "#e0a800", cursor: "pointer" }}>{cd.colore === "rosso" ? "🟥" : "🟨"}</button>
                 <input placeholder="Min." value={cd.minuto || ""} onChange={(e) => setCardDraft((p) => ({ ...p, [fx.id]: { ...p[fx.id], minuto: e.target.value } }))}
-                  style={{ width: 55, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                  style={{ width: 55, padding: 6, background: `linear-gradient(${CREAM}, ${CREAM}) padding-box, linear-gradient(90deg, ${LINE}, ${accentUI}) border-box`, border: "2px solid transparent", borderRadius: 8 }} />
                 <button onClick={() => addCard(fx.id)} style={{ marginLeft: "auto", background: accentUI, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>+</button>
               </div>
             </div>
@@ -4091,9 +4111,9 @@ function coloreTestoContrastante(hex) {
                     return isEditingS ? (
                       <div key={s.id} style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         <input value={ed.giocatore || ""} onChange={(e) => setScorerDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], giocatore: e.target.value } }))}
-                          style={{ flex: 1, padding: 5, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                          style={{ flex: 1, padding: 5, background: `linear-gradient(${CREAM}, ${CREAM}) padding-box, linear-gradient(90deg, ${LINE}, ${accentUI}) border-box`, border: "2px solid transparent", borderRadius: 8 }} />
                         <input placeholder="Min." value={ed.minuto || ""} onChange={(e) => setScorerDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], minuto: e.target.value } }))}
-                          style={{ width: 55, padding: 5, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                          style={{ width: 55, padding: 5, background: `linear-gradient(${CREAM}, ${CREAM}) padding-box, linear-gradient(90deg, ${LINE}, ${accentUI}) border-box`, border: "2px solid transparent", borderRadius: 8 }} />
                         <button onClick={() => saveEditScorerF(f.id, s.id)} style={{ background: accentUI, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>Salva</button>
                         <button onClick={() => setEditingScorerF(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>annulla</button>
                       </div>
@@ -4111,7 +4131,7 @@ function coloreTestoContrastante(hex) {
               )}
               <div style={{ display: "flex", gap: 6 }}>
                 <input placeholder="Cerca giocatore…" list={`roster-marc-${f.id}`} value={sdF.giocatore || ""} onChange={(e) => setScorerDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], giocatore: e.target.value } }))}
-                  style={{ width: 105, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                  style={{ width: 105, padding: 6, background: `linear-gradient(${CREAM}, ${CREAM}) padding-box, linear-gradient(90deg, ${LINE}, ${accentUI}) border-box`, border: "2px solid transparent", borderRadius: 8 }} />
                 <datalist id={`roster-marc-${f.id}`}>
                   {rosterSorted.map((rp) => <option key={rp.id} value={rp.nome} />)}
                 </datalist>
@@ -4120,7 +4140,7 @@ function coloreTestoContrastante(hex) {
                   Rigore
                 </label>
                 <input placeholder="Min." value={sdF.minuto || ""} onChange={(e) => setScorerDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], minuto: e.target.value } }))}
-                  style={{ width: 55, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                  style={{ width: 55, padding: 6, background: `linear-gradient(${CREAM}, ${CREAM}) padding-box, linear-gradient(90deg, ${LINE}, ${accentUI}) border-box`, border: "2px solid transparent", borderRadius: 8 }} />
                 <button onClick={() => addScorerF(f.id)} style={{ marginLeft: "auto", background: accentUI, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>+</button>
               </div>
             </div>
@@ -4135,11 +4155,11 @@ function coloreTestoContrastante(hex) {
                     return isEditingC ? (
                       <div key={c.id} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                         <input value={ed.giocatore || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], giocatore: e.target.value } }))}
-                          style={{ flex: 1, minWidth: 100, padding: 5, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                          style={{ flex: 1, minWidth: 100, padding: 5, background: `linear-gradient(${CREAM}, ${CREAM}) padding-box, linear-gradient(90deg, ${LINE}, ${accentUI}) border-box`, border: "2px solid transparent", borderRadius: 8 }} />
                         <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], colore: ed.colore === "rosso" ? "giallo" : "rosso" } }))}
                           style={{ fontSize: 16, padding: "2px 6px", borderRadius: 8, border: `1.5px solid ${accentUI}`, background: ed.colore === "rosso" ? "#c0392b" : "#e0a800", cursor: "pointer" }}>{ed.colore === "rosso" ? "🟥" : "🟨"}</button>
                         <input placeholder="Min." value={ed.minuto || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [`edit-${f.id}`]: { ...p[`edit-${f.id}`], minuto: e.target.value } }))}
-                          style={{ width: 55, padding: 5, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                          style={{ width: 55, padding: 5, background: `linear-gradient(${CREAM}, ${CREAM}) padding-box, linear-gradient(90deg, ${LINE}, ${accentUI}) border-box`, border: "2px solid transparent", borderRadius: 8 }} />
                         <button onClick={() => saveEditCardF(f.id, c.id)} style={{ background: accentUI, color: "#fff", border: "none", padding: "5px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>Salva</button>
                         <button onClick={() => setEditingCardF(null)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 12 }}>annulla</button>
                       </div>
@@ -4157,14 +4177,14 @@ function coloreTestoContrastante(hex) {
               )}
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <input placeholder="Cerca giocatore…" list={`roster-card-${f.id}`} value={cdF.giocatore || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], giocatore: e.target.value } }))}
-                  style={{ width: 105, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                  style={{ width: 105, padding: 6, background: `linear-gradient(${CREAM}, ${CREAM}) padding-box, linear-gradient(90deg, ${LINE}, ${accentUI}) border-box`, border: "2px solid transparent", borderRadius: 8 }} />
                 <datalist id={`roster-card-${f.id}`}>
                   {rosterSorted.map((rp) => <option key={rp.id} value={rp.nome} />)}
                 </datalist>
                 <button type="button" onClick={() => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], colore: cdF.colore === "rosso" ? "giallo" : "rosso" } }))}
                   style={{ fontSize: 18, padding: "3px 8px", borderRadius: 8, border: `1.5px solid ${accentUI}`, background: cdF.colore === "rosso" ? "#c0392b" : "#e0a800", cursor: "pointer" }}>{cdF.colore === "rosso" ? "🟥" : "🟨"}</button>
                 <input placeholder="Min." value={cdF.minuto || ""} onChange={(e) => setCardDraftF((p) => ({ ...p, [f.id]: { ...p[f.id], minuto: e.target.value } }))}
-                  style={{ width: 55, padding: 6, border: `2px solid ${accentUI}`, borderRadius: 8 }} />
+                  style={{ width: 55, padding: 6, background: `linear-gradient(${CREAM}, ${CREAM}) padding-box, linear-gradient(90deg, ${LINE}, ${accentUI}) border-box`, border: "2px solid transparent", borderRadius: 8 }} />
                 <button onClick={() => addCardF(f.id)} style={{ marginLeft: "auto", background: accentUI, color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>+</button>
               </div>
             </div>
@@ -4419,7 +4439,7 @@ function coloreTestoContrastante(hex) {
 
       <div style={{ position: "sticky", top: 0, zIndex: 50 }}>
       <div className="chrome-box" style={{ borderRadius: "0 0 20px 20px", padding: "3px 3px 4px", boxShadow: `0 4px 18px -4px rgba(255,106,0,0.5)` }}>
-      <div style={{ background: "linear-gradient(160deg, #34363D 0%, #2B2D33 55%, #1C1D22 100%)", color: INK, padding: "22px 20px", borderRadius: "0 0 17px 17px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+      <div style={{ background: "linear-gradient(160deg, #34363D 0%, #2B2D33 55%, #1C1D22 100%)", color: INK, padding: "16px 20px", borderRadius: "0 0 17px 17px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="body-font" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "rgba(255,255,255,0.35)", letterSpacing: 1 }}>
             <span style={{ display: "inline-flex", gap: 2 }}>
@@ -4428,17 +4448,31 @@ function coloreTestoContrastante(hex) {
             </span>
             ON The Ball · Vers. {TRACKER_VERSION} del {TRACKER_VERSION_DATE}
           </div>
-          <div className="title-font" style={{ fontSize: 34, fontWeight: 700, marginTop: 14, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+          <div className="title-font" style={{ fontSize: 30, fontWeight: 700, marginTop: 10 }}>
             {teamNome}
-            {cimianoRow && cimianoRow.pg > 0 && (
-              <span className="body-font" style={{ fontSize: 14, fontWeight: 700, color: accentUI, background: CREAM, border: `1px solid ${accentUI}`, borderRadius: 10, padding: "2px 9px", letterSpacing: 0.5, boxShadow: `0 0 8px ${accentUI}66` }}>
-                {cimianoPos}° POSTO · {cimianoRow.pt} PT
-              </span>
-            )}
           </div>
           {teamCategoria && (
-            <div className="body-font" style={{ fontSize: 11, letterSpacing: 2.5, color: "#A9AEB8", textTransform: "uppercase", marginTop: 6 }}>
+            <div className="body-font" style={{ fontSize: 11, letterSpacing: 2.5, color: "#A9AEB8", textTransform: "uppercase", marginTop: 4 }}>
               {teamCategoria}
+            </div>
+          )}
+          <select value={voterName} onChange={(e) => setVoterNameState(e.target.value)} className="body-font"
+            style={{ width: 110, fontSize: 11, padding: "3px 4px", borderRadius: 10, border: `1px solid ${TEAM_BOX_BORDER}`, background: PANEL_BG, color: INK, fontWeight: 600, textAlign: "center", marginTop: 8 }}>
+            <option value="">Chi vota?</option>
+            {[...VOTER_OPTIONS, ...voterOptionsExtra].map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+          {showAddVoter && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, width: 110, marginTop: 4 }}>
+              <div style={{ display: "flex", gap: 4 }}>
+                <input value={newVoterDraft} onChange={(e) => setNewVoterDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") addVoterOption(); }}
+                  placeholder="Nuovo nome" className="body-font"
+                  style={{ width: 0, flex: 1, fontSize: 11, padding: "3px 4px", borderRadius: 10, border: `1px solid ${TEAM_BOX_BORDER}` }} />
+                <button onClick={addVoterOption} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: "none", background: accentUI, color: "#fff", fontWeight: 700, cursor: "pointer" }}>+</button>
+              </div>
+              <button onClick={() => { setShowAddVoter(false); setNewVoterDraft(""); }} style={{ fontSize: 10, background: "none", border: "none", color: MUTED, cursor: "pointer" }}>chiudi</button>
             </div>
           )}
         </div>
@@ -4453,25 +4487,6 @@ function coloreTestoContrastante(hex) {
               style={{ display: "block", width: 84, height: 84, borderRadius: "50%", objectFit: "cover", cursor: "pointer", userSelect: "none" }} />
             </div>
           </div>
-          <select value={voterName} onChange={(e) => setVoterNameState(e.target.value)} className="body-font"
-            style={{ width: 100, fontSize: 11, padding: "3px 4px", borderRadius: 10, border: `1px solid ${TEAM_BOX_BORDER}`, background: PANEL_BG, color: INK, fontWeight: 600, textAlign: "center" }}>
-            <option value="">Chi vota?</option>
-            {[...VOTER_OPTIONS, ...voterOptionsExtra].map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select>
-          {showAddVoter && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, width: 100 }}>
-              <div style={{ display: "flex", gap: 4 }}>
-                <input value={newVoterDraft} onChange={(e) => setNewVoterDraft(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") addVoterOption(); }}
-                  placeholder="Nuovo nome" className="body-font"
-                  style={{ width: 0, flex: 1, fontSize: 11, padding: "3px 4px", borderRadius: 10, border: `1px solid ${TEAM_BOX_BORDER}` }} />
-                <button onClick={addVoterOption} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, border: "none", background: accentUI, color: "#fff", fontWeight: 700, cursor: "pointer" }}>+</button>
-              </div>
-              <button onClick={() => { setShowAddVoter(false); setNewVoterDraft(""); }} style={{ fontSize: 10, background: "none", border: "none", color: MUTED, cursor: "pointer" }}>chiudi</button>
-            </div>
-          )}
         </div>
       </div>
       </div>
@@ -5115,7 +5130,7 @@ function coloreTestoContrastante(hex) {
                 style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: PANEL_BG, borderRadius: 8, cursor: "pointer" }}>‹ Prec.</button>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontWeight: 700, fontSize: 16 }}>Giornata {round.giornata} · {round.half === "andata" ? "Andata" : "Ritorno"}</div>
-                <div style={{ fontSize: 12, color: MUTED }}>{fmtDate(round.data)}</div>
+                <div style={{ fontSize: 12, color: MUTED }}>{fmtDoppioGiorno(round.data)}</div>
               </div>
               <button onClick={() => setRoundIdx((i) => Math.min(ROUNDS.length - 1, i + 1))} disabled={roundIdx === ROUNDS.length - 1}
                 style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: PANEL_BG, borderRadius: 8, cursor: "pointer" }}>Succ. ›</button>
@@ -5143,7 +5158,7 @@ function coloreTestoContrastante(hex) {
                 style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: PANEL_BG, borderRadius: 8, cursor: "pointer" }}>‹ Prec.</button>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontWeight: 700, fontSize: 16 }}>Giornata {round.giornata} · {round.half === "andata" ? "Andata" : "Ritorno"}</div>
-                <div style={{ fontSize: 12, color: MUTED }}>{fmtDate(round.data)}</div>
+                <div style={{ fontSize: 12, color: MUTED }}>{fmtDoppioGiorno(round.data)}</div>
               </div>
               <button onClick={() => setRoundIdx((i) => Math.min(ROUNDS.length - 1, i + 1))} disabled={roundIdx === ROUNDS.length - 1}
                 style={{ padding: "6px 12px", border: `1px solid ${LINE}`, background: PANEL_BG, borderRadius: 8, cursor: "pointer" }}>Succ. ›</button>
@@ -5451,7 +5466,7 @@ function coloreTestoContrastante(hex) {
                       maskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 100%)",
                       display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: 6 }}>
                       {rp.foto ? (
-                        <img src={rp.foto} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        <img src={rp.foto} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 78%" }} />
                       ) : (
                         <span className="title-font" style={{ fontSize: 70, fontWeight: 700, color: "rgba(242,240,234,0.55)" }}>{iniziali}</span>
                       )}
