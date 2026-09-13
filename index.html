@@ -701,8 +701,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.29";
-const TRACKER_VERSION_DATE = "13/09/2026@19.40";
+const TRACKER_VERSION = "4.30";
+const TRACKER_VERSION_DATE = "13/09/2026@20.00";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -4394,7 +4394,7 @@ function coloreTestoContrastante(hex) {
         ::placeholder { color: ${MUTED}; opacity: 1; }
         .score-input { width: 40px; padding: 5px; border: 1px solid ${LINE}; text-align: center; border-radius: 8px; box-sizing: border-box; }
         .btn-solid { background: ${accentUI}; color: #fff; border: none; padding: 5px 12px; border-radius: 8px; font-weight: 600; font-size: 11px; cursor: pointer; font-family: 'Quicksand', sans-serif; }
-        .btn-ghost { background: linear-gradient(${CREAM}, ${CREAM}) padding-box, linear-gradient(90deg, ${LINE}, ${HUDDLE_SECONDARY}) border-box; color: ${accentUI}; border: 1.5px solid transparent; padding: 4px 11px; border-radius: 8px; font-weight: 600; font-size: 11px; cursor: pointer; font-family: 'Quicksand', sans-serif; }
+        .btn-ghost { background: linear-gradient(${CREAM}, ${CREAM}) padding-box, linear-gradient(90deg, ${LINE}, ${accentUI}) border-box; color: ${accentUI}; border: 1.5px solid transparent; padding: 4px 11px; border-radius: 8px; font-weight: 600; font-size: 11px; cursor: pointer; font-family: 'Quicksand', sans-serif; }
         .btn-ghost-muted { background: transparent; color: ${MUTED}; border: 1px solid ${LINE}; padding: 4px 11px; border-radius: 8px; font-weight: 600; font-size: 11px; cursor: pointer; font-family: 'Quicksand', sans-serif; }
         .classifica-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .classifica-row { min-width: 420px; }
@@ -5168,12 +5168,17 @@ function coloreTestoContrastante(hex) {
             <textarea rows={8} value={bulkImportText} onChange={(e) => setBulkImportText(e.target.value)}
               placeholder={"Villa 2-1 Enotria 1908\nAldini 0-3 Cimiano\n..."}
               style={{ width: "100%", padding: 8, border: `2px solid ${accentUI}`, borderRadius: 8, fontFamily: "monospace", fontSize: 12, boxSizing: "border-box", marginBottom: 8 }} />
-            <button onClick={importBulkResults} style={{ background: accentUI, color: "#fff", border: "none", padding: "8px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
+            <button onClick={() => importBulkResults()} style={{ background: accentUI, color: "#fff", border: "none", padding: "8px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
               Importa risultati
             </button>
 
             {bulkImportResult && (
               <div style={{ marginTop: 16 }}>
+                {bulkImportResult.matched.length === 0 && bulkImportResult.unmatched.length === 0 && (
+                  <div style={{ fontWeight: 700, fontSize: 12, color: MUTED }}>
+                    Nessuna riga trovata nel testo incollato — controlla di aver incollato qualcosa nella casella qui sopra.
+                  </div>
+                )}
                 {bulkImportResult.matched.length > 0 && (
                   <div style={{ marginBottom: 10 }}>
                     <div style={{ fontWeight: 700, fontSize: 12, color: "#3aa757", marginBottom: 4 }}>
@@ -5284,6 +5289,9 @@ function coloreTestoContrastante(hex) {
 
             {bulkImportResult && (
               <div style={{ marginTop: 14, fontSize: 13 }}>
+                {bulkImportResult.matched.length === 0 && bulkImportResult.unmatched.length === 0 && (
+                  <div style={{ color: MUTED }}>Nessuna riga trovata nel testo incollato — controlla di aver incollato qualcosa nella casella qui sopra.</div>
+                )}
                 {bulkImportResult.matched.length > 0 && (
                   <div style={{ color: "#3aa757", marginBottom: 6 }}>✓ {bulkImportResult.matched.length} risultati importati</div>
                 )}
