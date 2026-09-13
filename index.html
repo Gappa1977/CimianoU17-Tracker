@@ -701,8 +701,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.28";
-const TRACKER_VERSION_DATE = "13/09/2026@19.18";
+const TRACKER_VERSION = "4.29";
+const TRACKER_VERSION_DATE = "13/09/2026@19.40";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -1839,40 +1839,69 @@ function GironeATracker() {
     return null;
   }
 
-  // Ripulisce un testo incollato "grezzo" da TuttoCampo (11/09/2026): quando si copia l'intera
-  // pagina Risultati, il browser spesso incolla tutto attaccato senza andare a capo, con orari,
-  // icone e la scritta "INFO" incollati ai nomi, e il punteggio scritto come cifre unite ("13"
-  // invece di "1-3"). Qui si isola ogni singola partita e si ricostruisce "Squadra1 X-Y Squadra2",
-  // il formato che il parser sotto già sapeva leggere — così non si tocca la logica che funziona.
+  // Toglie una ripetizione immediata dello stesso nome (es. "Seguro Seguro" -> "Seguro",
+  // "Ausonia 1931 Ausonia 1931" -> "Ausonia 1931") — capita perché TuttoCampo scrive il nome sia
+  // nel testo del logo squadra sia nel link vero, e il copia-incolla li mette uno via l'altro.
+  function togliRipetizione(testo) {
+    const parole = testo.trim().split(/\s+/);
+    const n = parole.length;
+    if (n >= 2 && n % 2 === 0) {
+      const meta = n / 2;
+      if (parole.slice(0, meta).join(" ") === parole.slice(meta).join(" ")) {
+        return parole.slice(0, meta).join(" ");
+      }
+    }
+    return testo.trim();
+  }
+
+  // Ripulisce un testo incollato "grezzo" da TuttoCampo (11/09/2026, rivista il 13/09 dopo aver
+  // visto un secondo formato di incolla): a seconda del browser/dispositivo, TuttoCampo può
+  // incollarsi tutto attaccato su una riga sola OPPURE già diviso su più righe — qui si appiattisce
+  // tutto in un unico blocco (gli a capo non contano nulla per l'analisi) e si isola ogni singola
+  // partita cercando la scritta "INFO" che TuttoCampo mette alla fine di ognuna. Gestisce sia il
+  // punteggio scritto unito ("13") sia quello scritto come due numeri separati ("1 3"), e toglie il
+  // nome squadra quando compare due volte di fila (logo + link).
   function ripulisciTestoTuttocampo(testo) {
     let pulito = testo
-      .replace(/[\uFFFC\u2060-\u206F]/g, " ")           // icone/placeholder non testuali
-      .replace(/(Lun|Mar|Mer|Gio|Ven|Sab|Dom)\.?\s*\d{1,2}\s+\w+/gi, "\n") // intestazioni giorno
-      .replace(/\d{1,2}:\d{2}/g, "\n");                  // ogni orario apre una nuova partita
-    const pezzi = pulito.split(/INFO/i).map((p) => p.trim()).filter(Boolean);
+      .replace(/[\uFFFC\u2060-\u206F]/g, " ")               // icone/placeholder non testuali
+      .replace(/\s+/g, " ")                                  // appiattisce qualunque a capo in uno spazio
+      .replace(/tuttocampo\.it/gi, " ")                      // firma del sito ripetuta ad ogni riga
+      .replace(/media(?=INFO)/gi, " ")                       // "media" incollato senza spazio a "INFO"
+      .replace(/\b(logo|media)\b/gi, " ")                    // parole di contorno delle immagini
+      .replace(/(Lun|Mar|Mer|Gio|Ven|Sab|Dom)\.?\s*\d{1,2}\s+\w+/gi, " ") // intestazioni giorno
+      .replace(/\d{1,2}:\d{2}/g, " @@INIZIOPARTITA@@ ");     // ogni orario apre anche una nuova partita
+    const pezzi = pulito.split(/INFO|@@INIZIOPARTITA@@/i).map((p) => p.trim()).filter(Boolean);
     const righe = [];
     pezzi.forEach((pezzo) => {
-      // Dentro ogni pezzo: "NomeCasa  <cifre>  NomeOspite" — le cifre in mezzo sono il punteggio.
-      // Cattura "greedy" (non pigra) apposta: alcune squadre hanno un numero nel nome stesso
-      // (es. "Ausonia 1931", "Sempione Half 1919") — partendo da destra invece che da sinistra si
-      // trova sempre il VERO punteggio (l'unico punto che lascia un nome squadra valido dopo di sé),
-      // non il primo numero incontrato per caso dentro un nome squadra.
-      const m = pezzo.match(/^(.+)\s+(\d{2,4})\s+(.+)$/s);
-      if (!m) return;
-      const [, rawHome, cifre, rawAway] = m;
-      let golHome, golAway;
-      if (cifre.length === 2) { golHome = cifre[0]; golAway = cifre[1]; }
-      else if (cifre.length === 4) { golHome = cifre.slice(0, 2); golAway = cifre.slice(2); }
-      else return; // 1 o 3 cifre: ambiguo (potrebbe essere 12-3 o 1-23), non si indovina
-      const home = rawHome.replace(/\s+/g, " ").trim();
-      const away = rawAway.replace(/\s+/g, " ").trim();
-      if (home && away) righe.push(`${home} ${golHome}-${golAway} ${away}`);
+      // Prima si prova il formato "due numeri separati" (es. "... 1 3 ..."): più sicuro perché un
+      // anno dentro un nome squadra (es. "1931") è sempre una parola sola, mai due numeri staccati.
+      let m = pezzo.match(/^(.+?)\s+(\d{1,2})\s+(\d{1,2})\s+(.+)$/);
+      let rawHome, golHome, golAway, rawAway;
+      if (m) {
+        [, rawHome, golHome, golAway, rawAway] = m;
+      } else {
+        // Altrimenti il formato "cifre unite" (es. "...13..."): ricerca "greedy" apposta, per non
+        // confondere il vero punteggio con un numero incorporato nel nome squadra.
+        const m2 = pezzo.match(/^(.+)\s+(\d{2,4})\s+(.+)$/s);
+        if (!m2) return; // niente di riconoscibile in questo pezzo (es. testo di contorno della pagina)
+        const cifre = m2[2];
+        if (cifre.length === 2) { golHome = cifre[0]; golAway = cifre[1]; }
+        else if (cifre.length === 4) { golHome = cifre.slice(0, 2); golAway = cifre.slice(2); }
+        else return;
+        rawHome = m2[1]; rawAway = m2[3];
+      }
+      const home = togliRipetizione(rawHome);
+      const away = togliRipetizione(rawAway);
+      // Scarta in silenzio se un "nome squadra" risulta assurdamente lungo: capita quando il testo
+      // di intestazione della pagina (senza un "INFO" prima) resta attaccato alla prima partita vera.
+      if (home && away && home.length <= 40 && away.length <= 40) righe.push(`${home} ${golHome}-${golAway} ${away}`);
     });
     return righe.join("\n");
   }
 
-  function importBulkResults() {
-    const testoGrezzoSembraTuttocampo = /INFO/i.test(bulkImportText) && bulkImportText.split("\n").filter(Boolean).length < 3;
+  function importBulkResults(elencoPartite) {
+    const partiteDiRiferimento = elencoPartite || round.matches;
+    const testoGrezzoSembraTuttocampo = /INFO/i.test(bulkImportText) || /tuttocampo\.it/i.test(bulkImportText);
     const testoEffettivo = testoGrezzoSembraTuttocampo ? ripulisciTestoTuttocampo(bulkImportText) : bulkImportText;
     const lines = testoEffettivo.split("\n").map((l) => l.trim()).filter(Boolean);
     const matched = [];
@@ -1893,11 +1922,11 @@ function GironeATracker() {
         unmatched.push({ line, motivo: "squadra non riconosciuta" });
         return;
       }
-      const fx = round.matches.find(
+      const fx = partiteDiRiferimento.find(
         (f) => (f.home === home && f.away === away) || (f.home === away && f.away === home)
       );
       if (!fx) {
-        unmatched.push({ line, motivo: "nessuna partita corrispondente in questa giornata" });
+        unmatched.push({ line, motivo: "nessuna partita corrispondente" });
         return;
       }
       if (fx.home === home) {
@@ -4365,7 +4394,7 @@ function coloreTestoContrastante(hex) {
         ::placeholder { color: ${MUTED}; opacity: 1; }
         .score-input { width: 40px; padding: 5px; border: 1px solid ${LINE}; text-align: center; border-radius: 8px; box-sizing: border-box; }
         .btn-solid { background: ${accentUI}; color: #fff; border: none; padding: 5px 12px; border-radius: 8px; font-weight: 600; font-size: 11px; cursor: pointer; font-family: 'Quicksand', sans-serif; }
-        .btn-ghost { background: transparent; color: ${accentUI}; border: 1px solid ${accentUI}; padding: 4px 11px; border-radius: 8px; font-weight: 600; font-size: 11px; cursor: pointer; font-family: 'Quicksand', sans-serif; }
+        .btn-ghost { background: linear-gradient(${CREAM}, ${CREAM}) padding-box, linear-gradient(90deg, ${LINE}, ${HUDDLE_SECONDARY}) border-box; color: ${accentUI}; border: 1.5px solid transparent; padding: 4px 11px; border-radius: 8px; font-weight: 600; font-size: 11px; cursor: pointer; font-family: 'Quicksand', sans-serif; }
         .btn-ghost-muted { background: transparent; color: ${MUTED}; border: 1px solid ${LINE}; padding: 4px 11px; border-radius: 8px; font-weight: 600; font-size: 11px; cursor: pointer; font-family: 'Quicksand', sans-serif; }
         .classifica-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .classifica-row { min-width: 420px; }
@@ -4477,8 +4506,8 @@ function coloreTestoContrastante(hex) {
       <div style={{ background: CREAM, borderBottom: `1px solid ${LINE}`, padding: "8px 12px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {macroTab === "campionato" && [
-            ["classifica", "Classifica"],
             ["risultati", "Calendario"],
+            ["classifica", "Classifica"],
             ["import", "Import"],
           ].map(([key, label]) => {
             const attivo = campSub === key;
@@ -4495,8 +4524,9 @@ function coloreTestoContrastante(hex) {
             );
           })}
           {macroTab === "coppa" && [
-            ["classifica", "Classifica"],
             ["risultati", "Calendario"],
+            ["classifica", "Classifica"],
+            ["import", "Import"],
           ].map(([key, label]) => {
             const attivo = coppaSub === key;
             const btn = (
@@ -5237,6 +5267,36 @@ function coloreTestoContrastante(hex) {
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {COPPA_FIXTURES.map((fx) => renderCampionatoRow(fx, `${fmtDate(fx.data)} ore ${fx.ora}`))}
             </div>
+          </div>
+        )}
+
+        {macroTab === "coppa" && coppaSub === "import" && (
+          <div className="body-font">
+            <div style={{ fontSize: 12, color: MUTED, marginBottom: 8, lineHeight: 1.5 }}>
+              La Coppa ha solo {COPPA_FIXTURES.length} partite in tutto il girone, quindi qui non serve scegliere una giornata: incolla i risultati (anche più di una partita insieme) nel formato <strong>Squadra1 X-Y Squadra2</strong>, oppure il testo copiato di peso dalla pagina Risultati di TuttoCampo (lo ripulisco da solo, stessa logica del Campionato).
+            </div>
+            <textarea rows={6} value={bulkImportText} onChange={(e) => setBulkImportText(e.target.value)}
+              placeholder={"Villa 2-1 Enotria 1908\nCimiano Calcio 3-0 Villa\n..."}
+              style={{ width: "100%", padding: 8, border: `2px solid ${accentUI}`, borderRadius: 8, fontFamily: "monospace", fontSize: 12, boxSizing: "border-box", marginBottom: 8 }} />
+            <button onClick={() => importBulkResults(COPPA_FIXTURES)} style={{ background: accentUI, color: "#fff", border: "none", padding: "8px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
+              Importa risultati
+            </button>
+
+            {bulkImportResult && (
+              <div style={{ marginTop: 14, fontSize: 13 }}>
+                {bulkImportResult.matched.length > 0 && (
+                  <div style={{ color: "#3aa757", marginBottom: 6 }}>✓ {bulkImportResult.matched.length} risultati importati</div>
+                )}
+                {bulkImportResult.unmatched.length > 0 && (
+                  <div style={{ color: HUDDLE_SECONDARY }}>
+                    ⚠ {bulkImportResult.unmatched.length} righe non importate
+                    {bulkImportResult.unmatched.map((u, i) => (
+                      <div key={i} style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>"{u.line}" — {u.motivo}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
