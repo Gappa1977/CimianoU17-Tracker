@@ -617,6 +617,18 @@ function lastName(fullName) {
   return parts[parts.length - 1] || "";
 }
 
+// Genera un id di riga robusto per Voti/Marcatori/Cartellini/VotoSquadra (14/09/2026, v4.32).
+// Prima si usava Date.now().toString(): oltre a poter collidere tra due dispositivi che salvano
+// nello stesso millisecondo, non aiutava affatto contro il vero problema, cioè fetchWithRetry che
+// rimanda una richiesta di "insert" già andata a buon fine ma la cui risposta non è arrivata in
+// tempo al client — stesso id, stesso contenuto, riga doppia sul foglio. Il fix vero è lato
+// Code.gs (insertRow_v2_ ora è idempotente per id), questa funzione riduce solo il rischio di
+// collisione residuo tra dispositivi diversi.
+function nuovoIdRiga() {
+  if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+
 // Trasforma un testo libero (es. nome avversario) in un pezzo di id leggibile e sicuro per il foglio:
 // solo lettere/numeri/trattini, senza accenti, max 24 caratteri. Usata per costruire l'id delle amichevoli.
 function slugify(s) {
@@ -702,8 +714,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.31";
-const TRACKER_VERSION_DATE = "13/09/2026@22.30";
+const TRACKER_VERSION = "4.32";
+const TRACKER_VERSION_DATE = "14/09/2026@11.35";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -1961,7 +1973,7 @@ function GironeATracker() {
   function addScorer(fixtureId) {
     const d = scorerDraft[fixtureId];
     if (!d || !d.giocatore) return;
-    const id = Date.now().toString();
+    const id = nuovoIdRiga();
     // Aggiornamento ottimistico locale, poi scrittura sul foglio "Goal" (Fase 3).
     setDetailsShared((prev) => {
       const cur = prev[fixtureId] || {};
@@ -2001,7 +2013,7 @@ function GironeATracker() {
   function addCard(fixtureId) {
     const d = cardDraft[fixtureId];
     if (!d || !d.giocatore || !d.colore) return;
-    const id = Date.now().toString();
+    const id = nuovoIdRiga();
     setDetailsShared((prev) => {
       const cur = prev[fixtureId] || {};
       const list = cur.cartellini || [];
@@ -2043,7 +2055,7 @@ function GironeATracker() {
     if (addRatingLockRef.current[fixtureId]) return;
     addRatingLockRef.current[fixtureId] = true;
     setTimeout(() => { addRatingLockRef.current[fixtureId] = false; }, 800);
-    const id = Date.now().toString();
+    const id = nuovoIdRiga();
     const entry = { id, autore: voterName, giocatore: d.giocatore, voto: String(voto), minutaggio: d.minutaggio || "", nota: d.nota || "" };
     SKILLS.forEach((sk) => { entry[sk.key] = d[sk.key]; });
     setDetailsShared((prev) => {
@@ -2284,7 +2296,7 @@ function GironeATracker() {
     if (addRatingLockRef.current[friendlyId]) return;
     addRatingLockRef.current[friendlyId] = true;
     setTimeout(() => { addRatingLockRef.current[friendlyId] = false; }, 800);
-    const id = Date.now().toString();
+    const id = nuovoIdRiga();
     const entry = { id, autore: voterName, giocatore: d.giocatore, voto: String(voto), minutaggio: d.minutaggio || "", nota: d.nota || "" };
     SKILLS.forEach((sk) => { entry[sk.key] = d[sk.key]; });
     setFriendlyVoti((prev) => {
@@ -2330,7 +2342,7 @@ function GironeATracker() {
   function addScorerF(friendlyId) {
     const d = scorerDraftF[friendlyId];
     if (!d || !d.giocatore) return;
-    const id = Date.now().toString();
+    const id = nuovoIdRiga();
     setFriendlyMarcatori((prev) => {
       const list = prev[friendlyId] || [];
       return { ...prev, [friendlyId]: [...list, { id, giocatore: d.giocatore, minuto: d.minuto || "" }] };
@@ -2364,7 +2376,7 @@ function GironeATracker() {
   function addCardF(friendlyId) {
     const d = cardDraftF[friendlyId];
     if (!d || !d.giocatore || !d.colore) return;
-    const id = Date.now().toString();
+    const id = nuovoIdRiga();
     setFriendlyCartellini((prev) => {
       const list = prev[friendlyId] || [];
       return { ...prev, [friendlyId]: [...list, { id, giocatore: d.giocatore, colore: d.colore, minuto: d.minuto || "" }] };
@@ -3482,7 +3494,7 @@ function coloreTestoContrastante(hex) {
   function addTeamVoto(fixtureId) {
     const d = teamVotoDraft[fixtureId];
     if (!voterName || !d || !d.voto) return;
-    const id = Date.now().toString();
+    const id = nuovoIdRiga();
     setDetailsShared((prev) => {
       const cur = prev[fixtureId] || {};
       const list = cur.votoSquadra || [];
@@ -3525,7 +3537,7 @@ function coloreTestoContrastante(hex) {
   function addTeamVotoF(friendlyId) {
     const d = teamVotoDraftF[friendlyId];
     if (!voterName || !d || !d.voto) return;
-    const id = Date.now().toString();
+    const id = nuovoIdRiga();
     setFriendlyTeamVoto((prev) => {
       const list = prev[friendlyId] || [];
       return { ...prev, [friendlyId]: [...list, { id, autore: voterName, voto: d.voto, nota: d.nota || "" }] };
