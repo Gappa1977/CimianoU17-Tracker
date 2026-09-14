@@ -175,6 +175,15 @@
   // Voti, Marcatori, VotoSquadra, Convocati, Formazioni, Moduli, Impostazioni, CalendarioCampionato,
   // CalendarioCoppa). window.storage (il vecchio blob chiave-valore) è stato tolto: era già morto,
   // nessuna parte del Tracker lo chiamava più. ---
+  // 0R (14/09/2026): "chi" da allegare ad ogni salvataggio per il foglio "Log" — inizializzato
+  // subito dalla localStorage (stessa chiave già usata per l'identità di chi vota), così è
+  // disponibile anche per salvataggi che avvengono prima che il componente React abbia fatto il
+  // suo primo giro (l'effect più sotto lo tiene poi allineato ad ogni cambio).
+  try {
+    const vnIniziale = window.localStorage.getItem("girone-a-voter-name");
+    window.__chiCorrente = vnIniziale ? JSON.parse(vnIniziale) : "";
+  } catch (e) { window.__chiCorrente = ""; }
+
   window.rows = {
     // Punto 3 (Vers. 2.2): UNA SOLA richiesta di rete per tutti i 12 fogli, invece di 12 separate.
     // Vale solo per il caricamento iniziale (i singoli salvataggi restano mirati al foglio giusto).
@@ -206,7 +215,7 @@
       const res = await fetchWithRetry(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "insert", sheet: sheet, valori: valori }),
+        body: JSON.stringify({ action: "insert", sheet: sheet, valori: valori, chi: window.__chiCorrente || "" }),
       }, 3);
       if (!res) { registerFailedSave(sheet, "insert", null, valori); return null; }
       try {
@@ -222,7 +231,7 @@
       const res = await fetchWithRetry(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "upsert", sheet: sheet, match: match, valori: valori }),
+        body: JSON.stringify({ action: "upsert", sheet: sheet, match: match, valori: valori, chi: window.__chiCorrente || "" }),
       }, 3);
       if (!res) { registerFailedSave(sheet, "upsert", match, valori); return null; }
       try {
@@ -238,7 +247,7 @@
       const res = await fetchWithRetry(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "delete", sheet: sheet, match: match }),
+        body: JSON.stringify({ action: "delete", sheet: sheet, match: match, chi: window.__chiCorrente || "" }),
       }, 3);
       if (!res) { registerFailedSave(sheet, "delete", match, null); return false; }
       try {
@@ -407,13 +416,17 @@ const FORMATIONS = {
   // campo (quadrato) diventa anche più basso in pixel assoluti — margini troppo risicati causavano
   // ancora sovrapposizioni tra maglietta+nome di righe vicine. Ora ~30-32 unità ovunque, portiere
   // sceso un po' (94->96), attaccanti alzati (8 invece di 10-14).
+  // 0H (14/09/2026): rifinitura ulteriore, restava un po' di sovrapposizione tra le linee —
+  // attaccanti alzati di altre 4 unità, centrocampisti di altre 2 (difensori invariati). Gli
+  // attaccanti "di punta" già molto alti (y: 3 in 4-3-3/3-4-3) sono stati portati a y: 0, il minimo
+  // possibile, invece di andare oltre (avrebbero sconfinato fuori dal campo).
   "352": {
     label: "3-5-2",
     slots: [
       { id: "gk", label: "P", x: 50, y: 96 },
       { id: "d1", label: "D", x: 18, y: 64 }, { id: "d2", label: "D", x: 50, y: 64 }, { id: "d3", label: "D", x: 82, y: 64 },
-      { id: "m1", label: "C", x: 8, y: 36 }, { id: "m2", label: "C", x: 30, y: 36 }, { id: "m3", label: "C", x: 50, y: 36 }, { id: "m4", label: "C", x: 70, y: 36 }, { id: "m5", label: "C", x: 92, y: 36 },
-      { id: "f1", label: "A", x: 35, y: 8 }, { id: "f2", label: "A", x: 65, y: 8 },
+      { id: "m1", label: "C", x: 8, y: 34 }, { id: "m2", label: "C", x: 30, y: 34 }, { id: "m3", label: "C", x: 50, y: 34 }, { id: "m4", label: "C", x: 70, y: 34 }, { id: "m5", label: "C", x: 92, y: 34 },
+      { id: "f1", label: "A", x: 35, y: 4 }, { id: "f2", label: "A", x: 65, y: 4 },
     ],
   },
   "442": {
@@ -421,8 +434,8 @@ const FORMATIONS = {
     slots: [
       { id: "gk", label: "P", x: 50, y: 96 },
       { id: "d1", label: "D", x: 12, y: 64 }, { id: "d2", label: "D", x: 37, y: 64 }, { id: "d3", label: "D", x: 63, y: 64 }, { id: "d4", label: "D", x: 88, y: 64 },
-      { id: "m1", label: "C", x: 15, y: 36 }, { id: "m2", label: "C", x: 40, y: 36 }, { id: "m3", label: "C", x: 60, y: 36 }, { id: "m4", label: "C", x: 85, y: 36 },
-      { id: "f1", label: "A", x: 35, y: 8 }, { id: "f2", label: "A", x: 65, y: 8 },
+      { id: "m1", label: "C", x: 15, y: 34 }, { id: "m2", label: "C", x: 40, y: 34 }, { id: "m3", label: "C", x: 60, y: 34 }, { id: "m4", label: "C", x: 85, y: 34 },
+      { id: "f1", label: "A", x: 35, y: 4 }, { id: "f2", label: "A", x: 65, y: 4 },
     ],
   },
   "433": {
@@ -430,8 +443,8 @@ const FORMATIONS = {
     slots: [
       { id: "gk", label: "P", x: 50, y: 96 },
       { id: "d1", label: "D", x: 12, y: 64 }, { id: "d2", label: "D", x: 37, y: 64 }, { id: "d3", label: "D", x: 63, y: 64 }, { id: "d4", label: "D", x: 88, y: 64 },
-      { id: "m1", label: "C", x: 25, y: 36 }, { id: "m2", label: "C", x: 50, y: 36 }, { id: "m3", label: "C", x: 75, y: 36 },
-      { id: "f1", label: "A", x: 20, y: 8 }, { id: "f2", label: "A", x: 50, y: 3 }, { id: "f3", label: "A", x: 80, y: 8 },
+      { id: "m1", label: "C", x: 25, y: 34 }, { id: "m2", label: "C", x: 50, y: 34 }, { id: "m3", label: "C", x: 75, y: 34 },
+      { id: "f1", label: "A", x: 20, y: 4 }, { id: "f2", label: "A", x: 50, y: 0 }, { id: "f3", label: "A", x: 80, y: 4 },
     ],
   },
   "3412": {
@@ -439,9 +452,9 @@ const FORMATIONS = {
     slots: [
       { id: "gk", label: "P", x: 50, y: 96 },
       { id: "d1", label: "D", x: 20, y: 64 }, { id: "d2", label: "D", x: 50, y: 64 }, { id: "d3", label: "D", x: 80, y: 64 },
-      { id: "m1", label: "C", x: 12, y: 39 }, { id: "m2", label: "C", x: 38, y: 39 }, { id: "m3", label: "C", x: 62, y: 39 }, { id: "m4", label: "C", x: 88, y: 39 },
-      { id: "t1", label: "C", x: 50, y: 21 },
-      { id: "f1", label: "A", x: 35, y: 6 }, { id: "f2", label: "A", x: 65, y: 6 },
+      { id: "m1", label: "C", x: 12, y: 37 }, { id: "m2", label: "C", x: 38, y: 37 }, { id: "m3", label: "C", x: 62, y: 37 }, { id: "m4", label: "C", x: 88, y: 37 },
+      { id: "t1", label: "C", x: 50, y: 19 },
+      { id: "f1", label: "A", x: 35, y: 2 }, { id: "f2", label: "A", x: 65, y: 2 },
     ],
   },
   "343": {
@@ -449,8 +462,8 @@ const FORMATIONS = {
     slots: [
       { id: "gk", label: "P", x: 50, y: 96 },
       { id: "d1", label: "D", x: 20, y: 64 }, { id: "d2", label: "D", x: 50, y: 64 }, { id: "d3", label: "D", x: 80, y: 64 },
-      { id: "m1", label: "C", x: 12, y: 36 }, { id: "m2", label: "C", x: 38, y: 36 }, { id: "m3", label: "C", x: 62, y: 36 }, { id: "m4", label: "C", x: 88, y: 36 },
-      { id: "f1", label: "A", x: 20, y: 8 }, { id: "f2", label: "A", x: 50, y: 3 }, { id: "f3", label: "A", x: 80, y: 8 },
+      { id: "m1", label: "C", x: 12, y: 34 }, { id: "m2", label: "C", x: 38, y: 34 }, { id: "m3", label: "C", x: 62, y: 34 }, { id: "m4", label: "C", x: 88, y: 34 },
+      { id: "f1", label: "A", x: 20, y: 4 }, { id: "f2", label: "A", x: 50, y: 0 }, { id: "f3", label: "A", x: 80, y: 4 },
     ],
   },
 };
@@ -714,8 +727,8 @@ function countSubstitutions(formazione1, formazione2, modulo1Key, modulo2Key) {
   });
   return count;
 }
-const TRACKER_VERSION = "4.32";
-const TRACKER_VERSION_DATE = "14/09/2026@11.35";
+const TRACKER_VERSION = "4.33";
+const TRACKER_VERSION_DATE = "14/09/2026@12.30";
 const VOTER_OPTIONS = ["Gappa", "Dario"];
 
 // Calendario ufficiale Girone A - Allievi Elite U17 2026/27
@@ -937,6 +950,10 @@ function GironeATracker() {
   const [colPanchinaAperta, setColPanchinaAperta] = useState(true);
   const [panchinaArmato, setPanchinaArmato] = useState(null); // playerId del panchinaro selezionato, in attesa di toccare il titolare da sostituire
   const [mostraFormAggiungi, setMostraFormAggiungi] = useState(false);
+  // 0N (14/09/2026): Stagione/Giocatori diviso in due box apribili/chiudibili, come i Dettagli
+  // partita. Aperti di default, per non nascondere nulla rispetto a prima di questa modifica.
+  const [squadraBoxOpen, setSquadraBoxOpen] = useState(true);
+  const [giocatoriBoxOpen, setGiocatoriBoxOpen] = useState(true);
   const [riavviandoId, setRiavviandoId] = useState(null);
   const [fotoUploading, setFotoUploading] = useState(null); // id del giocatore la cui foto si sta caricando
   const [fotoCropModal, setFotoCropModal] = useState(null); // { rp, objectUrl, naturalW, naturalH, dispScale, dispW, dispH, rect:{x,y,w,h} }
@@ -1328,6 +1345,10 @@ function GironeATracker() {
       if (voterName) window.localStorage.setItem("girone-a-voter-name", JSON.stringify(voterName));
       else window.localStorage.removeItem("girone-a-voter-name");
     } catch (e) {}
+    // 0R (14/09/2026): tiene allineata la variabile globale che window.rows.* legge per marcare
+    // ogni salvataggio con "chi" nel foglio "Log", indipendentemente dal fatto che l'azione riguardi
+    // i voti o no (es. Modifica data partita, Convocati, Formazione, risultato...).
+    window.__chiCorrente = voterName || "";
   }, [voterName]);
 
 
@@ -1393,8 +1414,19 @@ function GironeATracker() {
   }, [allCimianoMatches, friendlies, results]);
 
   const nextMatchInfo = useMemo(() => allCimianoMatches.find((m) => m.id === nextCimianoMatchId), [allCimianoMatches, nextCimianoMatchId]);
-  const nextOpponentCampionato = nextMatchInfo && nextMatchInfo.type === "campionato" ? (nextMatchInfo.home === CIMIANO ? nextMatchInfo.away : nextMatchInfo.home) : null;
-  const nextOpponentCoppa = nextMatchInfo && nextMatchInfo.type === "coppa" ? (nextMatchInfo.home === CIMIANO ? nextMatchInfo.away : nextMatchInfo.home) : null;
+  // 0P (14/09/2026): prima si derivavano da nextMatchInfo (la prossima partita in ASSOLUTO, di
+  // qualunque competizione), quindi sparivano ogni volta che una Coppa o un'amichevole si infilava
+  // prima della prossima di campionato — bug reale trovato il 14/9 (prossima vera: Coppa vs
+  // Enotria il 16/9, prima di Aldini in campionato). Ora ciascuna cerca in modo indipendente la
+  // prima partita NON giocata della propria competizione, ignorando cosa c'è in mezzo.
+  const nextOpponentCampionato = useMemo(() => {
+    const m = allCimianoMatches.find((mm) => mm.type === "campionato" && !results[mm.id]);
+    return m ? (m.home === CIMIANO ? m.away : m.home) : null;
+  }, [allCimianoMatches, results]);
+  const nextOpponentCoppa = useMemo(() => {
+    const m = allCimianoMatches.find((mm) => mm.type === "coppa" && !results[mm.id]);
+    return m ? (m.home === CIMIANO ? m.away : m.home) : null;
+  }, [allCimianoMatches, results]);
 
   const coppaStandings = useMemo(() => {
     const table = {};
@@ -1550,6 +1582,30 @@ function GironeATracker() {
       return { name, entries, presenze, media, minutiTot, cartellini, skillAvg };
     });
   }, [detailsShared, friendlies, friendlyVoti, friendlyCartellini, friendlyFormazione, friendlyFormazione2, roster]);
+
+  // 0M (14/09/2026): media di squadra delle skill — media su TUTTE le entry voto di TUTTI i
+  // giocatori (non la media delle medie dei singoli, che pesa allo stesso modo un giocatore con 1
+  // voto e uno con 20), più il voto medio complessivo che ne consegue. Alimenta il radar nel box
+  // "Squadra" di Stagione/Giocatori.
+  const squadraSkillStats = useMemo(() => {
+    const skillArrays = SKILLS.map(() => []);
+    playerStats.forEach((p) => {
+      p.entries.forEach((e) => {
+        SKILLS.forEach((sk, i) => {
+          const n = parseFloat(e[sk.key]);
+          if (!isNaN(n)) skillArrays[i].push(n);
+        });
+      });
+    });
+    if (skillArrays.every((arr) => arr.length === 0)) return null;
+    const skillAvg = SKILLS.map((sk, i) => {
+      const arr = skillArrays[i];
+      return { skill: sk.label, valore: arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : 0 };
+    });
+    const valoriValidi = skillAvg.map((s) => s.valore).filter((v) => v > 0);
+    const votoMedio = valoriValidi.length ? Math.round((valoriValidi.reduce((a, b) => a + b, 0) / valoriValidi.length) * 10) / 10 : null;
+    return { skillAvg, votoMedio };
+  }, [playerStats]);
 
 
   // Media Voto Squadra per partita (campionato+coppa+amichevoli), un punto per data.
@@ -4785,56 +4841,117 @@ function coloreTestoContrastante(hex) {
 
         {macroTab === "stagione" && stagSub === "giocatori" && (
           <div className="body-font">
-            {teamVotoChartData.length > 1 && (
-              <div style={{ background: PANEL_BG, border: `1px solid ${LINE}`, borderRadius: 10, padding: "12px 8px 4px", marginBottom: 16 }}>
-                <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, paddingLeft: 8 }}>
-                  Media voto squadra per partita
-                </div>
-                <ResponsiveContainer width="100%" height={220}>
-                  <LineChart data={teamVotoChartData} margin={{ top: 16, right: 12, left: -18, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={LINE} />
-                    <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fontSize: 11, fill: MUTED }} />
-                    <YAxis domain={[1, 10]} tick={{ fontSize: 11, fill: MUTED }} />
-                    <Tooltip labelFormatter={fmtDate} />
-                    <ReferenceLine y={6} stroke={MUTED} strokeDasharray="4 4" label={{ value: "sufficienza", position: "insideTopRight", fontSize: 10, fill: MUTED }} />
-                    <Line type="monotone" dataKey="voto" name="Media squadra" stroke={accentUI} strokeWidth={2} connectNulls
-                      dot={{ r: 3 }} activeDot={{ r: 5 }} label={{ position: "top", fontSize: 11, fill: INK }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-
-            {!mostraFormAggiungi ? (
-              <button onClick={() => setMostraFormAggiungi(true)} style={{ background: accentUI, color: "#fff", border: "none", padding: "8px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer", marginBottom: 16 }}>
-                + Aggiungi giocatore
-              </button>
-            ) : (
             <div className="chrome-box" style={{ marginBottom: 16 }}>
-              <div className="chrome-box-inner" style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-                <div className="body-font" style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>Aggiungi giocatore</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  <input placeholder="Nome giocatore" value={rosterDraft.nome} onChange={(e) => setRosterDraft((p) => ({ ...p, nome: e.target.value }))}
-                    style={{ flex: 1, minWidth: 140, padding: 6, border: `2px solid ${accentUI}` }} />
-                  <input type="date" value={rosterDraft.dataNascita} onChange={(e) => setRosterDraft((p) => ({ ...p, dataNascita: e.target.value }))}
-                    style={{ padding: 6, border: `2px solid ${accentUI}` }} />
-                  <input type="number" placeholder="N. maglia" value={rosterDraft.maglia} onChange={(e) => setRosterDraft((p) => ({ ...p, maglia: e.target.value }))}
-                    style={{ width: 90, padding: 6, border: `2px solid ${accentUI}` }} />
+              <div className="chrome-box-inner" style={{ padding: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div className={`plus-btn ${squadraBoxOpen ? "plus-open" : ""}`} onClick={() => setSquadraBoxOpen((v) => !v)}
+                    tabIndex={0} role="button" aria-label="Apri/chiudi box Squadra"
+                    style={{ borderColor: accentUI, color: accentUI, flexShrink: 0 }}>
+                    <span className="plus-shape"></span>
+                  </div>
+                  <strong className="title-font" style={{ fontSize: 15 }}>Squadra</strong>
                 </div>
-                {renderChipGroup("Ruolo", RUOLI, rosterDraft.ruolo, (fn) => setRosterDraft((p) => ({ ...p, ruolo: fn(p.ruolo) })))}
-                {renderChipGroup("Lato", LATI, rosterDraft.lato, (fn) => setRosterDraft((p) => ({ ...p, lato: fn(p.lato) })))}
-                {renderChipGroup("Piede", PIEDI, rosterDraft.piede, (fn) => setRosterDraft((p) => ({ ...p, piede: fn(p.piede) })))}
-                <label className="body-font" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                  <input type="checkbox" checked={rosterDraft.capitano} onChange={(e) => setRosterDraft((p) => ({ ...p, capitano: e.target.checked }))} />
-                  Capitano
-                </label>
-                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  <button onClick={() => { addRosterPlayer(); setMostraFormAggiungi(false); }} style={{ background: accentUI, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>Aggiungi</button>
-                  <span onClick={() => setMostraFormAggiungi(false)} style={{ color: MUTED, fontSize: 12, cursor: "pointer" }}>annulla</span>
+                {squadraBoxOpen && (
+                <div style={{ marginTop: 14 }}>
+                {teamVotoChartData.length > 1 && (
+                  <div style={{ background: PANEL_BG, border: `1px solid ${LINE}`, borderRadius: 10, padding: "12px 8px 4px", marginBottom: 16 }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, paddingLeft: 8 }}>
+                      Media voto squadra per partita
+                    </div>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <LineChart data={teamVotoChartData} margin={{ top: 16, right: 12, left: -18, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={LINE} />
+                        <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fontSize: 11, fill: MUTED }} />
+                        {/* 0L (14/09/2026): range ristretto 4-8, il voto di squadra non esce quasi mai da lì; il vecchio 1-10 schiacciava troppo la linea in una fascia stretta al centro del grafico. */}
+                        <YAxis domain={[4, 8]} tick={{ fontSize: 11, fill: MUTED }} />
+                        <Tooltip labelFormatter={fmtDate} />
+                        <ReferenceLine y={6} stroke={MUTED} strokeDasharray="4 4" label={{ value: "sufficienza", position: "insideTopRight", fontSize: 10, fill: MUTED }} />
+                        <Line type="monotone" dataKey="voto" name="Media squadra" stroke={accentUI} strokeWidth={2} connectNulls
+                          dot={{ r: 3 }} activeDot={{ r: 5 }} label={{ position: "top", fontSize: 11, fill: INK }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                {/* 0M (14/09/2026): media di squadra delle skill (tecnica/atletica/tattica/carattere/impatto)
+                    e voto medio che ne consegue, in un unico radar — stesso stile del radar per singolo
+                    giocatore già esistente più sotto, riusato qui a livello di squadra. */}
+                {squadraSkillStats && (
+                  <div style={{ background: PANEL_BG, border: `1px solid ${LINE}`, borderRadius: 10, padding: "12px 8px 4px", marginBottom: 16, position: "relative" }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: HUDDLE_SECONDARY, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, paddingLeft: 8 }}>
+                      Media squadra per skill
+                      {squadraSkillStats.votoMedio !== null && (
+                        <span style={{ color: MUTED, fontWeight: 400, textTransform: "none", letterSpacing: 0, marginLeft: 8 }}>
+                          · voto medio <span className="mono-font" style={{ color: INK, fontWeight: 700 }}>{squadraSkillStats.votoMedio.toFixed(1)}</span>
+                        </span>
+                      )}
+                    </div>
+                    <div className="body-font" onClick={() => setChartModal({ type: "radar", name: "Squadra", data: squadraSkillStats.skillAvg })}
+                      style={{ position: "absolute", top: 8, right: 8, zIndex: 1, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                        width: 24, height: 24, borderRadius: "50%", border: `1px solid ${LINE}`, background: PANEL_BG, color: MUTED }}
+                      title="Ingrandisci grafico">🔍</div>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <RadarChart data={squadraSkillStats.skillAvg.map((d) => ({ ...d, soglia: 6 }))} outerRadius="70%">
+                        <PolarGrid stroke={LINE} />
+                        <PolarAngleAxis dataKey="skill" tick={{ fontSize: 10, fill: INK }} />
+                        <PolarRadiusAxis domain={[0, 10]} tick={{ fontSize: 9, fill: MUTED }} />
+                        <Radar dataKey="soglia" name="Sufficienza (6)" stroke={MUTED} strokeDasharray="4 4" fill="none" />
+                        <Radar dataKey="valore" name="Media squadra" stroke={HUDDLE_SECONDARY} fill={HUDDLE_SECONDARY} fillOpacity={0.35}
+                          label={radarValueLabel(10, INK)} />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                        <Tooltip formatter={(v) => [v.toFixed(1), "Media"]} />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                {!mostraFormAggiungi ? (
+                  <button onClick={() => setMostraFormAggiungi(true)} style={{ background: accentUI, color: "#fff", border: "none", padding: "8px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>
+                    + Aggiungi giocatore
+                  </button>
+                ) : (
+                <div className="chrome-box">
+                  <div className="chrome-box-inner" style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div className="body-font" style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>Aggiungi giocatore</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      <input placeholder="Nome giocatore" value={rosterDraft.nome} onChange={(e) => setRosterDraft((p) => ({ ...p, nome: e.target.value }))}
+                        style={{ flex: 1, minWidth: 140, padding: 6, border: `2px solid ${accentUI}` }} />
+                      <input type="date" value={rosterDraft.dataNascita} onChange={(e) => setRosterDraft((p) => ({ ...p, dataNascita: e.target.value }))}
+                        style={{ padding: 6, border: `2px solid ${accentUI}` }} />
+                      <input type="number" placeholder="N. maglia" value={rosterDraft.maglia} onChange={(e) => setRosterDraft((p) => ({ ...p, maglia: e.target.value }))}
+                        style={{ width: 90, padding: 6, border: `2px solid ${accentUI}` }} />
+                    </div>
+                    {renderChipGroup("Ruolo", RUOLI, rosterDraft.ruolo, (fn) => setRosterDraft((p) => ({ ...p, ruolo: fn(p.ruolo) })))}
+                    {renderChipGroup("Lato", LATI, rosterDraft.lato, (fn) => setRosterDraft((p) => ({ ...p, lato: fn(p.lato) })))}
+                    {renderChipGroup("Piede", PIEDI, rosterDraft.piede, (fn) => setRosterDraft((p) => ({ ...p, piede: fn(p.piede) })))}
+                    <label className="body-font" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                      <input type="checkbox" checked={rosterDraft.capitano} onChange={(e) => setRosterDraft((p) => ({ ...p, capitano: e.target.checked }))} />
+                      Capitano
+                    </label>
+                    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                      <button onClick={() => { addRosterPlayer(); setMostraFormAggiungi(false); }} style={{ background: accentUI, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>Aggiungi</button>
+                      <span onClick={() => setMostraFormAggiungi(false)} style={{ color: MUTED, fontSize: 12, cursor: "pointer" }}>annulla</span>
+                    </div>
+                  </div>
                 </div>
+                )}
+                </div>
+                )}
               </div>
             </div>
-            )}
 
+            <div className="chrome-box">
+              <div className="chrome-box-inner" style={{ padding: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div className={`plus-btn ${giocatoriBoxOpen ? "plus-open" : ""}`} onClick={() => setGiocatoriBoxOpen((v) => !v)}
+                    tabIndex={0} role="button" aria-label="Apri/chiudi box Giocatori"
+                    style={{ borderColor: accentUI, color: accentUI, flexShrink: 0 }}>
+                    <span className="plus-shape"></span>
+                  </div>
+                  <strong className="title-font" style={{ fontSize: 15 }}>Giocatori</strong>
+                </div>
+                {giocatoriBoxOpen && (
+                <div style={{ marginTop: 14 }}>
             <div style={{ fontSize: 12, color: MUTED, marginBottom: 16 }}>
               Anagrafica e rendimento in un unico posto: apri "Modifica" per l'anagrafica, il pulsante rosso per lo storico voti.
             </div>
@@ -5036,6 +5153,10 @@ function coloreTestoContrastante(hex) {
               })}
             </div>
             )}
+                </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
